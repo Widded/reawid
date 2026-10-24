@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>Reawid - Kitaplarını daha kolay oku</title>
+  
+  <!-- SEO & Social Meta Tags -->
+  <meta name="description" content="PDF ve taranmış kitapları kolayca okuyun. Sade, rafine ve Apple tarzı minimalist arayüz ile akıllı metin çıkarma ve OCR.">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Reawid">
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body class="apple-dark">
+  
+  <!-- Mobile Frame / App Container -->
+  <div id="app" class="ios-app-container">
+
+    <!-- iOS Status Bar Simulation (Clean top bar) -->
+    <div class="ios-status-bar" aria-hidden="true">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <!-- Cellular Signal -->
+        <svg class="status-icon" viewBox="0 0 17 11" fill="currentColor">
+          <rect x="0" y="8" width="3" height="3" rx="0.5"/>
+          <rect x="4.5" y="5.5" width="3" height="5.5" rx="0.5"/>
+          <rect x="9" y="3" width="3" height="8" rx="0.5"/>
+          <rect x="13.5" y="0" width="3" height="11" rx="0.5"/>
+        </svg>
+        <!-- Wifi -->
+        <svg class="status-icon" viewBox="0 0 16 12" fill="currentColor">
+          <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-4.2-3a5.9 5.9 0 0 1 8.4 0 .9.9 0 0 1-1.3 1.3 4.1 4.1 0 0 0-5.8 0 .9.9 0 0 1-1.3-1.3zm-3-3a10.1 10.1 0 0 1 14.4 0 .9.9 0 1 1-1.3 1.3 8.3 8.3 0 0 0-11.8 0 .9.9 0 0 1-1.3-1.3z"/>
+        </svg>
+        <!-- Battery -->
+        <svg class="status-icon status-battery" viewBox="0 0 25 12" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="1" y="1" width="20" height="10" rx="3"/>
+          <rect x="2.5" y="2.5" width="14" height="7" rx="1.5" fill="currentColor"/>
+          <path d="M22.5 4v4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- MAIN HOME VIEW -->
+    <main id="homeView" class="view-screen active-view">
+      
+      <!-- Top Header Row -->
+      <header class="home-header">
+        <div class="header-titles">
+          <h1 class="app-title">Reawid</h1>
+          <p class="app-desc">Kitaplarını daha kolay oku.</p>
+        </div>
+        <button class="profile-avatar-btn" id="btnProfile" aria-label="Kullanıcı Profili">
+          <svg class="profile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </button>
+      </header>
+
+      <!-- Primary Action Card: Yeni Kitap Ekle -->
+      <section class="section-primary-action">
+        <div class="apple-card card-action-large" id="btnNewBookCard" role="button" tabindex="0">
+          <div class="action-icon-box">
+            <!-- Document with plus sign -->
+            <svg class="doc-plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </div>
+          <div class="action-text-box">
+            <span class="action-title">Yeni Kitap Ekle</span>
+            <span class="action-subtitle">PDF dosyanı yükle ve metne dönüştür.</span>
+          </div>
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Dual Option Cards: Metin Çıkarma & OCR -->
+      <section class="section-dual-actions">
+        <div class="dual-actions-grid">
+          
+          <!-- Metin Çıkarma -->
+          <div class="apple-card action-card-small" id="btnExtractTextCard" role="button" tabindex="0">
+            <div class="small-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                <line x1="9" y1="20" x2="15" y2="20"></line>
+                <line x1="12" y1="4" x2="12" y2="20"></line>
+              </svg>
+            </div>
+            <div class="small-text-box">
+              <span class="small-title">Metin Çıkarma</span>
+              <span class="small-subtitle">Seçilebilir PDF'ler için</span>
+            </div>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+
+          <!-- OCR -->
+          <div class="apple-card action-card-small" id="btnOcrCard" role="button" tabindex="0">
+            <div class="small-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </div>
+            <div class="small-text-box">
+              <span class="small-title">OCR</span>
+              <span class="small-subtitle">Taranmış kitaplar için</span>
+            </div>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section: Devam Eden Kitap -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2 class="section-title">Devam Eden Kitap</h2>
+          <button class="section-link-btn" id="btnViewAllContinue">
+            <span>Tümünü Gör</span>
+            <svg class="link-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div class="apple-card card-continue-book" id="cardContinueBook" role="button" tabindex="0">
+          <img src="/cover-1.jpg" alt="Devam Eden Kitap Kapağı" class="book-cover-thumb" id="currentBookCover">
+          <div class="continue-info">
+            <h3 class="continue-book-title" id="currentBookTitle">İnsan Ne ile Yaşar?</h3>
+            <p class="continue-book-author" id="currentBookAuthor">Lev Tolstoy</p>
+            <div class="continue-progress-row">
+              <div class="progress-track">
+                <div class="progress-fill" id="currentBookProgressFill" style="width: 42%;"></div>
+              </div>
+              <span class="progress-percent" id="currentBookProgressLabel">%42</span>
+            </div>
+          </div>
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Section: Son Kitaplar -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2 class="section-title">Son Kitaplar</h2>
+          <button class="section-link-btn" id="btnViewAllRecent">
+            <span>Tümünü Gör</span>
+            <svg class="link-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div class="apple-card books-group-card" id="recentBooksList">
+          <!-- Dynamically populated from storage -->
+        </div>
+      </section>
+
+      <!-- Section: Depolama Kullanımı -->
+      <section class="home-section section-storage">
+        <div class="apple-card card-storage" id="cardStorageUsage">
+          <div class="storage-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"></path>
+            </svg>
+          </div>
+          <div class="storage-text-box">
+            <span class="storage-title">Depolama Kullanımı</span>
+            <span class="storage-subtitle" id="storageUsageText">2.4 GB / 10 GB</span>
+            <div class="storage-progress-track">
+              <div class="storage-progress-fill" style="width: 24%;"></div>
+            </div>
+          </div>
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- KİTAPLIĞIM (MY LIBRARY) SCREEN (Apple Books Style) -->
+    <section id="libraryViewScreen" class="library-container hidden">
+      <!-- Library Top Header -->
+      <header class="library-header">
+        <div class="library-header-text">
+          <h1 class="library-title">Kitaplığım</h1>
+          <p class="library-subtitle">Tüm kitapların burada.</p>
+        </div>
+        <div class="library-header-actions">
+          <button class="library-icon-btn" id="btnLibraryHeaderSearch" aria-label="Ara" title="Kitaplarda Ara">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+          <button class="library-icon-btn" id="btnLibraryHeaderMore" aria-label="Daha Fazla" title="Seçenekler">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="1.8"></circle>
+              <circle cx="19" cy="12" r="1.8"></circle>
+              <circle cx="5" cy="12" r="1.8"></circle>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search Input Bar -->
+      <div class="library-search-wrap">
+        <div class="library-search-box">
+          <svg class="search-box-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="librarySearchInput" class="library-search-field" placeholder="Kitaplarda ara..." autocomplete="off">
+          <button id="btnClearLibrarySearch" class="btn-clear-search hidden" aria-label="Temizle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Tabs & Sort Controls -->
+      <div class="library-filters-row">
+        <div class="library-filter-pills" id="libraryFilterPills">
+          <button class="filter-pill active" data-filter="all">Tümü</button>
+          <button class="filter-pill" data-filter="okunanlar">Okunanlar</button>
+          <button class="filter-pill" data-filter="okunacaklar">Okunacaklar</button>
+          <button class="filter-pill" data-filter="donusturuluyor">Dönüştürülüyor</button>
+        </div>
+        <button class="library-sort-btn" id="btnLibrarySort" title="Sırala ve Filtrele" aria-label="Sırala">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="6" x2="20" y2="6"></line>
+            <line x1="4" y1="12" x2="14" y2="12"></line>
+            <line x1="4" y1="18" x2="9" y2="18"></line>
+            <circle cx="17" cy="12" r="2.5"></circle>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Book Cards List (Scrollable Area) -->
+      <div class="library-scroll-body" id="libraryScrollBody">
+        <div class="library-books-stack" id="libraryBooksList">
+          <!-- Populated dynamically via renderLibraryScreen() -->
+        </div>
+      </div>
+
+      <!-- Floating Action Button (+ Yeni Kitap) -->
+      <button class="library-fab-btn" id="btnLibraryFab" title="Yeni Kitap Ekle" aria-label="Yeni Kitap Ekle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+
+      <!-- Library Context Popover Menu (More Actions) -->
+      <div id="libraryHeaderMenu" class="reader-context-popover hidden" style="top: 84px; right: 16px;">
+        <button class="popover-item" id="popoverLibrarySortDate">
+          <span>Son Okunana Göre Sırala</span>
+        </button>
+        <button class="popover-item" id="popoverLibrarySortName">
+          <span>İsme Göre Sırala (A-Z)</span>
+        </button>
+        <button class="popover-item" id="popoverLibrarySortProgress">
+          <span>İlerlemeye Göre Sırala</span>
+        </button>
+      </div>
+
+      <!-- Book Item Card Context Action Sheet (3 dots on cards) -->
+      <div id="bookCardActionSheet" class="reader-settings-backdrop hidden">
+        <div class="reader-settings-panel" style="padding-bottom: 24px;">
+          <div class="sheet-handle-bar">
+            <div class="sheet-handle-pill"></div>
+          </div>
+          <div class="sheet-panel-top">
+            <span class="sheet-panel-title" id="actionSheetBookTitle">Kitap Seçenekleri</span>
+            <button class="sheet-panel-close-btn" id="btnCloseCardActionSheet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="popover-column" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+            <button class="popover-item" id="sheetBtnOpenReader">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 17px; height: 17px;">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+              <span>Okumaya Başla / Devam Et</span>
+            </button>
+            <button class="popover-item" id="sheetBtnCompare">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 17px; height: 17px;">
+                <rect x="2" y="4" width="9" height="16" rx="1.5"></rect>
+                <rect x="13" y="4" width="9" height="16" rx="1.5"></rect>
+              </svg>
+              <span>Gerçek Sayfa ile Karşılaştır</span>
+            </button>
+            <button class="popover-item" id="sheetBtnToggleReadStatus">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 17px; height: 17px;">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span id="sheetToggleReadLabel">Okundu Olarak İşaretle</span>
+            </button>
+            <div class="settings-divider" style="margin: 4px 0;"></div>
+            <button class="popover-item" id="sheetBtnDeleteBook" style="color: #ff453a;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 17px; height: 17px; color: #ff453a;">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Kitaplığımdan Sil</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IN-APP READER VIEW (Apple Books Minimalist Style) -->
+    <div id="inAppReaderView" class="reader-screen theme-koyu hidden">
+      <!-- Reader Header -->
+      <header class="reader-header">
+        <button class="reader-header-icon-btn" id="btnCloseReader" aria-label="Geri">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+
+        <div class="reader-book-meta">
+          <span class="reader-header-title" id="readerHeaderTitle">İnsan Ne ile Yaşar?</span>
+          <div class="reader-meta-sub-row">
+            <span class="reader-header-author" id="readerHeaderAuthor">Lev Tolstoy</span>
+            <!-- Background OCR Status Pill (Discreet Apple Pill) -->
+            <div id="readerBgOcrPill" class="reader-bg-ocr-pill hidden">
+              <span id="readerBgOcrDot" class="pulse-indicator-dot"></span>
+              <span id="readerBgOcrText">Sayfa 1 analiz ediliyor...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reader-header-actions">
+          <!-- 1. Karşılaştırma (Comparison with Real Book Page) -->
+          <button class="reader-header-icon-btn btn-compare-highlight" id="btnReaderCompare" title="Gerçek Sayfa ile Karşılaştır">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+              <rect x="2" y="4" width="9" height="16" rx="1.5"></rect>
+              <rect x="13" y="4" width="9" height="16" rx="1.5"></rect>
+              <line x1="5" y1="8" x2="8" y2="8"></line>
+              <line x1="5" y1="12" x2="8" y2="12"></line>
+              <line x1="16" y1="8" x2="19" y2="8"></line>
+              <line x1="16" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="compare-btn-badge">VS</span>
+          </button>
+
+          <!-- 2. Yazı ve Tema Seçenekleri (Aᴀ) -->
+          <button class="reader-header-icon-btn" id="btnReaderAppearance" title="Yazı ve Tema Ayarları" aria-label="Görünüm Ayarları">
+            <span class="header-aa-icon">Aᴀ</span>
+          </button>
+
+          <!-- 3. Yer İmi (Bookmark) -->
+          <button class="reader-header-icon-btn" id="btnReaderBookmark" title="Yer İmi Ekle">
+            <svg id="bookmarkIconSvg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+
+          <!-- 4. Arama (Search) -->
+          <button class="reader-header-icon-btn" id="btnReaderSearch" title="Kitapta Ara">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+
+          <!-- 5. Daha Fazla / İşlemler (More Menu) -->
+          <button class="reader-header-icon-btn" id="btnReaderMore" title="Diğer Seçenekler">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="1.8"></circle>
+              <circle cx="19" cy="12" r="1.8"></circle>
+              <circle cx="5" cy="12" r="1.8"></circle>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Floating Context Popover Menu (Yer İmi, Not, Kopyala, Paylaş, PDF) -->
+      <div id="readerMoreMenu" class="reader-context-popover hidden">
+        <button class="popover-item" id="popoverOpenAppearance">
+          <span style="font-family: 'Lora', serif; font-weight: 700; font-size: 13.5px; width: 18px; text-align: center; color: var(--text-secondary);">Aᴀ</span>
+          <span>Yazı ve Tema Ayarları</span>
+        </button>
+        <button class="popover-item" id="popoverAddBookmark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Yer İmi Ekle</span>
+        </button>
+        <button class="popover-item" id="popoverAddNote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Not Ekle</span>
+        </button>
+        <button class="popover-item" id="popoverCopyText">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>Kopyala</span>
+        </button>
+        <button class="popover-item" id="popoverShareText">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <span>Paylaş</span>
+        </button>
+        <button class="popover-item" id="popoverOpenPdf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>PDF'yi Aç</span>
+        </button>
+      </div>
+
+      <!-- Quick In-Book Search Bar (toggleable) -->
+      <div id="readerSearchBar" class="reader-search-wrap hidden">
+        <input type="text" id="readerSearchInput" class="reader-search-input" placeholder="Kitap içinde ara...">
+        <button id="btnCloseReaderSearch" class="btn-close-search">Vazgeç</button>
+      </div>
+
+      <!-- Reader Scrollable Main Content -->
+      <div class="reader-content-scroll" id="readerContentScroll">
+        <article class="reader-article font-family-serif font-size-xl line-height-standard margin-standard" id="readerArticleBody">
+          <span class="reader-chapter-badge" id="readerChapterBadge">BÖLÜM 1</span>
+          <h2 class="reader-article-title" id="readerArticleTitle">İnsan Ne ile Yaşar?</h2>
+          <div class="reader-paragraphs" id="readerParagraphsContainer">
+            <p>İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
+            <p>Bazen en küçük bir iyilik, bir insanın tüm hayatını değiştirebilir. Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</p>
+            <p>İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
+          </div>
+        </article>
+      </div>
+
+      <!-- Interactive Scrubber & Page Slider -->
+      <div class="reader-scrubber-bar">
+        <div class="scrubber-track-wrap">
+          <input type="range" class="reader-page-slider" id="readerPageSlider" min="1" max="218" value="3">
+        </div>
+        <div class="scrubber-controls">
+          <div class="scrubber-spacer"></div>
+          <div class="scrubber-center-nav">
+            <button class="page-nav-arrow" id="btnReaderPrevPage" aria-label="Önceki Sayfa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <span class="page-count-indicator" id="readerPageIndicator">3 / 218</span>
+            <button class="page-nav-arrow" id="btnReaderNextPage" aria-label="Sonraki Sayfa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+          <button class="scrubber-btn-settings" id="btnToggleSettings" title="Görünüm ve Tema Seçenekleri" aria-label="Görünüm Seçenekleri">
+            <span class="aa-pill-label">Aᴀ</span>
+            <span class="settings-btn-hint">Seçenekler</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Typography & Theme Settings Bottom Sheet (Hidden by default, slides up via button) -->
+      <div id="readerSettingsBackdrop" class="reader-settings-backdrop hidden">
+        <div class="reader-settings-panel" id="readerSettingsPanel">
+          <div class="sheet-handle-bar">
+            <div class="sheet-handle-pill"></div>
+          </div>
+          <div class="sheet-panel-top">
+            <span class="sheet-panel-title">Görünüm ve Tema</span>
+            <button class="sheet-panel-close-btn" id="btnCloseSettingsPanel" aria-label="Kapat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Row 1: Yazı Boyutu, Satır Aralığı, Yazı Tipi -->
+          <div class="settings-row-grid">
+            <!-- Yazı Boyutu (A A A A) -->
+            <div class="settings-block">
+              <span class="settings-label">Yazı Boyutu</span>
+              <div class="stepped-segmented-pill" id="fontSizeSelector">
+                <button class="btn-step" data-size="sm">A</button>
+                <button class="btn-step" data-size="md">A</button>
+                <button class="btn-step" data-size="lg">A</button>
+                <button class="btn-step active" data-size="xl">A</button>
+              </div>
+            </div>
+
+            <!-- Satır Aralığı -->
+            <div class="settings-block">
+              <span class="settings-label">Satır Aralığı</span>
+              <div class="stepped-segmented-pill" id="lineHeightSelector">
+                <button class="btn-step" data-spacing="tight" title="Dar">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+                    <path d="M2 5h16v2H2zM2 9h16v2H2zM2 13h16v2H2z"/>
+                  </svg>
+                </button>
+                <button class="btn-step active" data-spacing="standard" title="Standart">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+                    <path d="M2 4h16v2H2zM2 9h16v2H2zM2 14h16v2H2z"/>
+                  </svg>
+                </button>
+                <button class="btn-step" data-spacing="wide" title="Geniş">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+                    <path d="M2 3h16v2H2zM2 9h16v2H2zM2 15h16v2H2z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Yazı Tipi -->
+            <div class="settings-block">
+              <span class="settings-label">Yazı Tipi</span>
+              <button class="font-picker-pill" id="btnFontPicker">
+                <span id="currentFontLabel">Serif</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Row 2: Tema Swatches & Kenar Boşlukları -->
+          <div class="settings-row-grid">
+            <!-- Tema -->
+            <div class="settings-block">
+              <span class="settings-label">Tema</span>
+              <div class="theme-swatches-row" id="themeSwatchesRow">
+                <button class="theme-swatch-item active" data-theme="koyu">
+                  <span class="swatch-circle swatch-koyu"></span>
+                  <span class="swatch-name">Koyu</span>
+                </button>
+                <button class="theme-swatch-item" data-theme="acik">
+                  <span class="swatch-circle swatch-acik"></span>
+                  <span class="swatch-name">Açık</span>
+                </button>
+                <button class="theme-swatch-item" data-theme="sepya">
+                  <span class="swatch-circle swatch-sepya"></span>
+                  <span class="swatch-name">Sepya</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Kenar Boşlukları -->
+            <div class="settings-block">
+              <span class="settings-label">Kenar Boşlukları</span>
+              <div class="stepped-segmented-pill" id="marginSelector">
+                <button class="btn-step" data-margin="narrow" title="Dar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="7" y1="3" x2="7" y2="21"></line>
+                    <line x1="17" y1="3" x2="17" y2="21"></line>
+                  </svg>
+                </button>
+                <button class="btn-step active" data-margin="standard" title="Standart">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                  </svg>
+                </button>
+                <button class="btn-step" data-margin="wide" title="Geniş">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="11" y1="3" x2="11" y2="21"></line>
+                    <line x1="13" y1="3" x2="13" y2="21"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Row 3: Gece Modu Switch -->
+          <div class="settings-toggle-row">
+            <div class="toggle-left">
+              <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+              <span class="toggle-text">Gece Modu</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="toggleNightMode" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- iOS Home Indicator inside Reader -->
+      <div class="reader-home-pill-bar">
+        <div class="ios-home-pill"></div>
+      </div>
+    </div>
+
+    <!-- REAL BOOK PAGE COMPARISON VIEW (Orijinal Sayfa ile Karşılaştırma) -->
+    <div id="comparisonViewModal" class="comparison-screen hidden">
+      <!-- Comparison Header -->
+      <header class="comparison-header">
+        <button class="comparison-back-btn" id="btnCloseComparison">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>Okuyucu</span>
+        </button>
+
+        <div class="comparison-title-box">
+          <span class="comparison-page-title" id="comparePageTitle">Sayfa 3 Karşılaştırma</span>
+          <span class="comparison-book-sub" id="compareBookSub">İnsan Ne ile Yaşar?</span>
+        </div>
+
+        <!-- Segmented Mode Control: Yan Yana | Orijinal | Dijital -->
+        <div class="comparison-mode-switch">
+          <button class="compare-mode-tab active" data-mode="split" id="btnModeSplit">Yan Yana</button>
+          <button class="compare-mode-tab" data-mode="original" id="btnModeOriginal">Orijinal</button>
+          <button class="compare-mode-tab" data-mode="digital" id="btnModeDigital">Dijital</button>
+        </div>
+      </header>
+
+      <!-- Main Comparison Workspace -->
+      <div class="comparison-workspace mode-split" id="comparisonWorkspace">
+        
+        <!-- Left / Top: Kitabın Gerçek Sayfası (Original Book Page) -->
+        <div class="comparison-pane pane-original" id="paneOriginal">
+          <div class="pane-header">
+            <span class="pane-badge badge-original">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              Kitabın Gerçek Sayfası
+            </span>
+            <div class="pane-actions">
+              <button class="pane-action-btn" id="btnZoomOriginalIn" title="Yakınlaştır">+</button>
+              <button class="pane-action-btn" id="btnZoomOriginalReset" title="Sıfırla">1:1</button>
+              <button class="pane-action-btn" id="btnZoomOriginalOut" title="Uzaklaştır">-</button>
+            </div>
+          </div>
+
+          <div class="original-page-viewport" id="originalPageViewport">
+            <!-- Dynamic PDF canvas or real page SVG image -->
+            <img src="/real-page-insan-ne-ile-yasar.svg" alt="Kitabın Gerçek Sayfası" class="real-book-page-img" id="realBookPageImg">
+            <canvas id="realBookPageCanvas" class="real-book-page-canvas hidden"></canvas>
+          </div>
+        </div>
+
+        <!-- Divider with Synchronization Indicator -->
+        <div class="comparison-split-handle" aria-hidden="true">
+          <div class="handle-pill"></div>
+        </div>
+
+        <!-- Right / Bottom: O Anki Dijital Metin (OCR / Transcribed Text) -->
+        <div class="comparison-pane pane-digital" id="paneDigital">
+          <div class="pane-header">
+            <span class="pane-badge badge-digital">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                <line x1="9" y1="20" x2="15" y2="20"></line>
+                <line x1="12" y1="4" x2="12" y2="20"></line>
+              </svg>
+              O Anki Dijital Metin
+            </span>
+            <div class="pane-actions">
+              <button class="pane-action-btn" id="btnCopyCompareText" title="Metni Kopyala">Kopyala</button>
+            </div>
+          </div>
+
+          <div class="digital-text-viewport" id="digitalTextViewport">
+            <div class="digital-page-content" id="compareDigitalContent">
+              <span class="compare-chapter-tag">BÖLÜM 1</span>
+              <h3>İnsan Ne ile Yaşar?</h3>
+              <p>İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
+              <p>Bazen en küçük bir iyilik, bir insanın tüm hayatını değiştirebilir. Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</p>
+              <p>İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Comparison Footer with Page Scrubber -->
+      <footer class="comparison-footer">
+        <div class="compare-footer-inner">
+          <button class="compare-page-btn" id="btnComparePrev">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Önceki</span>
+          </button>
+          
+          <div class="compare-page-center">
+            <span class="compare-page-num" id="comparePageNumBadge">Sayfa 3 / 218</span>
+          </div>
+
+          <button class="compare-page-btn" id="btnCompareNext">
+            <span>Sonraki</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- OCR / CONVERSION WORKSPACE MODAL (Preserves full existing OCR & PDF engine) -->
+    <div id="conversionModal" class="conversion-modal-backdrop hidden">
+      <div class="conversion-modal-sheet">
+        <div class="conversion-sheet-header">
+          <div class="sheet-title-group">
+            <h3 class="sheet-title" id="conversionSheetTitle">Belge Dönüştürücü</h3>
+            <span class="sheet-subtitle">Vision AI Türkçe OCR</span>
+          </div>
+          <button class="sheet-close-btn" id="btnCloseConversion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="conversion-sheet-body">
+          <!-- Hidden inputs for file selection -->
+          <input type="file" id="fileInputPdf" accept="application/pdf" class="hidden-input">
+          <input type="file" id="fileInputPhoto" accept="image/png, image/jpeg, image/webp, image/bmp, image/heic, application/pdf, .pdf" class="hidden-input">
+
+          <!-- Preview & Canvas Workspace -->
+          <div class="sheet-preview-wrap" id="canvasWrapper">
+            <img id="activePreviewImg" alt="Önizleme" class="sheet-preview-img">
+            
+            <div id="scanningLaser" class="laser-scanner hidden">
+              <div class="laser-line"></div>
+            </div>
+
+            <div id="processingOverlay" class="processing-overlay hidden">
+              <div class="spinner-ring"></div>
+              <p id="processingStatusText" class="processing-text">AI Vision ile taranıyor...</p>
+              
+              <!-- Batch Progress Indicator -->
+              <div id="ocrProgressBox" class="ocr-progress-box hidden">
+                <div class="ocr-progress-track">
+                  <div id="ocrProgressBar" class="ocr-progress-bar" style="width: 0%;"></div>
+                </div>
+                <div class="ocr-progress-meta">
+                  <span id="ocrProgressPercent" class="ocr-progress-percent">%0</span>
+                  <span id="ocrProgressPages" class="ocr-progress-pages">0 / 0 Sayfa</span>
+                </div>
+              </div>
+
+              <!-- Abort / Cancel Button -->
+              <button type="button" id="btnAbortOcr" class="btn-abort-ocr">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>İşlemi Durdur</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Enhancement Tools -->
+          <div class="sheet-tools-bar">
+            <button id="btnRotate90" class="btn-sheet-tool">90° Döndür</button>
+            <button id="btnContrastFilter" class="btn-sheet-tool">Kontrast</button>
+            <button id="btnBinarizeFilter" class="btn-sheet-tool">Siyah & Beyaz</button>
+            <button id="btnResetFilters" class="btn-sheet-tool">Sıfırla</button>
+          </div>
+
+          <!-- PDF Multi-page Thumbnails & Range Hub -->
+          <div id="pdfPagesContainer" class="sheet-pdf-pages hidden">
+            <div class="pdf-info-row">
+              <div class="pdf-info-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span id="pdfFileName" class="pdf-name">dokuman.pdf</span>
+              </div>
+              <span id="pdfPageCountBadge" class="pdf-count">0 Sayfa</span>
+            </div>
+
+            <!-- Page Range Selection Chips (Apple iOS Style) -->
+            <div class="pdf-range-selector">
+              <span class="range-label">Taranacak Sayfalar:</span>
+              <div class="pdf-range-chips" id="pdfRangeChips">
+                <button type="button" class="range-chip active" data-range="all" id="chipRangeAll">Tüm Sayfalar</button>
+                <button type="button" class="range-chip" data-range="first5" id="chipRangeFirst5">İlk 5 Sayfa</button>
+                <button type="button" class="range-chip" data-range="single" id="chipRangeSingle">Seçili Sayfa</button>
+                <button type="button" class="range-chip" data-range="custom" id="chipRangeCustom">Özel Aralık</button>
+              </div>
+
+              <!-- Custom Range Inputs (Hidden until custom chip is active) -->
+              <div id="pdfCustomRangeBox" class="pdf-custom-range hidden">
+                <span class="custom-range-label">Sayfa</span>
+                <input type="number" id="inputPdfStart" class="input-range-num" min="1" value="1">
+                <span class="custom-range-sep">-</span>
+                <input type="number" id="inputPdfEnd" class="input-range-num" min="1" value="1">
+                <button type="button" id="btnApplyCustomRange" class="btn-range-apply">Uygula</button>
+              </div>
+            </div>
+
+            <!-- Thumbnails strip -->
+            <div class="pdf-thumbs-scroll" id="pdfThumbnailsStrip"></div>
+          </div>
+
+          <!-- OCR Execution Bar -->
+          <div class="sheet-action-row" id="sheetActionRow">
+            <select id="selectModel" class="sheet-model-select"></select>
+            
+            <!-- Primary Batch OCR Button (Visible & Prominent for PDF) -->
+            <button id="btnPdfBatchOcr" class="btn-primary-sheet btn-batch-ocr hidden">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              <span id="pdfBatchBtnText">Tüm Sayfaları Analiz Et</span>
+            </button>
+
+            <!-- Single Page OCR Button -->
+            <button id="btnStartOcr" class="btn-primary-sheet">
+              <span id="btnStartOcrText">Metne Dönüştür</span>
+            </button>
+          </div>
+
+          <!-- OCR Extracted Text Result Preview -->
+          <div id="resultSection" class="sheet-result-wrap hidden">
+            <div class="sheet-result-header">
+              <div class="result-title-group">
+                <span class="sheet-result-title">Çıkarılan Metin</span>
+                <span id="resultPagesBadge" class="result-pages-badge hidden">0 Sayfa</span>
+              </div>
+              <div class="sheet-result-actions">
+                <button id="btnCopyText" class="btn-sheet-action">Kopyala</button>
+                <button id="btnSaveToLibrary" class="btn-sheet-action btn-highlight">Kitaplığıma Ekle</button>
+              </div>
+            </div>
+            <div id="viewFormatted" class="sheet-markdown-view"></div>
+            <textarea id="rawTextarea" class="sheet-raw-textarea hidden"></textarea>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY DRAWER -->
+    <div id="historyDrawer" class="drawer-backdrop hidden">
+      <div class="drawer-panel">
+        <div class="drawer-header">
+          <h2 class="drawer-title">Geçmiş Taramalar</h2>
+          <button id="btnCloseHistory" class="drawer-close-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div id="historyListContainer" class="history-list"></div>
+        </div>
+        <div class="drawer-footer">
+          <button id="btnClearAllHistory" class="btn-drawer-clear">Geçmişi Temizle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS DRAWER (Apple iOS Settings Sheet) -->
+    <div id="settingsDrawer" class="drawer-backdrop hidden">
+      <div class="drawer-panel settings-drawer-panel">
+        <div class="drawer-header">
+          <h2 class="drawer-title">Yapay Zeka & OCR Ayarları</h2>
+          <button id="btnCloseSettings" class="drawer-close-btn" aria-label="Ayarları Kapat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="drawer-body settings-drawer-body">
+
+          <!-- AI Provider & Dynamic Routing Mode -->
+          <div class="settings-group">
+            <label class="settings-group-label">Çalışma Modu & AI Sağlayıcı</label>
+            <div class="settings-provider-pills" id="settingsProviderPills">
+              <button type="button" class="provider-pill active" data-provider="auto">
+                <span class="provider-pill-icon">⚡</span>
+                <span class="provider-pill-text">Otomatik Dinamik</span>
+              </button>
+              <button type="button" class="provider-pill" data-provider="openrouter">
+                <span class="provider-pill-icon">🟣</span>
+                <span class="provider-pill-text">OpenRouter</span>
+              </button>
+              <button type="button" class="provider-pill" data-provider="groq">
+                <span class="provider-pill-icon">🟠</span>
+                <span class="provider-pill-text">Groq LPU</span>
+              </button>
+            </div>
+            <p class="settings-hint" id="settingsProviderHint">
+              ⚡ <strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır. Bir model yoğunsa veya kota sınırına ulaşırsa kesintisiz sıradaki modele geçer.
+            </p>
+          </div>
+
+          <!-- Model Selection -->
+          <div class="settings-group">
+            <label class="settings-group-label" for="settingsModelSelect">Vision OCR Modeli</label>
+            <select id="settingsModelSelect" class="settings-select"></select>
+            <p class="settings-hint">
+              "Otomatik" seçildiğinde en uygun sunucudaki model seçilir ve yoğunluk durumunda otomatik yedekleme devreye girer.
+            </p>
+          </div>
+
+          <!-- API Keys & Live Health Check -->
+          <div class="settings-group">
+            <div class="settings-group-header-row">
+              <label class="settings-group-label">API Bağlantıları</label>
+              <span id="settingsApiHealthBadge" class="api-health-badge health-ok">● Aktif</span>
+            </div>
+
+            <div class="settings-input-row">
+              <label class="settings-sublabel">Groq API Key</label>
+              <div class="settings-key-input-wrap">
+                <input type="password" id="inputSettingsGroqKey" class="settings-input" placeholder="gsk_...">
+                <button type="button" class="btn-toggle-key" data-target="inputSettingsGroqKey">👁</button>
+              </div>
+            </div>
+
+            <div class="settings-input-row">
+              <label class="settings-sublabel">OpenRouter API Key</label>
+              <div class="settings-key-input-wrap">
+                <input type="password" id="inputSettingsOrKey" class="settings-input" placeholder="sk-or-v1-...">
+                <button type="button" class="btn-toggle-key" data-target="inputSettingsOrKey">👁</button>
+              </div>
+            </div>
+
+            <button type="button" id="btnTestApiConnection" class="btn-settings-test">
+              <span>🔌 Bağlantıyı & Modelleri Test Et</span>
+            </button>
+            <div id="testConnectionResult" class="test-connection-result hidden"></div>
+          </div>
+
+          <!-- OCR Quality & Turkish Text Toggles -->
+          <div class="settings-group">
+            <label class="settings-group-label">Metin & Karakter Hassasiyeti</label>
+
+            <label class="settings-toggle-row">
+              <span class="toggle-text">
+                <strong>Sıfır Karakter Kaybı</strong>
+                <small>Türkçe ç, ğ, ı, ö, ş, ü karakterlerini eksiksiz koru</small>
+              </span>
+              <input type="checkbox" id="checkStrictTurkish" class="apple-switch" checked>
+            </label>
+
+            <label class="settings-toggle-row">
+              <span class="toggle-text">
+                <strong>Matbaa Tire Birleştirme</strong>
+                <small>Satır sonuna sığmayan kelimeleri (bu-lut -> bulut) birleştir</small>
+              </span>
+              <input type="checkbox" id="checkMergeHyphens" class="apple-switch" checked>
+            </label>
+
+            <label class="settings-toggle-row">
+              <span class="toggle-text">
+                <strong>Sayfa Numaralarını Temizle</strong>
+                <small>Sayfa başı ve sonundaki kitap adı/numaralarını metne dahil etme</small>
+              </span>
+              <input type="checkbox" id="checkIgnorePageNums" class="apple-switch" checked>
+            </label>
+          </div>
+
+        </div>
+        <div class="drawer-footer settings-drawer-footer">
+          <button id="btnSaveSettings" class="btn-drawer-primary">Ayarları Kaydet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM TAB NAVIGATION (Apple iOS Style) -->
+    <nav class="bottom-nav-bar">
+      <!-- 1. Ana Sayfa -->
+      <button class="nav-tab active" data-nav="home" id="navHome">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
+        <span class="nav-label">Ana Sayfa</span>
+      </button>
+
+      <!-- 2. Kitaplığım -->
+      <button class="nav-tab" data-nav="library" id="navLibrary">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+        <span class="nav-label">Kitaplığım</span>
+      </button>
+
+      <!-- 3. Geçmiş -->
+      <button class="nav-tab" data-nav="history" id="navHistory">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 14 14"></polyline>
+        </svg>
+        <span class="nav-label">Geçmiş</span>
+      </button>
+
+      <!-- 4. Ayarlar -->
+      <button class="nav-tab" data-nav="settings" id="navSettings">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="nav-label">Ayarlar</span>
+      </button>
+    </nav>
+
+    <!-- iOS Home Indicator bar -->
+    <div class="ios-home-bar-wrap" aria-hidden="true">
+      <div class="ios-home-pill"></div>
+    </div>
+
+    <!-- PWA Install prompt toast / button -->
+    <button id="btnPwaInstall" class="apple-pwa-banner hidden">
+      <span>Reawid'i Ana Ekrana Ekle</span>
+    </button>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

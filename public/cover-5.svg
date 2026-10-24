@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" width="200" height="280">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#222026"/>
+      <stop offset="50%" stop-color="#16141a"/>
+      <stop offset="100%" stop-color="#0c0b0e"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="280" fill="url(#bg5)"/>
+  <rect x="8" y="8" width="184" height="264" fill="none" stroke="#5a5466" stroke-width="1.2" opacity="0.5"/>
+  <rect x="12" y="12" width="176" height="256" fill="none" stroke="#5a5466" stroke-width="0.6" opacity="0.3"/>
+  
+  <text x="100" y="42" font-family="Georgia, serif" font-size="11" fill="#a49bb3" text-anchor="middle" letter-spacing="2.5">SABAHATTİN ALİ</text>
+  
+  <!-- Silhouette of portrait / woman in fur coat -->
+  <g transform="translate(65, 70) scale(0.7)" opacity="0.75" fill="#a49bb3">
+    <ellipse cx="50" cy="35" rx="16" ry="20"/>
+    <path d="M22 65 C15 90, 10 120, 5 140 L95 140 C90 120, 85 90, 78 65 C68 75, 32 75, 22 65 Z"/>
+    <path d="M30 60 C38 72, 62 72, 70 60 C80 80, 80 110, 80 130 L20 130 C20 110, 20 80, 30 60 Z" fill="#222026" opacity="0.6"/>
+  </g>
+  
+  <text x="100" y="202" font-family="Georgia, serif" font-size="15" font-weight="bold" fill="#f0edf5" text-anchor="middle" letter-spacing="1.2">KÜRK MANTOLU</text>
+  <text x="100" y="220" font-family="Georgia, serif" font-size="17" font-weight="bold" fill="#f0edf5" text-anchor="middle" letter-spacing="1.8">MADONNA</text>
+  <line x1="50" y1="228" x2="150" y2="228" stroke="#5a5466" stroke-width="0.8" opacity="0.7"/>
+  <text x="100" y="244" font-family="Georgia, serif" font-size="8.5" fill="#8f859e" text-anchor="middle" letter-spacing="1.5">TÜRK EDEBİYATI KLASİKLERİ</text>
+</svg>

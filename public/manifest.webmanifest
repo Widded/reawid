@@ -1,0 +1,58 @@
+{
+  "name": "ReaWid OCR - Akıllı Kitap & PDF Metin Çevirici",
+  "short_name": "ReaWid OCR",
+  "description": "Groq ve OpenRouter Vision AI ile kitap fotoğraflarını ve PDF dokümanlarını Türkçe karakter hatasız metne dönüştürün.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d16",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity", "education"],
+  "file_handlers": [
+    {
+      "action": "/",
+      "name": "PDF ve Kitap Dokümanları",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ],
+      "accept": {
+        "application/pdf": [".pdf"],
+        "image/*": [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["application/pdf", "image/*", ".pdf"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" width="200" height="280">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a2520"/>
+      <stop offset="50%" stop-color="#1e1a16"/>
+      <stop offset="100%" stop-color="#12100e"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="280" fill="url(#bg2)"/>
+  <rect x="8" y="8" width="184" height="264" fill="none" stroke="#6e6255" stroke-width="1.2" opacity="0.6"/>
+  <rect x="12" y="12" width="176" height="256" fill="none" stroke="#6e6255" stroke-width="0.6" opacity="0.4"/>
+  
+  <text x="100" y="42" font-family="Georgia, serif" font-size="10" fill="#a89a88" text-anchor="middle" letter-spacing="2">FYODOR DOSTOYEVSKİ</text>
+  
+  <!-- Architectural silhouette -->
+  <g transform="translate(40, 65) scale(0.6)" opacity="0.75" fill="#a89a88">
+    <path d="M100 10 L115 50 L85 50 Z M88 50 H112 V120 H88 Z M70 80 H88 V120 H70 Z M112 80 H130 V120 H112 Z M50 100 H150 V130 H50 Z M40 130 H160 V160 H40 Z"/>
+    <circle cx="100" cy="35" r="5" fill="#e2d6c5"/>
+  </g>
+  
+  <text x="100" y="210" font-family="Georgia, serif" font-size="19" font-weight="bold" fill="#f2eae0" text-anchor="middle" letter-spacing="1">SUÇ VE CEZA</text>
+  <line x1="50" y1="222" x2="150" y2="222" stroke="#6e6255" stroke-width="0.8" opacity="0.7"/>
+  <text x="100" y="240" font-family="Georgia, serif" font-size="9" fill="#9e9080" text-anchor="middle" letter-spacing="1.5">DÜNYA KLASİKLERİ</text>
+</svg>
