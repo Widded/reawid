@@ -16,16 +16,16 @@ export const VISION_CANDIDATE_POOLS = {
   openrouter: [
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash',
-      name: 'OpenRouter (Gemini 2.5 Flash)',
-      tier: 'smart_flagship',
+      model: 'google/gemini-2.5-flash-lite',
+      name: 'OpenRouter (Gemini 2.5 Flash Lite)',
+      tier: 'ultra_fast',
       freeTier: true
     },
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash-lite',
-      name: 'OpenRouter (Gemini 2.5 Flash Lite)',
-      tier: 'ultra_fast',
+      model: 'google/gemini-2.5-flash',
+      name: 'OpenRouter (Gemini 2.5 Flash)',
+      tier: 'smart_flagship',
       freeTier: true
     },
     {
@@ -146,39 +146,15 @@ export function buildSystemPrompt(options = {}) {
   const ignorePageNumbers = options.ignorePageNumbers !== false;
   const preserveFormatting = options.preserveFormatting !== false;
 
-  return `Sen üst düzey bir Türkçe Optik Karakter Tanıma (OCR) ve Belge Sayısallaştırma Uzmanısın.
-Görevin: Sana sağlanan kitap sayfası, taranmış doküman veya fotoğraftaki tüm yazıları EKSİKSİZ, BİREBİR ve EN YÜKSEK DOĞRULUKLA dijital metne dökmektir.
+  return `Sen üst düzey bir Türkçe OCR ve Belge Okuma Uzmanısın.
+Görseldeki tüm Türkçe yazıları eksiksiz ve sıfır hata ile dijital metne dök.
 
-AŞAĞIDAKİ KRİTİK KURALLARA KESİNLİKLE UYMALISIN:
-
-1. TÜRKÇE KARAKTER GARANTİSİ (SIFIR KARAKTER KAYBI):
-${strictTurkish ? `- Türkçe alfabesindeki TÜM özel karakterleri (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, İ, Ö, Ş, Ü) eksiksiz ve doğru biçimde yaz.
-- 'ı' (noktasız küçük i) ile 'i' (noktalı küçük i) ve 'I' (noktasız büyük I) ile 'İ' (noktalı büyük İ) farkına azami dikkat göster.
-  Örnek: "Işık", "İzmir", "karanlık", "bilinmezliğe", "ışıkların", "adım".
-- Asla Türkçe karakterleri İngilizce karakterlerle (c, g, i, o, s, u) değiştirme.
-- Çengelleri (ç, ş) ve yumuşak g (ğ) işaretlerini asla ihmal etme.` : ''}
-
-2. MATBAA VE SATIR SONU TİRELERİ:
-${mergeHyphens ? `- Kitap dizgisinde satır sonuna sığmayıp tire (-) ile bir alt satıra bölünen kelimeleri TEK BİR BÜTÜN KELİME olarak birleştir.
-  Örnekler:
-  "bulut-" (satır sonu) ve "ların" (alt satır) -> "bulutların"
-  "huzur-" (satır sonu) ve "suzluk" (alt satır) -> "huzursuzluk"
-  "çan-" (satır sonu) ve "tamda" (alt satır) -> "çantamda"
-  "taş-" (satır sonu) ve "ları" (alt satır) -> "taşları"
-- Yalnızca kelime ortasında gerçekten bulunan tireleri (örneğin eş sesli ikilemeler veya bileşik adlar) koru.` : ''}
-
-3. BELGE ÜSTBİLGİSİ, ALTBİLGİSİ VE SAYFA NUMARALARI:
-${ignorePageNumbers ? `- Sayfa başında veya sonunda tekrarlayan kitap adlarını, yazar adlarını veya tek başına köşede duran sayfa numaralarını ana metnin akışını bozmaması için çıkarılan metne dahil etme.` : '- Sayfa numaralarını ve başlıkları olduğu gibi koru.'}
-
-4. METİN YAPISI VE FORMATLAMA:
-${preserveFormatting ? `- Paragraf ayrımlarını koru (paragraflar arasında bir boş satır bırak).
-- Bölüm başlıklarını Markdown formatında (# veya ##) olarak biçimlendir (Örn: # BÖLÜM 1: BİLİNMEYENE YOLCULUK).
-- Varsa alıntıları ">", listeleri "-" veya "1." olarak belirt.
-- Varsa italik veya kalın kelimeleri Markdown ile vurgula.` : '- Düz metin olarak paragrafları koruyarak aktar.'}
-
-5. KESİN CEVAP KURALI:
-- Cevabında ASLA selamlama, açıklama, önsöz veya sonsöz yazma (Örn: "İşte metin:", "Görselden okunanlar şunlardır:" gibi cümleler KESİNLİKLE YASAKTIR).
-- YALNIZCA VE DOĞRUDAN belgeden okunan metni çıktı olarak ver.`;
+KURALLAR:
+${strictTurkish ? '1. Türkçe karakterleri (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, İ, Ö, Ş, Ü) ve i/ı ayrımını kusursuz koru.' : ''}
+${mergeHyphens ? '2. Satır sonu tire ile bölünen kelimeleri birleştir (örn: "yapı-" + "lan" -> "yapılan").' : ''}
+${ignorePageNumbers ? '3. Tek başına duran sayfa numaralarını veya tekrarlayan başlıkları metne dahil etme.' : ''}
+${preserveFormatting ? '4. Paragraf yapısını ve bölüm başlıklarını (#) koru.' : ''}
+5. Selamlama, önsöz veya açıklama yazma. Yalnızca ve doğrudan belgeden okunan metni çıktı ver.`;
 }
 
 /**
@@ -346,7 +322,7 @@ async function callGroqVision({ apiKey, model, systemPrompt, userPrompt, imageUr
       }
     ],
     temperature: temperature,
-    max_tokens: 4096
+    max_tokens: 2048
   };
 
   const response = await fetch(endpoint, {
@@ -408,7 +384,7 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
       }
     ],
     temperature: temperature,
-    max_tokens: 4096,
+    max_tokens: 2048,
     provider: {
       allow_fallbacks: true
     }

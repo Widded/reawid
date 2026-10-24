@@ -357,14 +357,7 @@
 
         <div class="reader-book-meta">
           <span class="reader-header-title" id="readerHeaderTitle">İnsan Ne ile Yaşar?</span>
-          <div class="reader-meta-sub-row">
-            <span class="reader-header-author" id="readerHeaderAuthor">Lev Tolstoy</span>
-            <!-- Background OCR Status Pill (Discreet Apple Pill) -->
-            <div id="readerBgOcrPill" class="reader-bg-ocr-pill hidden">
-              <span id="readerBgOcrDot" class="pulse-indicator-dot"></span>
-              <span id="readerBgOcrText">Sayfa 1 analiz ediliyor...</span>
-            </div>
-          </div>
+          <span class="reader-header-author" id="readerHeaderAuthor">Lev Tolstoy</span>
         </div>
 
         <div class="reader-header-actions">
@@ -486,7 +479,13 @@
           <input type="range" class="reader-page-slider" id="readerPageSlider" min="1" max="218" value="3">
         </div>
         <div class="scrubber-controls">
-          <div class="scrubber-spacer"></div>
+          <!-- Analiz Bilgilendirme Durumu (Sayfa Seçicinin Solunda) -->
+          <div class="scrubber-status-slot">
+            <div id="readerBgOcrPill" class="reader-bg-ocr-pill hidden">
+              <span id="readerBgOcrDot" class="pulse-indicator-dot"></span>
+              <span id="readerBgOcrText">Sayfa 1 analiz ediliyor...</span>
+            </div>
+          </div>
           <div class="scrubber-center-nav">
             <button class="page-nav-arrow" id="btnReaderPrevPage" aria-label="Önceki Sayfa">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">

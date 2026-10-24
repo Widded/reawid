@@ -888,44 +888,91 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.scrubber-status-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 80px;
+  max-width: 145px;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
 .reader-bg-ocr-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  padding: 1px 7px;
-  font-size: 10.5px;
-  color: #a1a1a6;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(12px);
+  transition: all 180ms ease;
+}
+
+.reader-bg-ocr-pill #readerBgOcrText {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .reader-bg-ocr-pill.priority-active {
-  background: rgba(255, 159, 10, 0.15);
-  border-color: rgba(255, 159, 10, 0.35);
+  background: rgba(255, 159, 10, 0.16);
+  border-color: rgba(255, 159, 10, 0.38);
   color: #ff9f0a;
 }
 
 .reader-bg-ocr-pill.completed {
-  background: rgba(48, 209, 88, 0.15);
-  border-color: rgba(48, 209, 88, 0.35);
+  background: rgba(48, 209, 88, 0.16);
+  border-color: rgba(48, 209, 88, 0.38);
   color: #30d158;
 }
 
 .pulse-indicator-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #30d158;
+  flex-shrink: 0;
   animation: pulseDot 1.4s ease-in-out infinite;
 }
 
 .reader-bg-ocr-pill.priority-active .pulse-indicator-dot {
   background: #ff9f0a;
+}
+
+/* Theme variations for reader-bg-ocr-pill */
+.reader-screen.theme-acik .reader-bg-ocr-pill {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #3a3a3c;
+}
+
+.reader-screen.theme-acik .reader-bg-ocr-pill.priority-active {
+  background: rgba(255, 149, 0, 0.15);
+  border-color: rgba(255, 149, 0, 0.4);
+  color: #b25000;
+}
+
+.reader-screen.theme-sepya .reader-bg-ocr-pill {
+  background: rgba(60, 40, 20, 0.08);
+  border-color: rgba(60, 40, 20, 0.18);
+  color: #4a3b2c;
+}
+
+.reader-screen.theme-sepya .reader-bg-ocr-pill.priority-active {
+  background: rgba(180, 100, 20, 0.15);
+  border-color: rgba(180, 100, 20, 0.35);
+  color: #8c4a00;
 }
 
 @keyframes pulseDot {
@@ -1169,9 +1216,14 @@ body {
   position: relative;
 }
 
-.scrubber-spacer {
-  width: 78px;
+.scrubber-status-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 78px;
+  max-width: 155px;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .scrubber-center-nav {
