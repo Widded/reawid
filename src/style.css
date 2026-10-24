@@ -80,19 +80,28 @@ body {
   width: 100%;
   max-width: 440px;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-app);
   display: flex;
   flex-direction: column;
   position: relative;
   padding-bottom: 96px; /* Space for bottom tab bar */
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
   overflow-x: hidden;
   box-sizing: border-box;
 }
 
+@media (min-width: 481px) {
+  .ios-app-container {
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+  }
+}
+
 /* Screen Views */
 .view-screen {
-  padding: max(18px, calc(env(safe-area-inset-top, 0px) + 12px)) 16px 24px;
+  padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px));
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -107,9 +116,9 @@ body {
 
 .home-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 4px 2px 6px;
+  padding: 6px 2px 10px;
   width: 100%;
   box-sizing: border-box;
 }
