@@ -1,6 +1,6 @@
 // Reawid Service Worker - Apple Minimalist PWA
 // Network-First strategy to ensure latest updates are immediately reflected
-const CACHE_NAME = 'reawid-apple-v13';
+const CACHE_NAME = 'reawid-apple-v14';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

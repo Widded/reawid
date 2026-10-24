@@ -276,7 +276,7 @@ export async function performOcr({
 
       const nextCandidate = candidates[i + 1];
       if (nextCandidate) {
-        console.warn(`[AI Router] ⚠️ ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki model ${nextCandidate.name} devreye alınıyor...`);
+        console.warn(`[AI Router] [Uyarı] ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki model ${nextCandidate.name} devreye alınıyor...`);
         if (onModelFallback) {
           onModelFallback({
             from: candidate.name,
@@ -434,18 +434,18 @@ export async function testApiConnection(provider, apiKey, model, extraKeys = {})
     const results = [];
     if (groqKey) {
       const gRes = await testApiConnection('groq', groqKey, 'qwen/qwen3.8-27b');
-      results.push(`Groq: ${gRes.success ? '✓ Aktif' : '✗ ' + gRes.message}`);
+      results.push(`Groq: ${gRes.success ? 'Aktif' : 'Hata: ' + gRes.message}`);
     }
     if (orKey) {
       const orRes = await testApiConnection('openrouter', orKey, 'google/gemini-2.5-flash');
-      results.push(`OpenRouter: ${orRes.success ? '✓ Aktif' : '✗ ' + orRes.message}`);
+      results.push(`OpenRouter: ${orRes.success ? 'Aktif' : 'Hata: ' + orRes.message}`);
     }
 
     if (results.length === 0) {
       return { success: false, message: 'Test edilecek geçerli bir Groq veya OpenRouter API anahtarı bulunamadı.' };
     }
 
-    const allOk = results.every(r => r.includes('✓'));
+    const allOk = results.every(r => r.includes('Aktif'));
     return { success: allOk, message: results.join(' | ') };
   }
 

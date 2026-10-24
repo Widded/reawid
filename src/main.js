@@ -1310,28 +1310,6 @@ function setupEventListeners() {
     });
   }
 
-  // Key visibility toggles
-  document.querySelectorAll('.btn-toggle-key').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.dataset.target;
-      const input = document.getElementById(targetId);
-      if (input) {
-        if (input.type === 'password') {
-          input.type = 'text';
-          btn.textContent = '🔒';
-        } else {
-          input.type = 'password';
-          btn.textContent = '👁';
-        }
-      }
-    });
-  });
-
-  // Test connection button
-  if (el.btnTestApiConnection) {
-    el.btnTestApiConnection.addEventListener('click', handleTestConnectionClick);
-  }
-
   // Save settings button
   if (el.btnSaveSettings) {
     el.btnSaveSettings.addEventListener('click', handleSaveSettingsClick);
@@ -2223,15 +2201,9 @@ function openSettingsDrawer() {
   updateSettingsProviderHint(activeProv);
   populateModelSelect();
 
-  if (el.inputSettingsGroqKey) el.inputSettingsGroqKey.value = appSettings.groqApiKey || '';
-  if (el.inputSettingsOrKey) el.inputSettingsOrKey.value = appSettings.openrouterApiKey || '';
-
   if (el.checkStrictTurkish) el.checkStrictTurkish.checked = appSettings.strictTurkish !== false;
   if (el.checkMergeHyphens) el.checkMergeHyphens.checked = appSettings.mergeHyphenatedWords !== false;
   if (el.checkIgnorePageNums) el.checkIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
-
-  updateApiHealthBadge();
-  if (el.testConnectionResult) el.testConnectionResult.classList.add('hidden');
 
   el.settingsDrawer.classList.remove('hidden');
 }
@@ -2243,81 +2215,15 @@ function closeSettingsDrawer() {
 function updateSettingsProviderHint(provider) {
   if (!el.settingsProviderHint) return;
   if (provider === 'auto') {
-    el.settingsProviderHint.innerHTML = `⚡ <strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır (Groq LPU öncelikli). Model yoğunsa veya kota sınırına ulaşırsa anında OpenRouter modellerine kesintisiz aktarılır.`;
+    el.settingsProviderHint.innerHTML = `<strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır (Groq LPU öncelikli). Model yoğunsa veya kota sınırına ulaşırsa anında OpenRouter modellerine kesintisiz aktarılır.`;
   } else if (provider === 'openrouter') {
-    el.settingsProviderHint.innerHTML = `🟣 <strong>OpenRouter Çoklu Model:</strong> Google Gemini 2.5 Flash, Flash Lite ve Qwen 2.5 VL modelleri arasında sunucu yoğunluğuna göre dinamik geçiş yapar.`;
+    el.settingsProviderHint.innerHTML = `<strong>OpenRouter Çoklu Model:</strong> Google Gemini 2.5 Flash, Flash Lite ve Qwen 2.5 VL modelleri arasında sunucu yoğunluğuna göre dinamik geçiş yapar.`;
   } else if (provider === 'groq') {
-    el.settingsProviderHint.innerHTML = `🟠 <strong>Groq LPU:</strong> Qwen 3.8 27B Vision ile ultra hızlı LPU çıkarımı. Kota aşımında yedek modele veya OpenRouter'a aktarır.`;
-  }
-}
-
-function updateApiHealthBadge() {
-  if (!el.settingsApiHealthBadge) return;
-  const prov = appSettings.activeProvider || 'auto';
-  const hasGroq = !!(appSettings.groqApiKey && appSettings.groqApiKey.trim());
-  const hasOR = !!(appSettings.openrouterApiKey && appSettings.openrouterApiKey.trim());
-
-  if (prov === 'auto') {
-    if (hasGroq && hasOR) {
-      el.settingsApiHealthBadge.textContent = '● Hibrit Aktif (Groq + OR)';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-ok';
-    } else if (hasGroq || hasOR) {
-      el.settingsApiHealthBadge.textContent = `● Tekil Aktif (${hasGroq ? 'Groq' : 'OR'})`;
-      el.settingsApiHealthBadge.className = 'api-health-badge health-warn';
-    } else {
-      el.settingsApiHealthBadge.textContent = '● Anahtar Eksik';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-err';
-    }
-  } else if (prov === 'groq') {
-    if (hasGroq) {
-      el.settingsApiHealthBadge.textContent = '● Groq Hazır';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-ok';
-    } else {
-      el.settingsApiHealthBadge.textContent = '● Groq Anahtarı Eksik';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-err';
-    }
-  } else {
-    if (hasOR) {
-      el.settingsApiHealthBadge.textContent = '● OpenRouter Hazır';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-ok';
-    } else {
-      el.settingsApiHealthBadge.textContent = '● OpenRouter Anahtarı Eksik';
-      el.settingsApiHealthBadge.className = 'api-health-badge health-err';
-    }
-  }
-}
-
-async function handleTestConnectionClick() {
-  if (!el.testConnectionResult) return;
-  el.testConnectionResult.classList.remove('hidden');
-  el.testConnectionResult.textContent = 'Bağlantılar ve modeller test ediliyor, lütfen bekleyin...';
-  el.testConnectionResult.style.color = 'var(--text-secondary)';
-
-  const prov = appSettings.activeProvider || 'auto';
-  const groqKey = el.inputSettingsGroqKey ? el.inputSettingsGroqKey.value.trim() : appSettings.groqApiKey;
-  const orKey = el.inputSettingsOrKey ? el.inputSettingsOrKey.value.trim() : appSettings.openrouterApiKey;
-
-  try {
-    const res = await testApiConnection(
-      prov,
-      prov === 'groq' ? groqKey : (prov === 'openrouter' ? orKey : ''),
-      'auto',
-      { groqApiKey: groqKey, openrouterApiKey: orKey }
-    );
-
-    el.testConnectionResult.textContent = res.message;
-    el.testConnectionResult.style.color = res.success ? '#30d158' : '#ff453a';
-    updateApiHealthBadge();
-  } catch (err) {
-    el.testConnectionResult.textContent = 'Hata: ' + err.message;
-    el.testConnectionResult.style.color = '#ff453a';
+    el.settingsProviderHint.innerHTML = `<strong>Groq LPU:</strong> Qwen 3.8 27B Vision ile ultra hızlı LPU çıkarımı. Kota aşımında yedek modele veya OpenRouter'a aktarır.`;
   }
 }
 
 function handleSaveSettingsClick() {
-  if (el.inputSettingsGroqKey) appSettings.groqApiKey = el.inputSettingsGroqKey.value.trim();
-  if (el.inputSettingsOrKey) appSettings.openrouterApiKey = el.inputSettingsOrKey.value.trim();
-
   if (el.checkStrictTurkish) appSettings.strictTurkish = el.checkStrictTurkish.checked;
   if (el.checkMergeHyphens) appSettings.mergeHyphenatedWords = el.checkMergeHyphens.checked;
   if (el.checkIgnorePageNums) appSettings.ignorePageNumbers = el.checkIgnorePageNums.checked;
@@ -2325,7 +2231,7 @@ function handleSaveSettingsClick() {
   saveSettings(appSettings);
   populateModelSelect();
   closeSettingsDrawer();
-  showToast('Ayarlar başarıyla kaydedildi!', 'success');
+  showToast('Ayarlar başarıyla kaydedildi.', 'success');
 }
 
 /* ==========================================================================

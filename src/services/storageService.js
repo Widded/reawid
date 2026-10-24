@@ -29,7 +29,7 @@ export const AVAILABLE_MODELS = {
   auto: [
     {
       id: 'auto',
-      name: '⚡ Akıllı Dinamik Yönlendirme (Önerilen)',
+      name: 'Akıllı Dinamik Yönlendirme (Önerilen)',
       badge: 'Otomatik Geçiş',
       desc: 'En güçlü ve en hızlı free/aktif modeli seçer. Model yoğunsa veya limit aşılırsa otomatik diğerine geçer.'
     }
@@ -37,7 +37,7 @@ export const AVAILABLE_MODELS = {
   groq: [
     {
       id: 'auto',
-      name: '⚡ Groq Akıllı Otomatik (Hızlı + Yedekli)',
+      name: 'Groq Akıllı Otomatik (Hızlı + Yedekli)',
       badge: 'Otomatik',
       desc: 'Groq LPU modelleri arasında dinamik seçim yapar, yoğunlukta yedek modele veya OpenRouter\'a aktarır.'
     },
@@ -51,7 +51,7 @@ export const AVAILABLE_MODELS = {
   openrouter: [
     {
       id: 'auto',
-      name: '⚡ OpenRouter Akıllı Yönlendirme (Otomatik Yedekleme)',
+      name: 'OpenRouter Akıllı Yönlendirme (Otomatik Yedekleme)',
       badge: 'Otomatik',
       desc: 'En kaliteli modeller arasında (Gemini 2.5 Flash, Flash Lite, Qwen 2.5 VL) sunucu durumuna göre dinamik geçiş yapar.'
     },
@@ -111,8 +111,8 @@ export function getSettings() {
     const updatedSettings = {
       ...DEFAULT_SETTINGS,
       ...parsed,
-      groqApiKey: parsed.groqApiKey || DEFAULT_SETTINGS.groqApiKey,
-      openrouterApiKey: parsed.openrouterApiKey || DEFAULT_SETTINGS.openrouterApiKey,
+      groqApiKey: ENV_GROQ_KEY || parsed.groqApiKey || DEFAULT_SETTINGS.groqApiKey,
+      openrouterApiKey: ENV_OPENROUTER_KEY || parsed.openrouterApiKey || DEFAULT_SETTINGS.openrouterApiKey,
       activeProvider: parsed.activeProvider || DEFAULT_SETTINGS.activeProvider,
       groqModel,
       openrouterModel

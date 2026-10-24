@@ -913,20 +913,39 @@
             <label class="settings-group-label">Çalışma Modu & AI Sağlayıcı</label>
             <div class="settings-provider-pills" id="settingsProviderPills">
               <button type="button" class="provider-pill active" data-provider="auto">
-                <span class="provider-pill-icon">⚡</span>
+                <span class="provider-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="provider-pill-svg">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                </span>
                 <span class="provider-pill-text">Otomatik Dinamik</span>
               </button>
               <button type="button" class="provider-pill" data-provider="openrouter">
-                <span class="provider-pill-icon">🟣</span>
+                <span class="provider-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="provider-pill-svg">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                </span>
                 <span class="provider-pill-text">OpenRouter</span>
               </button>
               <button type="button" class="provider-pill" data-provider="groq">
-                <span class="provider-pill-icon">🟠</span>
+                <span class="provider-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="provider-pill-svg">
+                    <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                    <rect x="9" y="9" width="6" height="6"></rect>
+                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                  </svg>
+                </span>
                 <span class="provider-pill-text">Groq LPU</span>
               </button>
             </div>
             <p class="settings-hint" id="settingsProviderHint">
-              ⚡ <strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır. Bir model yoğunsa veya kota sınırına ulaşırsa kesintisiz sıradaki modele geçer.
+              <strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır. Bir model yoğunsa veya kota sınırına ulaşırsa kesintisiz sıradaki modele geçer.
             </p>
           </div>
 
@@ -939,33 +958,25 @@
             </p>
           </div>
 
-          <!-- API Keys & Live Health Check -->
+          <!-- AI Engine Status Card (Powered silently by .env) -->
           <div class="settings-group">
-            <div class="settings-group-header-row">
-              <label class="settings-group-label">API Bağlantıları</label>
-              <span id="settingsApiHealthBadge" class="api-health-badge health-ok">● Aktif</span>
-            </div>
-
-            <div class="settings-input-row">
-              <label class="settings-sublabel">Groq API Key</label>
-              <div class="settings-key-input-wrap">
-                <input type="password" id="inputSettingsGroqKey" class="settings-input" placeholder="gsk_...">
-                <button type="button" class="btn-toggle-key" data-target="inputSettingsGroqKey">👁</button>
+            <div class="settings-env-status-card">
+              <div class="env-status-icon-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="env-check-icon">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <div class="env-status-content">
+                <div class="env-status-row">
+                  <span class="env-status-title">Dahili API Motoru</span>
+                  <span class="api-health-badge health-ok">Aktif (.env)</span>
+                </div>
+                <p class="env-status-desc">
+                  Groq LPU ve OpenRouter Vision API anahtarları projenin .env ortamından otomatik ve kesintisiz beslenir.
+                </p>
               </div>
             </div>
-
-            <div class="settings-input-row">
-              <label class="settings-sublabel">OpenRouter API Key</label>
-              <div class="settings-key-input-wrap">
-                <input type="password" id="inputSettingsOrKey" class="settings-input" placeholder="sk-or-v1-...">
-                <button type="button" class="btn-toggle-key" data-target="inputSettingsOrKey">👁</button>
-              </div>
-            </div>
-
-            <button type="button" id="btnTestApiConnection" class="btn-settings-test">
-              <span>🔌 Bağlantıyı & Modelleri Test Et</span>
-            </button>
-            <div id="testConnectionResult" class="test-connection-result hidden"></div>
           </div>
 
           <!-- OCR Quality & Turkish Text Toggles -->
