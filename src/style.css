@@ -90,44 +90,9 @@ body {
   box-sizing: border-box;
 }
 
-/* iOS Status Bar Simulation */
-.ios-status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  user-select: none;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.status-time {
-  letter-spacing: -0.3px;
-}
-
-.status-icons {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #fff;
-}
-
-.status-icon {
-  width: 16px;
-  height: 12px;
-}
-
-.status-battery {
-  width: 24px;
-  height: 12px;
-}
-
 /* Screen Views */
 .view-screen {
-  padding: 8px 16px 24px;
+  padding: max(16px, env(safe-area-inset-top)) 16px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -641,7 +606,7 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 440px;
-  height: 60px;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
   background: rgba(18, 18, 20, 0.94);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -650,7 +615,7 @@ body {
   align-items: center;
   justify-content: space-around;
   z-index: 50;
-  padding: 0 10px;
+  padding: 0 10px env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
 }
 
@@ -687,29 +652,7 @@ body {
   color: #e5e5ea;
 }
 
-.ios-home-bar-wrap {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 440px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 51;
-  pointer-events: none;
-  box-sizing: border-box;
-}
 
-.ios-home-pill {
-  width: 135px;
-  height: 4px;
-  border-radius: 2px;
-  background-color: #ffffff;
-  opacity: 0.45;
-}
 
 /* ==========================================================================
    In-App Reader View (Apple Books Minimalist Style)
@@ -1176,7 +1119,7 @@ body {
 
 /* Scrubber Bar */
 .reader-scrubber-bar {
-  padding: 10px 18px 6px;
+  padding: 10px 18px max(14px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1603,12 +1546,7 @@ input:checked + .switch-slider:before {
   transform: translateX(18px);
 }
 
-.reader-home-pill-bar {
-  padding-bottom: 6px;
-  display: flex;
-  justify-content: center;
-  background: var(--bg-card);
-}
+
 
 /* ==========================================================================
    REAL BOOK PAGE COMPARISON VIEW (Kitabın Gerçek Sayfası ile Karşılaştırma)
