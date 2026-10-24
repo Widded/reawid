@@ -1,1 +1,183 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="46" fill="none" viewBox="0 0 48 46"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z" style="fill:#863bff;fill:color(display-p3 .5252 .23 1);fill-opacity:1"/><mask id="a" width="48" height="46" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M25.842 44.938c-.664.844-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.183c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.498 0-3.579-1.842-3.579H1.133c-.92 0-1.456-1.04-.92-1.787L9.91.473c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.578 1.842 3.578h11.377c.943 0 1.473 1.088.89 1.832L25.843 44.94z" style="fill:#000;fill-opacity:1"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#ede6ff" rx="5.508" ry="14.704" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -4.47 31.516)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#ede6ff" rx="10.399" ry="29.851" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -39.328 7.883)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#7e14ff" rx="5.508" ry="30.487" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -25.913 -14.639)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -32.644 -3.334)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -34.34 30.47)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#ede6ff" rx="14.072" ry="22.078" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="rotate(93.35 24.506 48.493)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx=".387" cy="8.972" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(39.51 .387 8.972)"/></g><g filter="url(#k)"><ellipse cx="47.523" cy="-6.092" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 47.523 -6.092)"/></g><g filter="url(#l)"><ellipse cx="41.412" cy="6.333" fill="#47bfff" rx="5.971" ry="9.665" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 41.412 6.333)"/></g><g filter="url(#m)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#n)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#o)"><ellipse cx="35.651" cy="29.907" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 35.651 29.907)"/></g><g filter="url(#p)"><ellipse cx="38.418" cy="32.4" fill="#47bfff" rx="5.971" ry="15.297" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 38.418 32.4)"/></g></g><defs><filter id="b" width="60.045" height="41.654" x="-19.77" y="16.149" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-54.613" y="-7.533" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-49.64" y="2.03" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-45.045" y="20.029" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-43.513" y="21.178" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="15.756" y="-17.901" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-27.636" y="-22.853" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="20.116" y="-38.415" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="24.641" y="-11.323" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="8.244" y="-2.416" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="18.713" y="10.588" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter></defs></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <!-- Background: Apple Deep Obsidian / Titanium -->
+    <radialGradient id="reawidBg" cx="50%" cy="18%" r="88%">
+      <stop offset="0%" stop-color="#232631"/>
+      <stop offset="38%" stop-color="#12141a"/>
+      <stop offset="72%" stop-color="#0a0b0e"/>
+      <stop offset="100%" stop-color="#040507"/>
+    </radialGradient>
+
+    <!-- Top Specular Ambient Glare -->
+    <linearGradient id="reawidGlare" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="18%" stop-color="#ffffff" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Warm Literary Ambient Core Glow -->
+    <radialGradient id="reawidWarmGlow" cx="50%" cy="54%" r="46%">
+      <stop offset="0%" stop-color="#ffb74d" stop-opacity="0.32"/>
+      <stop offset="35%" stop-color="#ff9100" stop-opacity="0.14"/>
+      <stop offset="75%" stop-color="#c25700" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Left Wing (Satin Titanium White) -->
+    <linearGradient id="leftWingGrad" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="42%" stop-color="#ebedf4"/>
+      <stop offset="78%" stop-color="#b6bac8"/>
+      <stop offset="100%" stop-color="#888c9c"/>
+    </linearGradient>
+
+    <!-- Right Wing (Silk Ivory & Warm Amber Light) -->
+    <linearGradient id="rightWingGrad" x1="85%" y1="0%" x2="15%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="42%" stop-color="#faf5ec"/>
+      <stop offset="78%" stop-color="#d9cdbc"/>
+      <stop offset="100%" stop-color="#a69784"/>
+    </linearGradient>
+
+    <!-- Secondary Depth Pages -->
+    <linearGradient id="rearPagesGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#555866"/>
+      <stop offset="100%" stop-color="#2a2c35"/>
+    </linearGradient>
+
+    <!-- Golden Spine Ribbon & 'R' Counter Core -->
+    <linearGradient id="goldRibbonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff8e8"/>
+      <stop offset="25%" stop-color="#ffcc66"/>
+      <stop offset="65%" stop-color="#ff9900"/>
+      <stop offset="100%" stop-color="#cc6600"/>
+    </linearGradient>
+
+    <!-- Vision Arc / Lens Focus Ring -->
+    <linearGradient id="lensArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff9900" stop-opacity="0"/>
+      <stop offset="25%" stop-color="#ffcc66" stop-opacity="0.45"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="75%" stop-color="#ffcc66" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ff9900" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Multi-Layer Drop Shadow for Precision Depth -->
+    <filter id="appleShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.80"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+
+    <!-- Subtle Optical Lens Flare Glow -->
+    <filter id="lensGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Apple Squircle Geometry -->
+    <clipPath id="appleSquircle">
+      <path d="M 115 0 C 35 0 0 35 0 115 L 0 397 C 0 477 35 512 115 512 L 397 512 C 477 512 512 477 512 397 L 512 115 C 512 35 477 0 397 0 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- 1. Master Squircle Container -->
+  <g clip-path="url(#appleSquircle)">
+    <!-- Deep Space Titanium Base -->
+    <rect width="512" height="512" fill="url(#reawidBg)"/>
+    
+    <!-- Warm Literary Ambient Illumination -->
+    <circle cx="256" cy="275" r="215" fill="url(#reawidWarmGlow)"/>
+
+    <!-- Specular Top Rim Glare -->
+    <rect width="512" height="512" fill="url(#reawidGlare)"/>
+
+    <!-- Subtle Concentric Precision Guide Rings -->
+    <circle cx="256" cy="256" r="195" stroke="rgba(255,255,255,0.022)" stroke-width="1"/>
+    <circle cx="256" cy="256" r="142" stroke="rgba(255,255,255,0.018)" stroke-width="1"/>
+
+    <!-- 2. Optical Vision Halo (Scanning Horizon above Book) -->
+    <path d="M 154 212 C 184 176, 222 160, 256 160 C 290 160, 328 176, 358 212" 
+          stroke="url(#lensArcGrad)" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    
+    <!-- Horizon Focus Prism Spot -->
+    <circle cx="256" cy="160" r="5" fill="#ffffff" filter="url(#lensGlow)"/>
+    <circle cx="256" cy="160" r="2.2" fill="#ffb429"/>
+
+    <!-- 3. Rear Secondary Pages (Sculptural Depth Layer) -->
+    <g opacity="0.82">
+      <!-- Left Under-page -->
+      <path d="M 256 366 
+               C 214 360, 150 346, 112 332 
+               C 107 330, 104 326, 104 321
+               L 104 212
+               C 104 207, 108 204, 113 206
+               C 152 218, 215 234, 256 240 Z" 
+            fill="url(#rearPagesGrad)"/>
+
+      <!-- Right Under-page -->
+      <path d="M 256 366 
+               C 298 360, 362 346, 400 332 
+               C 405 330, 408 326, 408 321
+               L 408 212
+               C 408 207, 404 204, 399 206
+               C 360 218, 297 234, 256 240 Z" 
+            fill="url(#rearPagesGrad)"/>
+    </g>
+
+    <!-- 4. Main Sculpted Open Book Wings with Tactile Shadow -->
+    <g filter="url(#appleShadow)">
+      <!-- Left Wing (Satin Titanium) -->
+      <path d="M 256 382
+               C 212 374, 144 356, 116 344
+               C 109 341, 106 336, 106 330
+               L 106 206
+               C 106 200, 111 196, 116 198
+               C 150 210, 216 228, 256 232 Z"
+            fill="url(#leftWingGrad)"/>
+
+      <!-- Left Wing Crisp Top Highlight Edge -->
+      <path d="M 117 198 C 150 210, 216 228, 256 232" 
+            stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.95"/>
+
+      <!-- Right Wing (Ivory & Warm Amber Bounce) -->
+      <path d="M 256 382
+               C 300 374, 368 356, 396 344
+               C 403 341, 406 336, 406 330
+               L 406 206
+               C 406 200, 401 196, 396 198
+               C 362 210, 296 228, 256 232 Z"
+            fill="url(#rightWingGrad)"/>
+
+      <!-- Right Wing Crisp Top Highlight Edge -->
+      <path d="M 395 198 C 362 210, 296 228, 256 232" 
+            stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.95"/>
+    </g>
+
+    <!-- 5. Stylized 'R' Monogram Flow on Right Wing (Refined Micro-Curvature) -->
+    <path d="M 256 232 
+             C 278 200, 318 198, 334 218 
+             C 348 236, 336 260, 310 264
+             C 292 267, 274 266, 256 266" 
+          stroke="url(#goldRibbonGrad)" stroke-width="4.2" stroke-linecap="round" fill="none" opacity="0.88"/>
+
+    <path d="M 298 265 
+             C 316 288, 338 318, 350 338" 
+          stroke="url(#goldRibbonGrad)" stroke-width="4.2" stroke-linecap="round" fill="none" opacity="0.88"/>
+
+    <!-- 6. Golden Spine Ribbon & OCR Alignment Beam -->
+    <g filter="url(#lensGlow)">
+      <!-- Golden Center Bookmark / Spine Laser -->
+      <path d="M 253.5 142 L 258.5 142 L 258.5 394 L 256 402 L 253.5 394 Z" fill="url(#goldRibbonGrad)"/>
+      <!-- Apex Optical Bead -->
+      <circle cx="256" cy="142" r="4.2" fill="#fff8e7"/>
+      <circle cx="256" cy="142" r="2.2" fill="#ffaa00"/>
+    </g>
+
+    <!-- Deep Center Spine Valley Crease -->
+    <path d="M 254.5 232 L 257.5 232 L 256.5 384 L 255.5 384 Z" fill="#000000" opacity="0.45"/>
+
+    <!-- 7. Apple Perimeter Hairline Border -->
+    <path d="M 115 1 C 35 1 1 35 1 115 L 1 397 C 1 477 35 511 115 511 L 397 511 C 477 511 511 477 511 397 L 511 115 C 511 35 477 1 397 1 Z" 
+          fill="none" stroke="rgba(255, 255, 255, 0.17)" stroke-width="1.5"/>
+  </g>
+</svg>

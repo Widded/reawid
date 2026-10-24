@@ -2410,3 +2410,34 @@ function showToast(message, type = 'info') {
 
 // Start
 init();
+
+// Auto-sync PNG icons from vector SVG in dev
+if (import.meta.env.DEV) {
+  const syncIcons = () => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c192 = document.createElement('canvas');
+      c192.width = 192; c192.height = 192;
+      const ctx192 = c192.getContext('2d');
+      ctx192.drawImage(img, 0, 0, 192, 192);
+
+      const c512 = document.createElement('canvas');
+      c512.width = 512; c512.height = 512;
+      const ctx512 = c512.getContext('2d');
+      ctx512.drawImage(img, 0, 0, 512, 512);
+
+      fetch('/api/save-logo-png', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          png192: c192.toDataURL('image/png'),
+          png512: c512.toDataURL('image/png')
+        })
+      }).catch(() => {});
+    };
+    img.src = '/reawid-logo.svg';
+  };
+  setTimeout(syncIcons, 400);
+}
+
