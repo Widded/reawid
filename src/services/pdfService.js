@@ -96,6 +96,18 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
 
     const clean = text.trim();
     if (clean.length > 25) {
+      // Türkçe Karakter Bütünlüğü Kontrolü:
+      // Taranmış PDF'lerin arka planında eski/hatalı OCR katmanları ("degil", "icin", "oldugu", "birkac")
+      // bulunabilir. Eğer Türkçe kelimeler olmasına rağmen özel Türkçe harfler (ç, ğ, ı, ö, ş, ü) yoksa,
+      // bu hatalı katmanı reddet ve yüksek kaliteli Vision AI OCR'a yönlendir!
+      const turkishKeywordRegex = /\b(degil|icin|cunku|oldugu|birkac|simdi|sey|kucuk|buyuk|hicbir|yagmur|dogru|goster|sag|dusun|kitap|yazik|yapil|gore|birlikte)\b/i;
+      const turkishSpecificCount = (clean.match(/[çğışöüÇĞİÖŞÜ]/g) || []).length;
+
+      if (turkishKeywordRegex.test(clean) && turkishSpecificCount < 2) {
+        console.warn(`[PDF Engine] Sayfa ${pageNumber} gömülü metninde Türkçe karakter kaybı tespit edildi (eski/bozuk OCR katmanı). Vision AI ile taranıyor.`);
+        return null;
+      }
+
       const paragraphs = clean
         .split('\n\n')
         .map(p => p.trim())

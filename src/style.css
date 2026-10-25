@@ -955,22 +955,22 @@ textarea,
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #30d158;
+  background: #ffffff;
   margin-left: 2px;
   margin-right: 1px;
   flex-shrink: 0;
-  box-shadow: 0 0 5px rgba(48, 209, 88, 0.7);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.85);
   animation: pulseDot 1.4s ease-in-out infinite;
 }
 
 .reader-bg-ocr-pill.priority-active .pulse-indicator-dot {
-  background: #ff9f0a;
-  box-shadow: 0 0 5px rgba(255, 159, 10, 0.7);
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.95);
 }
 
 .reader-bg-ocr-pill.completed .pulse-indicator-dot {
-  background: #30d158;
-  box-shadow: 0 0 4px rgba(48, 209, 88, 0.5);
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);
   animation: none;
 }
 
@@ -985,6 +985,11 @@ textarea,
   color: #000000;
 }
 
+.reader-screen.theme-acik .pulse-indicator-dot {
+  background: #000000;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
 .reader-screen.theme-sepya .reader-bg-ocr-pill {
   background: rgba(60, 40, 20, 0.08);
   border-color: rgba(60, 40, 20, 0.25);
@@ -993,6 +998,11 @@ textarea,
 
 .reader-screen.theme-sepya .reader-bg-ocr-pill #readerBgOcrText {
   color: #3b2818;
+}
+
+.reader-screen.theme-sepya .pulse-indicator-dot {
+  background: #3b2818;
+  box-shadow: 0 0 4px rgba(59, 40, 24, 0.4);
 }
 
 @keyframes pulseDot {

@@ -16,16 +16,16 @@ export const VISION_CANDIDATE_POOLS = {
   openrouter: [
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash-lite',
-      name: 'OpenRouter (Gemini 2.5 Flash Lite)',
-      tier: 'ultra_fast',
+      model: 'google/gemini-2.5-flash',
+      name: 'OpenRouter (Gemini 2.5 Flash)',
+      tier: 'smart_flagship',
       freeTier: true
     },
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash',
-      name: 'OpenRouter (Gemini 2.5 Flash)',
-      tier: 'smart_flagship',
+      model: 'google/gemini-2.5-flash-lite',
+      name: 'OpenRouter (Gemini 2.5 Flash Lite)',
+      tier: 'ultra_fast',
       freeTier: true
     },
     {
@@ -150,7 +150,10 @@ export function buildSystemPrompt(options = {}) {
 Görseldeki tüm Türkçe yazıları eksiksiz ve sıfır hata ile dijital metne dök.
 
 KURALLAR:
-${strictTurkish ? '1. Türkçe karakterleri (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, İ, Ö, Ş, Ü) ve i/ı ayrımını kusursuz koru.' : ''}
+${strictTurkish ? `1. TÜRKÇE KARAKTERLER (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, İ, Ö, Ş, Ü) HAYATİ ÖNEMDEDİR:
+   - Kesinlikle hiçbir Türkçe karakteri İngilizce benzerleriyle (c, g, i, o, s, u) değiştirme veya atlama.
+   - Noktalı 'i' ve noktasız 'ı' ayrımına azami dikkat göster (örn: "ışık" kelimesini "isik" yapma; "bilir" kelimesini "bılır" yapma).
+   - "değil, çünkü, için, hiçbir, yağmur, doğru, olduğu, büyük, küçük, çocuk, şey, başka, nasıl" gibi Türkçe sözcükleri kusursuz Türkçe imlasıyla yaz.` : ''}
 ${mergeHyphens ? '2. Satır sonu tire ile bölünen kelimeleri birleştir (örn: "yapı-" + "lan" -> "yapılan").' : ''}
 ${ignorePageNumbers ? '3. Tek başına duran sayfa numaralarını veya tekrarlayan başlıkları metne dahil etme.' : ''}
 ${preserveFormatting ? '4. Paragraf yapısını ve bölüm başlıklarını (#) koru.' : ''}
@@ -194,7 +197,7 @@ export async function performOcr({
     imageUrl = `data:image/jpeg;base64,${imageUrl}`;
   }
 
-  const userPrompt = "Lütfen bu görseldeki Türkçe metni talimatlara harfiyen uyarak tam ve eksiksiz olarak metne dök.";
+  const userPrompt = "Bu görseldeki Türkçe metni hiçbir Türkçe karakteri (ç, ğ, ı, ö, ş, ü, Ç, Ğ, İ, Ö, Ş, Ü) atlamadan, kelimesi kelimesine ve eksiksiz olarak metne dök.";
 
   let lastError = null;
 

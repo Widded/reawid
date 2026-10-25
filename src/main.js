@@ -1542,10 +1542,11 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
     const provider = appSettings.activeProvider || 'auto';
     const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
 
-    // Hız ve kalite optimizasyonu: 1.35x DPI (yaklaşık 900-1000px) ve 0.80 JPEG kalitesi
-    // Bu ölçek Türkçe karakter ve noktalama netliğini kusursuz korurken payload boyutunu %85 küçültür ve analizi 3 kat hızlandırır!
-    const canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, 1.35);
-    const pageDataUrl = canvas.toDataURL('image/jpeg', 0.80);
+    // Maksimum Türkçe karakter doğruluğu: 2.0x DPI & 0.93 JPEG kalitesi
+    // Harf noktaları, çengeller (ç, ğ, ı, ö, ş, ü) ve şapkalı harfler sıkıştırma gürültüsünde kaybolmaz
+    const renderScale = appSettings.renderDpi || 2.0;
+    const canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
+    const pageDataUrl = canvas.toDataURL('image/jpeg', 0.93);
 
     const pageText = await performOcr({
       imageBase64: pageDataUrl,
