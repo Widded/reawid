@@ -5,10 +5,13 @@ import confetti from 'canvas-confetti';
 import {
   getSettings,
   saveSettings,
-  getHistory,
-  saveHistoryItem,
-  deleteHistoryItem,
-  clearHistory,
+  getNotes,
+  saveNote,
+  deleteNote,
+  clearNotes,
+  exportAllData,
+  importAllData,
+  clearAppCache,
   getBooks,
   saveBook,
   getCurrentBook,
@@ -98,6 +101,12 @@ let currentLibrarySearchQuery = '';
 let activeCardActionBookId = null;
 let previousActiveTab = 'home';
 
+// Notlarım (My Notes) State & System State
+let currentNotesFilter = 'all'; // 'all' | 'quote' | 'note' | 'bookmark'
+let currentNotesSearchQuery = '';
+let currentNoteModalType = 'note'; // 'note' | 'quote' | 'bookmark'
+let wakeLockSentinel = null;
+
 /* ==========================================================================
    DOM Elements
    ========================================================================== */
@@ -105,9 +114,10 @@ const el = {
   // Screens
   homeView: document.getElementById('homeView'),
   libraryViewScreen: document.getElementById('libraryViewScreen'),
+  notesViewScreen: document.getElementById('notesViewScreen'),
+  settingsViewScreen: document.getElementById('settingsViewScreen'),
   inAppReaderView: document.getElementById('inAppReaderView'),
   conversionModal: document.getElementById('conversionModal'),
-  historyDrawer: document.getElementById('historyDrawer'),
   toastContainer: document.getElementById('toastContainer'),
 
   // Kitaplığım (My Library) Elements
@@ -160,7 +170,7 @@ const el = {
   // Bottom Navigation
   navHome: document.getElementById('navHome'),
   navLibrary: document.getElementById('navLibrary'),
-  navHistory: document.getElementById('navHistory'),
+  navNotes: document.getElementById('navNotes'),
   navSettings: document.getElementById('navSettings'),
 
   // Hidden Inputs
@@ -274,26 +284,42 @@ const el = {
   btnCopyText: document.getElementById('btnCopyText'),
   btnSaveToLibrary: document.getElementById('btnSaveToLibrary'),
 
-  // History Drawer Elements
-  btnCloseHistory: document.getElementById('btnCloseHistory'),
-  historyListContainer: document.getElementById('historyListContainer'),
-  btnClearAllHistory: document.getElementById('btnClearAllHistory'),
+  // Notes View Screen Elements
+  btnNotesNewNote: document.getElementById('btnNotesNewNote'),
+  notesSearchInput: document.getElementById('notesSearchInput'),
+  btnClearNotesSearch: document.getElementById('btnClearNotesSearch'),
+  notesFilterPills: document.getElementById('notesFilterPills'),
+  notesCountBadge: document.getElementById('notesCountBadge'),
+  notesListContainer: document.getElementById('notesListContainer'),
 
-  // Settings Drawer Elements
-  settingsDrawer: document.getElementById('settingsDrawer'),
-  btnCloseSettings: document.getElementById('btnCloseSettings'),
-  settingsProviderPills: document.getElementById('settingsProviderPills'),
-  settingsProviderHint: document.getElementById('settingsProviderHint'),
-  settingsModelSelect: document.getElementById('settingsModelSelect'),
-  settingsApiHealthBadge: document.getElementById('settingsApiHealthBadge'),
-  inputSettingsGroqKey: document.getElementById('inputSettingsGroqKey'),
-  inputSettingsOrKey: document.getElementById('inputSettingsOrKey'),
-  btnTestApiConnection: document.getElementById('btnTestApiConnection'),
-  testConnectionResult: document.getElementById('testConnectionResult'),
-  checkStrictTurkish: document.getElementById('checkStrictTurkish'),
-  checkMergeHyphens: document.getElementById('checkMergeHyphens'),
-  checkIgnorePageNums: document.getElementById('checkIgnorePageNums'),
-  btnSaveSettings: document.getElementById('btnSaveSettings'),
+  // Settings View Screen Elements
+  settingsThemeSelector: document.getElementById('settingsThemeSelector'),
+  badgeCurrentTheme: document.getElementById('badgeCurrentTheme'),
+  settingsFontSelector: document.getElementById('settingsFontSelector'),
+  setWakeLock: document.getElementById('setWakeLock'),
+  setAutoNightMode: document.getElementById('setAutoNightMode'),
+  setAutoPrefetch: document.getElementById('setAutoPrefetch'),
+  setMergeHyphens: document.getElementById('setMergeHyphens'),
+  setIgnorePageNums: document.getElementById('setIgnorePageNums'),
+  badgeTtsSpeed: document.getElementById('badgeTtsSpeed'),
+  settingsTtsSelector: document.getElementById('settingsTtsSelector'),
+  setOfflineCache: document.getElementById('setOfflineCache'),
+  btnExportData: document.getElementById('btnExportData'),
+  btnImportData: document.getElementById('btnImportData'),
+  fileInputBackup: document.getElementById('fileInputBackup'),
+  btnClearCache: document.getElementById('btnClearCache'),
+
+  // Add Note Modal Elements
+  addNoteModal: document.getElementById('addNoteModal'),
+  addNoteModalTitle: document.getElementById('addNoteModalTitle'),
+  addNoteBookTag: document.getElementById('addNoteBookTag'),
+  btnCloseNoteModal: document.getElementById('btnCloseNoteModal'),
+  noteQuotePreviewBox: document.getElementById('noteQuotePreviewBox'),
+  noteQuotePreviewText: document.getElementById('noteQuotePreviewText'),
+  noteModalTypeChips: document.getElementById('noteModalTypeChips'),
+  inputUserNote: document.getElementById('inputUserNote'),
+  btnCancelNoteModal: document.getElementById('btnCancelNoteModal'),
+  btnSaveNoteSubmit: document.getElementById('btnSaveNoteSubmit'),
 
   // PWA
   btnPwaInstall: document.getElementById('btnPwaInstall')
@@ -589,13 +615,17 @@ function closeLibraryHeaderMenu() {
 /* ==========================================================================
    In-App Reader Engine (Apple Books Style)
    ========================================================================== */
-function openBookInReader(book) {
+function openBookInReader(book, targetPage = null) {
   if (!book) return;
   currentActiveBook = book;
   setCurrentBook(book.id);
 
-  currentReaderPage = book.currentPage || (book.id === 'book_insan_ne_ile_yasar' ? 3 : 1);
   currentTotalPages = book.totalPages || 1;
+  if (targetPage !== null && targetPage !== undefined) {
+    currentReaderPage = Math.max(1, Math.min(currentTotalPages, Number(targetPage)));
+  } else {
+    currentReaderPage = book.currentPage || (book.id === 'book_insan_ne_ile_yasar' ? 3 : 1);
+  }
 
   el.readerHeaderTitle.textContent = book.title;
   if (el.readerHeaderAuthor) el.readerHeaderAuthor.textContent = book.author || 'Kişisel Belge';
@@ -608,13 +638,14 @@ function openBookInReader(book) {
   // Render Page Content
   renderReaderPage(currentReaderPage);
 
-  // Apply Theme & Typography Preferences
+  // Apply Theme & Typography Preferences from Settings
+  if (appSettings.defaultTheme) currentReaderTheme = appSettings.defaultTheme;
+  if (appSettings.defaultFont) currentReaderFont = appSettings.defaultFont;
   applyReaderTheme(currentReaderTheme);
   applyReaderTypography();
 
-  // Reset bookmark icon state
-  isBookmarked = false;
-  if (el.bookmarkIconSvg) el.bookmarkIconSvg.setAttribute('fill', 'none');
+  // Screen Wake Lock request
+  requestWakeLock();
 
   // Display Reader Screen
   el.inAppReaderView.classList.remove('hidden');
@@ -626,6 +657,7 @@ function openBookInReader(book) {
 
 function closeReader() {
   stopSpeech();
+  releaseWakeLock();
   el.inAppReaderView.classList.add('hidden');
   closeComparisonView();
   closeMoreMenu();
@@ -633,19 +665,7 @@ function closeReader() {
   closeSettingsSheet();
   closeBookCardActionSheet();
 
-  if (previousActiveTab === 'library') {
-    el.homeView.classList.add('hidden');
-    el.libraryViewScreen.classList.remove('hidden');
-    el.navLibrary.classList.add('active');
-    el.navHome.classList.remove('active');
-    renderLibraryScreen();
-  } else {
-    el.homeView.classList.remove('hidden');
-    el.libraryViewScreen.classList.add('hidden');
-    el.navHome.classList.add('active');
-    el.navLibrary.classList.remove('active');
-    renderHomeScreen();
-  }
+  switchBottomTab(previousActiveTab || 'home');
 }
 
 function renderReaderPage(pageNum) {
@@ -656,6 +676,13 @@ function renderReaderPage(pageNum) {
   // Update book progress in storage
   const progressPercent = Math.round((currentReaderPage / currentTotalPages) * 100);
   updateBookProgress(currentActiveBook.id, progressPercent, currentReaderPage);
+
+  // Sync bookmark icon state with storage
+  if (currentActiveBook && el.bookmarkIconSvg) {
+    const existingBookmark = getNotes().find(n => n.bookId === currentActiveBook.id && Number(n.pageNumber) === currentReaderPage && n.type === 'bookmark');
+    isBookmarked = Boolean(existingBookmark);
+    el.bookmarkIconSvg.setAttribute('fill', isBookmarked ? 'currentColor' : 'none');
+  }
 
   // Retrieve Page Content
   let paragraphs = [];
@@ -803,13 +830,26 @@ function closeReaderSearch() {
 }
 
 function toggleBookmark() {
-  isBookmarked = !isBookmarked;
-  if (isBookmarked) {
-    el.bookmarkIconSvg.setAttribute('fill', 'currentColor');
-    showToast(`Sayfa ${currentReaderPage} yer imlerine eklendi`, 'success');
+  if (!currentActiveBook) return;
+  const existingBookmark = getNotes().find(n => n.bookId === currentActiveBook.id && Number(n.pageNumber) === currentReaderPage && n.type === 'bookmark');
+  if (existingBookmark) {
+    deleteNote(existingBookmark.id);
+    isBookmarked = false;
+    if (el.bookmarkIconSvg) el.bookmarkIconSvg.setAttribute('fill', 'none');
+    showToast(`Sayfa ${currentReaderPage} yer imi kaldırıldı`, 'info');
   } else {
-    el.bookmarkIconSvg.setAttribute('fill', 'none');
-    showToast('Yer imi kaldırıldı', 'info');
+    saveNote({
+      bookId: currentActiveBook.id,
+      bookTitle: currentActiveBook.title,
+      bookAuthor: currentActiveBook.author,
+      pageNumber: currentReaderPage,
+      type: 'bookmark',
+      text: `Sayfa ${currentReaderPage} Yer İmi`,
+      userNote: ''
+    });
+    isBookmarked = true;
+    if (el.bookmarkIconSvg) el.bookmarkIconSvg.setAttribute('fill', 'currentColor');
+    showToast(`Sayfa ${currentReaderPage} yer imlerine eklendi`, 'success');
   }
 }
 
@@ -1024,7 +1064,7 @@ function setupEventListeners() {
   });
   el.popoverAddNote.addEventListener('click', () => {
     closeMoreMenu();
-    showToast(`Sayfa ${currentReaderPage} için not eklendi`, 'success');
+    openAddNoteModal('note');
   });
   el.popoverCopyText.addEventListener('click', async () => {
     closeMoreMenu();
@@ -1187,9 +1227,9 @@ function setupEventListeners() {
   el.btnCopyText.addEventListener('click', handleCopyText);
   el.btnSaveToLibrary.addEventListener('click', handleSaveOcrToLibrary);
 
-  // History Drawer Events
-  el.btnCloseHistory.addEventListener('click', closeHistoryDrawer);
-  el.btnClearAllHistory.addEventListener('click', handleClearHistory);
+  // Notes & Settings Page Events
+  setupNotesScreenEvents();
+  setupSettingsScreenEvents();
 
   // Kitaplığım (My Library) Search & Filter Events
   if (el.librarySearchInput) {
@@ -1348,92 +1388,47 @@ function setupEventListeners() {
     }
   });
 
-  // Settings Drawer Events
-  if (el.btnCloseSettings) {
-    el.btnCloseSettings.addEventListener('click', closeSettingsDrawer);
-  }
-  if (el.settingsDrawer) {
-    el.settingsDrawer.addEventListener('click', (e) => {
-      if (e.target === el.settingsDrawer) {
-        closeSettingsDrawer();
-      }
-    });
-  }
-
-  // Settings Provider Pills
-  if (el.settingsProviderPills) {
-    el.settingsProviderPills.querySelectorAll('.provider-pill').forEach(pill => {
-      pill.addEventListener('click', () => {
-        el.settingsProviderPills.querySelectorAll('.provider-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        const selectedProv = pill.dataset.provider || 'auto';
-        appSettings.activeProvider = selectedProv;
-        updateSettingsProviderHint(selectedProv);
-        populateModelSelect();
-        updateApiHealthBadge();
-      });
-    });
-  }
-
-  // Model select change in settings
-  if (el.settingsModelSelect) {
-    el.settingsModelSelect.addEventListener('change', (e) => {
-      const modelVal = e.target.value;
-      if (appSettings.activeProvider === 'groq') {
-        appSettings.groqModel = modelVal;
-      } else {
-        appSettings.openrouterModel = modelVal;
-      }
-    });
-  }
-
-  // Save settings button
-  if (el.btnSaveSettings) {
-    el.btnSaveSettings.addEventListener('click', handleSaveSettingsClick);
-  }
-
   // Bottom Navigation Tabs
   el.navHome.addEventListener('click', () => switchBottomTab('home'));
   el.navLibrary.addEventListener('click', () => switchBottomTab('library'));
-  el.navHistory.addEventListener('click', () => switchBottomTab('history'));
+  el.navNotes.addEventListener('click', () => switchBottomTab('notes'));
   el.navSettings.addEventListener('click', () => switchBottomTab('settings'));
 }
 
 function switchBottomTab(tab) {
-  [el.navHome, el.navLibrary, el.navHistory, el.navSettings].forEach(t => t.classList.remove('active'));
+  [el.navHome, el.navLibrary, el.navNotes, el.navSettings].forEach(t => t && t.classList.remove('active'));
+
+  // Hide all screens
+  if (el.homeView) el.homeView.classList.add('hidden');
+  if (el.libraryViewScreen) el.libraryViewScreen.classList.add('hidden');
+  if (el.notesViewScreen) el.notesViewScreen.classList.add('hidden');
+  if (el.settingsViewScreen) el.settingsViewScreen.classList.add('hidden');
+
+  closeConversionModal();
+  closeBookCardActionSheet();
+  closeLibraryHeaderMenu();
+  closeAddNoteModal();
 
   if (tab === 'home') {
     previousActiveTab = 'home';
-    el.navHome.classList.add('active');
-    el.homeView.classList.remove('hidden');
-    el.libraryViewScreen.classList.add('hidden');
-    closeConversionModal();
-    closeHistoryDrawer();
-    closeSettingsDrawer();
-    closeBookCardActionSheet();
-    closeLibraryHeaderMenu();
-    closeReader();
+    if (el.navHome) el.navHome.classList.add('active');
+    if (el.homeView) el.homeView.classList.remove('hidden');
     renderHomeScreen();
   } else if (tab === 'library') {
     previousActiveTab = 'library';
-    el.navLibrary.classList.add('active');
-    el.homeView.classList.add('hidden');
-    el.libraryViewScreen.classList.remove('hidden');
-    closeConversionModal();
-    closeHistoryDrawer();
-    closeSettingsDrawer();
-    closeBookCardActionSheet();
-    closeLibraryHeaderMenu();
-    closeReader();
+    if (el.navLibrary) el.navLibrary.classList.add('active');
+    if (el.libraryViewScreen) el.libraryViewScreen.classList.remove('hidden');
     renderLibraryScreen();
-  } else if (tab === 'history') {
-    el.navHistory.classList.add('active');
-    closeSettingsDrawer();
-    openHistoryDrawer();
+  } else if (tab === 'notes') {
+    previousActiveTab = 'notes';
+    if (el.navNotes) el.navNotes.classList.add('active');
+    if (el.notesViewScreen) el.notesViewScreen.classList.remove('hidden');
+    renderNotesScreen();
   } else if (tab === 'settings') {
-    el.navSettings.classList.add('active');
-    closeHistoryDrawer();
-    openSettingsDrawer();
+    previousActiveTab = 'settings';
+    if (el.navSettings) el.navSettings.classList.add('active');
+    if (el.settingsViewScreen) el.settingsViewScreen.classList.remove('hidden');
+    renderSettingsScreen();
   }
 }
 
@@ -2201,113 +2196,516 @@ function handleSaveOcrToLibrary() {
 }
 
 /* ==========================================================================
-   History Drawer
+   Screen Wake Lock Controller (Uninterrupted Reading)
    ========================================================================== */
-function openHistoryDrawer() {
-  const history = getHistory();
-  el.historyListContainer.innerHTML = '';
+async function requestWakeLock() {
+  if ('wakeLock' in navigator && appSettings.keepScreenAwake) {
+    try {
+      if (!wakeLockSentinel) {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+          wakeLockSentinel = null;
+        });
+      }
+    } catch (err) {
+      console.log('Screen Wake Lock error or not supported:', err);
+    }
+  }
+}
 
-  if (history.length === 0) {
-    el.historyListContainer.innerHTML = '<p style="text-align: center; color: var(--text-tertiary); padding: 30px;">Kayıt bulunamadı.</p>';
-  } else {
-    history.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'history-item';
-      div.innerHTML = `
-        <img src="${item.thumbnail || '/cover-1.jpg'}" class="history-thumb" alt="Kapak">
-        <div class="history-info">
-          <h4 class="history-title">${item.title}</h4>
-          <p class="history-snippet">${item.text}</p>
-          <div class="history-meta">
-            <span>${item.wordCount} kelime</span>
-            <span>${new Date(item.timestamp).toLocaleDateString('tr-TR')}</span>
-          </div>
+function releaseWakeLock() {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release().catch(() => {});
+    wakeLockSentinel = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && el.inAppReaderView && !el.inAppReaderView.classList.contains('hidden')) {
+    requestWakeLock();
+  }
+});
+
+/* ==========================================================================
+   Notlarım (Notes, Quotes & Bookmarks) Screen Controller
+   ========================================================================== */
+function renderNotesScreen() {
+  if (!el.notesListContainer) return;
+  const allNotes = getNotes();
+
+  // 1. Filter by category
+  let filtered = allNotes;
+  if (currentNotesFilter && currentNotesFilter !== 'all') {
+    filtered = filtered.filter(n => n.type === currentNotesFilter);
+  }
+
+  // 2. Filter by search query
+  if (currentNotesSearchQuery) {
+    const q = currentNotesSearchQuery.toLowerCase();
+    filtered = filtered.filter(n =>
+      (n.text && n.text.toLowerCase().includes(q)) ||
+      (n.userNote && n.userNote.toLowerCase().includes(q)) ||
+      (n.bookTitle && n.bookTitle.toLowerCase().includes(q)) ||
+      (n.bookAuthor && n.bookAuthor.toLowerCase().includes(q))
+    );
+  }
+
+  // 3. Update count badge
+  if (el.notesCountBadge) {
+    el.notesCountBadge.textContent = `${filtered.length} Not`;
+  }
+
+  el.notesListContainer.innerHTML = '';
+
+  // 4. Empty State
+  if (filtered.length === 0) {
+    el.notesListContainer.innerHTML = `
+      <div class="notes-empty-state">
+        <div class="notes-empty-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </div>
+        <h3 class="notes-empty-title">Henüz Not veya Alıntı Yok</h3>
+        <p class="notes-empty-desc">
+          ${currentNotesSearchQuery ? 'Aramanızla eşleşen not bulunamadı.' : 'Kitap okurken metin seçerek alıntı yapabilir, sayfa ekleyebilir veya düşüncelerinizi kaydedebilirsiniz.'}
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // 5. Render Notes Cards
+  filtered.forEach(note => {
+    const card = document.createElement('div');
+    card.className = 'note-card-item';
+
+    const typeConfig = {
+      quote: { label: 'Alıntı', badgeClass: 'type-quote', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>' },
+      note: { label: 'Not', badgeClass: 'type-note', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path></svg>' },
+      bookmark: { label: 'Yer İmi', badgeClass: 'type-bookmark', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>' }
+    }[note.type || 'note'] || { label: 'Not', badgeClass: 'type-note', icon: '' };
+
+    const escape = (str) => {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+
+    let bodyHtml = '';
+    if (note.text) {
+      bodyHtml += `<blockquote class="note-quote-box">"${escape(note.text)}"</blockquote>`;
+    }
+    if (note.userNote) {
+      bodyHtml += `
+        <div class="note-user-comment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <div>${escape(note.userNote)}</div>
         </div>
       `;
-      div.addEventListener('click', () => {
-        closeHistoryDrawer();
-        openBookInReader({
-          id: item.id,
-          title: item.title,
-          author: 'Taranan Doküman',
-          cover: item.thumbnail,
-          content: item.text,
-          totalPages: 1,
-          progress: 0
-        });
-      });
-      el.historyListContainer.appendChild(div);
+    }
+
+    card.innerHTML = `
+      <div class="note-card-header">
+        <div class="note-book-tag" title="${escape(note.bookTitle)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          <span>${escape(note.bookTitle)} · Sayfa ${note.pageNumber || 1}</span>
+        </div>
+        <span class="note-type-pill ${typeConfig.badgeClass}">
+          ${typeConfig.icon}
+          <span>${typeConfig.label}</span>
+        </span>
+      </div>
+
+      <div class="note-card-content">
+        ${bodyHtml}
+      </div>
+
+      <div class="note-card-footer">
+        <span class="note-date-text">${note.dateFormatted || ''}</span>
+        <div class="note-actions-row">
+          <button type="button" class="btn-note-action action-open" title="Kitapta Aç">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            <span>Kitapta Aç</span>
+          </button>
+          <button type="button" class="btn-note-action action-copy" title="Kopyala">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Kopyala</span>
+          </button>
+          <button type="button" class="btn-note-action action-delete" title="Sil">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+
+    card.querySelector('.action-open').addEventListener('click', () => {
+      const books = getBooks();
+      let targetBook = books.find(b => b.id === note.bookId);
+      if (!targetBook) {
+        targetBook = books[0] || getCurrentBook();
+      }
+      if (targetBook) {
+        openBookInReader(targetBook, note.pageNumber);
+      }
+    });
+
+    card.querySelector('.action-copy').addEventListener('click', async () => {
+      const copyText = [note.text, note.userNote].filter(Boolean).join('\n\n');
+      if (copyText) {
+        await navigator.clipboard.writeText(copyText);
+        showToast('Not panoya kopyalandı', 'success');
+      }
+    });
+
+    card.querySelector('.action-delete').addEventListener('click', () => {
+      deleteNote(note.id);
+      showToast('Not silindi', 'info');
+      renderNotesScreen();
+    });
+
+    el.notesListContainer.appendChild(card);
+  });
+}
+
+function openAddNoteModal(initialType = 'note') {
+  if (!el.addNoteModal) return;
+  const book = currentActiveBook || getCurrentBook() || { title: 'Kitap', author: '' };
+
+  if (el.addNoteBookTag) {
+    el.addNoteBookTag.textContent = `${book.title} · Sayfa ${currentReaderPage}`;
+  }
+
+  // Check highlighted text
+  const selectedText = window.getSelection()?.toString().trim() || '';
+  if (selectedText) {
+    if (el.noteQuotePreviewBox) el.noteQuotePreviewBox.classList.remove('hidden');
+    if (el.noteQuotePreviewText) el.noteQuotePreviewText.textContent = selectedText;
+    currentNoteModalType = 'quote';
+  } else {
+    if (el.noteQuotePreviewBox) el.noteQuotePreviewBox.classList.add('hidden');
+    if (el.noteQuotePreviewText) el.noteQuotePreviewText.textContent = '';
+    currentNoteModalType = initialType;
+  }
+
+  if (el.noteModalTypeChips) {
+    el.noteModalTypeChips.querySelectorAll('.note-type-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.type === currentNoteModalType);
     });
   }
 
-  el.historyDrawer.classList.remove('hidden');
+  if (el.inputUserNote) {
+    el.inputUserNote.value = '';
+    setTimeout(() => el.inputUserNote.focus(), 150);
+  }
+
+  el.addNoteModal.classList.remove('hidden');
 }
 
-function closeHistoryDrawer() {
-  el.historyDrawer.classList.add('hidden');
+function closeAddNoteModal() {
+  if (el.addNoteModal) el.addNoteModal.classList.add('hidden');
 }
 
-function handleClearHistory() {
-  if (confirm('Tüm geçmişi silmek istediğinizden emin misiniz?')) {
-    clearHistory();
-    openHistoryDrawer();
-    showToast('Geçmiş silindi', 'info');
+function handleSaveNoteSubmit() {
+  const book = currentActiveBook || getCurrentBook();
+  const quoteText = el.noteQuotePreviewText ? el.noteQuotePreviewText.textContent.trim() : '';
+  const userText = el.inputUserNote ? el.inputUserNote.value.trim() : '';
+
+  if (!quoteText && !userText && currentNoteModalType !== 'bookmark') {
+    showToast('Lütfen bir not veya alıntı metni girin', 'info');
+    return;
+  }
+
+  saveNote({
+    bookId: book ? book.id : '',
+    bookTitle: book ? book.title : 'Not',
+    bookAuthor: book ? book.author : '',
+    pageNumber: currentReaderPage || 1,
+    type: currentNoteModalType || 'note',
+    text: quoteText || (currentNoteModalType === 'bookmark' ? `Sayfa ${currentReaderPage} Yer İmi` : ''),
+    userNote: userText
+  });
+
+  closeAddNoteModal();
+  showToast('Not kaydedildi!', 'success');
+  if (el.notesViewScreen && !el.notesViewScreen.classList.contains('hidden')) {
+    renderNotesScreen();
+  }
+}
+
+function setupNotesScreenEvents() {
+  if (el.btnNotesNewNote) {
+    el.btnNotesNewNote.addEventListener('click', () => openAddNoteModal('note'));
+  }
+
+  if (el.notesSearchInput) {
+    el.notesSearchInput.addEventListener('input', (e) => {
+      currentNotesSearchQuery = e.target.value.trim();
+      if (el.btnClearNotesSearch) {
+        el.btnClearNotesSearch.classList.toggle('hidden', !currentNotesSearchQuery);
+      }
+      renderNotesScreen();
+    });
+  }
+
+  if (el.btnClearNotesSearch) {
+    el.btnClearNotesSearch.addEventListener('click', () => {
+      if (el.notesSearchInput) el.notesSearchInput.value = '';
+      currentNotesSearchQuery = '';
+      el.btnClearNotesSearch.classList.add('hidden');
+      renderNotesScreen();
+    });
+  }
+
+  if (el.notesFilterPills) {
+    el.notesFilterPills.querySelectorAll('.filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        el.notesFilterPills.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentNotesFilter = pill.dataset.filter || 'all';
+        renderNotesScreen();
+      });
+    });
+  }
+
+  if (el.btnCloseNoteModal) el.btnCloseNoteModal.addEventListener('click', closeAddNoteModal);
+  if (el.btnCancelNoteModal) el.btnCancelNoteModal.addEventListener('click', closeAddNoteModal);
+  if (el.addNoteModal) {
+    el.addNoteModal.addEventListener('click', (e) => {
+      if (e.target === el.addNoteModal) closeAddNoteModal();
+    });
+  }
+
+  if (el.noteModalTypeChips) {
+    el.noteModalTypeChips.querySelectorAll('.note-type-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        el.noteModalTypeChips.querySelectorAll('.note-type-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentNoteModalType = chip.dataset.type || 'note';
+      });
+    });
+  }
+
+  if (el.btnSaveNoteSubmit) {
+    el.btnSaveNoteSubmit.addEventListener('click', handleSaveNoteSubmit);
   }
 }
 
 /* ==========================================================================
-   Settings Drawer (AI Model & Dynamic Routing Controls)
+   Ayarlar (Settings & Preferences) Screen Controller (Apple iOS Inset Style)
    ========================================================================== */
-function openSettingsDrawer() {
-  if (!el.settingsDrawer) return;
-
+function renderSettingsScreen() {
   appSettings = getSettings();
-  const activeProv = appSettings.activeProvider || 'auto';
 
-  if (el.settingsProviderPills) {
-    el.settingsProviderPills.querySelectorAll('.provider-pill').forEach(pill => {
-      if (pill.dataset.provider === activeProv) {
-        pill.classList.add('active');
+  // 1. Theme Selector
+  if (el.settingsThemeSelector) {
+    el.settingsThemeSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === (appSettings.defaultTheme || 'koyu'));
+    });
+  }
+  if (el.badgeCurrentTheme) {
+    const themeNames = { koyu: 'Koyu (OLED)', acik: 'Açık', sepya: 'Sepya' };
+    el.badgeCurrentTheme.textContent = themeNames[appSettings.defaultTheme] || 'Koyu (OLED)';
+  }
+
+  // 2. Font Selector
+  if (el.settingsFontSelector) {
+    el.settingsFontSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.font === (appSettings.defaultFont || 'serif'));
+    });
+  }
+
+  // 3. Toggles
+  if (el.setWakeLock) el.setWakeLock.checked = appSettings.keepScreenAwake !== false;
+  if (el.setAutoNightMode) el.setAutoNightMode.checked = appSettings.autoNightMode !== false;
+  if (el.setAutoPrefetch) el.setAutoPrefetch.checked = appSettings.autoPrefetch !== false;
+  if (el.setMergeHyphens) el.setMergeHyphens.checked = appSettings.mergeHyphenatedWords !== false;
+  if (el.setIgnorePageNums) el.setIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
+  if (el.setOfflineCache) el.setOfflineCache.checked = appSettings.offlineCache !== false;
+
+  // 4. TTS Speed Selector
+  const currentSpeed = String(appSettings.ttsSpeed || 1.0);
+  if (el.settingsTtsSelector) {
+    el.settingsTtsSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.speed === currentSpeed);
+    });
+  }
+  if (el.badgeTtsSpeed) {
+    el.badgeTtsSpeed.textContent = `${currentSpeed}x`;
+  }
+}
+
+function setupSettingsScreenEvents() {
+  // Theme selector
+  if (el.settingsThemeSelector) {
+    el.settingsThemeSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const theme = btn.dataset.theme;
+        appSettings.defaultTheme = theme;
+        currentReaderTheme = theme;
+        saveSettings(appSettings);
+        applyReaderTheme(theme);
+        renderSettingsScreen();
+        showToast(`Tema: ${btn.textContent}`, 'success');
+      });
+    });
+  }
+
+  // Font selector
+  if (el.settingsFontSelector) {
+    el.settingsFontSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const font = btn.dataset.font;
+        appSettings.defaultFont = font;
+        currentReaderFont = font;
+        saveSettings(appSettings);
+        applyReaderFont(font);
+        renderSettingsScreen();
+        showToast(`Yazı tipi: ${btn.textContent}`, 'success');
+      });
+    });
+  }
+
+  // Wake lock toggle
+  if (el.setWakeLock) {
+    el.setWakeLock.addEventListener('change', (e) => {
+      appSettings.keepScreenAwake = e.target.checked;
+      saveSettings(appSettings);
+      if (appSettings.keepScreenAwake) {
+        requestWakeLock();
+        showToast('Ekran sürekli açık tutulacak', 'success');
       } else {
-        pill.classList.remove('active');
+        releaseWakeLock();
+        showToast('Ekran uyanık tutma devre dışı', 'info');
       }
     });
   }
 
-  updateSettingsProviderHint(activeProv);
-  populateModelSelect();
-
-  if (el.checkStrictTurkish) el.checkStrictTurkish.checked = appSettings.strictTurkish !== false;
-  if (el.checkMergeHyphens) el.checkMergeHyphens.checked = appSettings.mergeHyphenatedWords !== false;
-  if (el.checkIgnorePageNums) el.checkIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
-
-  el.settingsDrawer.classList.remove('hidden');
-}
-
-function closeSettingsDrawer() {
-  if (el.settingsDrawer) el.settingsDrawer.classList.add('hidden');
-}
-
-function updateSettingsProviderHint(provider) {
-  if (!el.settingsProviderHint) return;
-  if (provider === 'auto') {
-    el.settingsProviderHint.innerHTML = `<strong>Otomatik Dinamik:</strong> En hızlı ve en güçlü model havuzunu kullanır (Groq LPU öncelikli). Model yoğunsa veya kota sınırına ulaşırsa anında OpenRouter modellerine kesintisiz aktarılır.`;
-  } else if (provider === 'openrouter') {
-    el.settingsProviderHint.innerHTML = `<strong>OpenRouter Çoklu Model:</strong> Google Gemini 2.5 Flash, Flash Lite ve Qwen 2.5 VL modelleri arasında sunucu yoğunluğuna göre dinamik geçiş yapar.`;
-  } else if (provider === 'groq') {
-    el.settingsProviderHint.innerHTML = `<strong>Groq LPU:</strong> Qwen 3.8 27B Vision ile ultra hızlı LPU çıkarımı. Kota aşımında yedek modele veya OpenRouter'a aktarır.`;
+  // Auto night mode
+  if (el.setAutoNightMode) {
+    el.setAutoNightMode.addEventListener('change', (e) => {
+      appSettings.autoNightMode = e.target.checked;
+      saveSettings(appSettings);
+      showToast(e.target.checked ? 'Otomatik Gece Modu aktif' : 'Otomatik Gece Modu kapatıldı', 'info');
+    });
   }
-}
 
-function handleSaveSettingsClick() {
-  if (el.checkStrictTurkish) appSettings.strictTurkish = el.checkStrictTurkish.checked;
-  if (el.checkMergeHyphens) appSettings.mergeHyphenatedWords = el.checkMergeHyphens.checked;
-  if (el.checkIgnorePageNums) appSettings.ignorePageNumbers = el.checkIgnorePageNums.checked;
+  // Smart prefetch
+  if (el.setAutoPrefetch) {
+    el.setAutoPrefetch.addEventListener('change', (e) => {
+      appSettings.autoPrefetch = e.target.checked;
+      saveSettings(appSettings);
+      showToast(e.target.checked ? 'Arka planda sayfa yükleme açık' : 'Arka planda yükleme kapalı', 'info');
+    });
+  }
 
-  saveSettings(appSettings);
-  populateModelSelect();
-  closeSettingsDrawer();
-  showToast('Ayarlar başarıyla kaydedildi.', 'success');
+  // Merge hyphens
+  if (el.setMergeHyphens) {
+    el.setMergeHyphens.addEventListener('change', (e) => {
+      appSettings.mergeHyphenatedWords = e.target.checked;
+      saveSettings(appSettings);
+    });
+  }
+
+  // Ignore page numbers
+  if (el.setIgnorePageNums) {
+    el.setIgnorePageNums.addEventListener('change', (e) => {
+      appSettings.ignorePageNumbers = e.target.checked;
+      saveSettings(appSettings);
+    });
+  }
+
+  // TTS speed
+  if (el.settingsTtsSelector) {
+    el.settingsTtsSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const speed = Number(btn.dataset.speed) || 1.0;
+        appSettings.ttsSpeed = speed;
+        saveSettings(appSettings);
+        renderSettingsScreen();
+        showToast(`Ses hızı ${speed}x olarak ayarlandı`, 'info');
+      });
+    });
+  }
+
+  // Offline cache
+  if (el.setOfflineCache) {
+    el.setOfflineCache.addEventListener('change', (e) => {
+      appSettings.offlineCache = e.target.checked;
+      saveSettings(appSettings);
+      showToast(e.target.checked ? 'Çevrimdışı önbellek açık' : 'Çevrimdışı önbellek kapalı', 'info');
+    });
+  }
+
+  // Export Data
+  if (el.btnExportData) {
+    el.btnExportData.addEventListener('click', () => {
+      const json = exportAllData();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reawid-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Yedek JSON başarıyla indirildi!', 'success');
+    });
+  }
+
+  // Import Data
+  if (el.btnImportData && el.fileInputBackup) {
+    el.btnImportData.addEventListener('click', () => {
+      el.fileInputBackup.click();
+    });
+
+    el.fileInputBackup.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const res = importAllData(event.target.result);
+        if (res.success) {
+          showToast(res.message, 'success');
+          renderHomeScreen();
+          renderLibraryScreen();
+          renderNotesScreen();
+          renderSettingsScreen();
+        } else {
+          showToast(res.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  }
+
+  // Clear cache
+  if (el.btnClearCache) {
+    el.btnClearCache.addEventListener('click', () => {
+      if (confirm('Geçici oturum ve OCR önbelleği temizlensin mi? (Kayıtlı kitap ve notlarınız silinmez)')) {
+        clearAppCache();
+        showToast('Geçici önbellek temizlendi.', 'success');
+      }
+    });
+  }
 }
 
 /* ==========================================================================

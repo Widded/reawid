@@ -12,17 +12,28 @@ const ENV_GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL || import.meta.env.EXPO_P
 const ENV_OPENROUTER_MODEL = import.meta.env.VITE_OPENROUTER_MODEL || import.meta.env.EXPO_PUBLIC_OPENROUTER_MODEL || 'auto';
 
 export const DEFAULT_SETTINGS = {
-  activeProvider: ENV_ACTIVE_PROVIDER, // 'auto' | 'openrouter' | 'groq'
+  // Reading & Display Experience
+  defaultTheme: 'koyu', // 'koyu' | 'acik' | 'sepya'
+  defaultFont: 'serif', // 'serif' | 'sans' | 'mono'
+  defaultFontSize: 'xl', // 'sm' | 'md' | 'lg' | 'xl'
+  autoNightMode: true,
+  keepScreenAwake: true, // Screen Wake Lock API for uninterrupted reading
+  autoPrefetch: true, // Background next-page preloading
+  mergeHyphenatedWords: true, // Matbaa tirelerini birleştir
+  ignorePageNumbers: true, // Sayfa numaralarını ve başlıkları gizle
+  ttsSpeed: 1.0, // 0.8, 1.0, 1.25, 1.5
+  offlineCache: true, // Çevrimdışı sayfa önbelleği
+  renderDpi: 2.0, // PDF render scale for ultra sharpness
+
+  // Silent AI Engine (auto from .env)
+  activeProvider: ENV_ACTIVE_PROVIDER,
   groqApiKey: ENV_GROQ_KEY,
   groqModel: ENV_GROQ_MODEL,
   openrouterApiKey: ENV_OPENROUTER_KEY,
   openrouterModel: ENV_OPENROUTER_MODEL,
-  temperature: 0.1,
+  temperature: 0.05,
   strictTurkish: true,
-  mergeHyphenatedWords: true,
-  ignorePageNumbers: true,
-  preserveFormatting: true,
-  renderDpi: 2.0 // PDF render scale for ultra sharpness
+  preserveFormatting: true
 };
 
 export const AVAILABLE_MODELS = {
@@ -140,62 +151,154 @@ export function saveSettings(settings) {
   }
 }
 
-export function getHistory() {
+/* ==========================================================================
+   Notes, Bookmarks & Highlights Service (Notlarım & Alıntılar)
+   ========================================================================== */
+const NOTES_KEY = 'reawid_notes_v2';
+
+export const INITIAL_NOTES = [
+  {
+    id: 'note_1',
+    bookId: 'book_insan_ne_ile_yasar',
+    bookTitle: 'İnsan Ne ile Yaşar?',
+    bookAuthor: 'Lev Tolstoy',
+    pageNumber: 3,
+    type: 'quote', // 'quote' | 'note' | 'bookmark'
+    text: 'İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.',
+    userNote: 'Kitabın kalbi: Sevgi nerede ise hayat oradadır.',
+    createdAt: Date.now() - 86400000 * 2,
+    dateFormatted: '23 Ekim 2025'
+  },
+  {
+    id: 'note_2',
+    bookId: 'book_insan_ne_ile_yasar',
+    bookTitle: 'İnsan Ne ile Yaşar?',
+    bookAuthor: 'Lev Tolstoy',
+    pageNumber: 142,
+    type: 'bookmark',
+    text: 'Simon kunduracı kulübesine doğru ağır adımlarla yürürken, içindeki ses ona merhametin kapılarını açmasını söylüyordu.',
+    userNote: 'Son okunan yer imi',
+    createdAt: Date.now() - 86400000,
+    dateFormatted: '24 Ekim 2025'
+  },
+  {
+    id: 'note_3',
+    bookId: 'book_donusum',
+    bookTitle: 'Dönüşüm',
+    bookAuthor: 'Franz Kafka',
+    pageNumber: 68,
+    type: 'quote',
+    text: 'Gregor Samsa bir sabah huzursuz düşlerden uyandığında, kendini yatağında devasa bir böceğe dönüşmüş olarak buldu.',
+    userNote: 'Modern edebiyatın en çarpıcı giriş cümlesi.',
+    createdAt: Date.now() - 86400000 * 4,
+    dateFormatted: '21 Ekim 2025'
+  }
+];
+
+export function getNotes() {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(NOTES_KEY);
+    if (!raw) {
+      localStorage.setItem(NOTES_KEY, JSON.stringify(INITIAL_NOTES));
+      return INITIAL_NOTES;
+    }
+    const notes = JSON.parse(raw);
+    if (!Array.isArray(notes)) return INITIAL_NOTES;
+    return notes;
   } catch (err) {
-    console.error('Geçmiş okunurken hata:', err);
-    return [];
+    console.error('Notlar okunurken hata:', err);
+    return INITIAL_NOTES;
   }
 }
 
-export function saveHistoryItem(item) {
+export function saveNote(note) {
   try {
-    const history = getHistory();
-    const newItem = {
-      id: 'scan_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      timestamp: Date.now(),
-      title: item.title || 'Tarama #' + (history.length + 1),
-      sourceType: item.sourceType || 'image', // 'image' | 'camera' | 'pdf'
-      text: item.text || '',
-      thumbnail: item.thumbnail || '', // small base64
-      provider: item.provider || 'groq',
-      model: item.model || '',
-      wordCount: (item.text || '').trim().split(/\s+/).filter(Boolean).length,
-      charCount: (item.text || '').length
+    const notes = getNotes();
+    const newNote = {
+      id: note.id || 'note_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      bookId: note.bookId || '',
+      bookTitle: note.bookTitle || 'Kişisel Belge',
+      bookAuthor: note.bookAuthor || '',
+      pageNumber: Number(note.pageNumber) || 1,
+      type: note.type || 'quote', // 'quote' | 'note' | 'bookmark'
+      text: note.text || '',
+      userNote: note.userNote || '',
+      createdAt: note.createdAt || Date.now(),
+      dateFormatted: note.dateFormatted || new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
     };
-    // Keep last 30 scans
-    const updated = [newItem, ...history].slice(0, 30);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-    return newItem;
+    const updated = [newNote, ...notes.filter(n => n.id !== newNote.id)];
+    localStorage.setItem(NOTES_KEY, JSON.stringify(updated));
+    return newNote;
   } catch (err) {
-    console.error('Geçmiş kaydedilirken hata:', err);
+    console.error('Not kaydedilirken hata:', err);
     return null;
   }
 }
 
-export function deleteHistoryItem(id) {
+export function deleteNote(id) {
   try {
-    const history = getHistory();
-    const filtered = history.filter((x) => x.id !== id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered));
+    const notes = getNotes();
+    const filtered = notes.filter((x) => x.id !== id);
+    localStorage.setItem(NOTES_KEY, JSON.stringify(filtered));
     return filtered;
   } catch (err) {
-    console.error('Kayıt silinirken hata:', err);
+    console.error('Not silinirken hata:', err);
     return [];
   }
 }
 
-export function clearHistory() {
+export function clearNotes() {
   try {
-    localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(NOTES_KEY);
     return true;
-  } catch (err) {
+  } catch (_) {
     return false;
   }
 }
+
+// Data Export & Import (Yedekleme ve Geri Yükleme)
+export function exportAllData() {
+  return JSON.stringify({
+    version: 'reawid_v2',
+    timestamp: Date.now(),
+    books: getBooks(),
+    notes: getNotes(),
+    settings: getSettings()
+  }, null, 2);
+}
+
+export function importAllData(jsonString) {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (parsed.books && Array.isArray(parsed.books)) {
+      localStorage.setItem('reawid_books_v2', JSON.stringify(parsed.books));
+    }
+    if (parsed.notes && Array.isArray(parsed.notes)) {
+      localStorage.setItem(NOTES_KEY, JSON.stringify(parsed.notes));
+    }
+    if (parsed.settings && typeof parsed.settings === 'object') {
+      saveSettings(parsed.settings);
+    }
+    return { success: true, message: 'Yedek başarıyla içe aktarıldı!' };
+  } catch (err) {
+    return { success: false, message: 'Geçersiz yedek dosyası formatı.' };
+  }
+}
+
+export function clearAppCache() {
+  try {
+    sessionStorage.clear();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Backward-compatibility stubs
+export const getHistory = () => [];
+export const saveHistoryItem = () => null;
+export const deleteHistoryItem = () => [];
+export const clearHistory = () => true;
 
 /* ==========================================================================
    Book Library & Reading Progress Service
