@@ -3174,42 +3174,70 @@ input:checked + .switch-slider:before {
 
 .toast-container {
   position: fixed;
-  top: 24px;
+  top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 1000000;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
   pointer-events: none;
   width: 90%;
-  max-width: 380px;
+  max-width: 420px;
 }
 
 .toast {
-  background: #2c2c2e;
-  border: 1px solid var(--border-hairline);
+  background: rgba(28, 28, 30, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   color: #ffffff;
-  padding: 10px 16px;
-  border-radius: var(--radius-full);
+  padding: 10px 18px;
+  border-radius: 980px;
   font-size: 13px;
   font-weight: 500;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
   pointer-events: auto;
-  animation: toastPop 180ms ease-out;
+  animation: toastPop 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: -0.1px;
 }
 
 @keyframes toastPop {
-  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.toast-success { color: #ffffff; }
-.toast-error { color: #ff6961; }
+.toast-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.toast-success {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.toast-error {
+  border-color: rgba(255, 69, 58, 0.45);
+  color: #ff6961;
+}
+
+.toast-warning {
+  border-color: rgba(255, 180, 0, 0.45);
+  color: #ffd60a;
+}
 
 /* ==========================================================================
    Kitaplığım (My Library) Screen - Apple Books Minimalist Style

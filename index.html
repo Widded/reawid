@@ -1428,10 +1428,6 @@
     <button id="btnPwaInstall" class="apple-pwa-banner hidden">
       <span>Reawid'i Ana Ekrana Ekle</span>
     </button>
-
-    <!-- Toast Notifications -->
-    <div id="toastContainer" class="toast-container"></div>
-
   </div>
 
   <!-- REAL BOOK PAGE COMPARISON STUDIO (Orijinal Sayfa ile Karşılaştırma - Fullscreen Overlay) -->
@@ -1600,6 +1596,9 @@
       </div>
     </footer>
   </div>
+
+  <!-- Global Toast Notifications Overlay (Safe Area Aware) -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <script type="module" src="/src/main.js"></script>
 </body>
