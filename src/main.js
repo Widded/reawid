@@ -64,8 +64,13 @@ import {
   loadPdf,
   renderPdfPageToCanvas,
   renderPdfThumbnails,
-  extractPdfPageText
+  extractPdfPageText,
+  renderPdfPageDirect,
+  disposeCanvas,
+  pdfPageRenderCache
 } from './services/pdfService.js';
+
+import { perfMonitor } from './services/perfMonitor.js';
 
 import {
   speakText,
@@ -117,6 +122,53 @@ let isBackgroundOcrActive = false;
 let priorityPageQueue = []; // Array of page numbers requested with top priority
 const activeAnalyzingPages = new Set(); // Pages currently in-flight across parallel workers
 const activeWorkerControllers = new Map(); // workerId -> { controller, pageNum }
+let currentComparisonRenderHandle = null; // Active PDF.js render task for comparison studio
+const pdfDocLoadingPromises = new Map(); // bookId -> Promise<{ numPages, pdfDoc }>
+let isSyncingComparison = false; // Prevents recursive loop between reader and comparison studio
+
+/**
+ * Singleton loader for PDF documents. Prevents duplicate concurrent IDB reads and PDF.js tasks.
+ */
+function getOrLoadPdfDocument(bookId) {
+  if (currentPdfDoc && currentPdfDocBookId === bookId) {
+    return Promise.resolve({ pdfDoc: currentPdfDoc, numPages: currentPdfNumPages });
+  }
+  if (pdfDocLoadingPromises.has(bookId)) {
+    return pdfDocLoadingPromises.get(bookId);
+  }
+
+  const promise = (async () => {
+    try {
+      const cachedBlob = await getPdfFromIdb(bookId);
+      if (!cachedBlob) return null;
+      const loaded = await loadPdf(cachedBlob);
+      if (currentActiveBook && currentActiveBook.id === bookId) {
+        currentPdfDoc = loaded.pdfDoc;
+        currentPdfNumPages = loaded.numPages;
+        currentPdfDocBookId = bookId;
+      }
+      return loaded;
+    } finally {
+      pdfDocLoadingPromises.delete(bookId);
+    }
+  })();
+
+  pdfDocLoadingPromises.set(bookId, promise);
+  return promise;
+}
+
+/**
+ * Yields execution to the main browser thread to maintain 60 FPS UI responsiveness.
+ */
+function yieldToMainThread(ms = 0) {
+  return new Promise(resolve => {
+    if (typeof requestIdleCallback === 'function' && ms === 0) {
+      requestIdleCallback(() => resolve(), { timeout: 80 });
+    } else {
+      setTimeout(resolve, ms);
+    }
+  });
+}
 
 function stopBackgroundOcrQueue() {
   isBackgroundOcrActive = false;
@@ -128,6 +180,10 @@ function stopBackgroundOcrQueue() {
   }
   activeWorkerControllers.clear();
   activeAnalyzingPages.clear();
+  if (currentComparisonRenderHandle) {
+    try { currentComparisonRenderHandle.cancel(); } catch (_) {}
+    currentComparisonRenderHandle = null;
+  }
   hideReaderBgOcrStatus();
 }
 
@@ -758,9 +814,14 @@ function closeLibraryHeaderMenu() {
 function openBookInReader(book, targetPage = null) {
   if (!book) return;
 
-  // Safely stop background OCR and clear prior PDF document if switching books
+  // Safely stop background OCR and clear prior PDF document/render cache if switching books
   if (!currentActiveBook || currentActiveBook.id !== book.id) {
     stopBackgroundOcrQueue();
+    pdfPageRenderCache.clear();
+    if (currentComparisonRenderHandle) {
+      try { currentComparisonRenderHandle.cancel(); } catch (_) {}
+      currentComparisonRenderHandle = null;
+    }
     if (currentPdfDocBookId !== book.id) {
       currentPdfDoc = null;
       currentPdfNumPages = 0;
@@ -778,30 +839,31 @@ function openBookInReader(book, targetPage = null) {
     currentReaderPage = book.currentPage || 1;
   }
 
-  // Restore PDF document specifically for this book from IndexedDB
+  // Restore PDF document specifically for this book using singleton loader
   if (book.isPdf) {
     if (!currentPdfDoc || currentPdfDocBookId !== book.id) {
-      getPdfFromIdb(book.id).then(async (cachedBlob) => {
-        if (cachedBlob) {
-          try {
-            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
-            if (currentActiveBook && currentActiveBook.id === book.id) {
-              currentPdfDoc = pdfDoc;
-              currentPdfNumPages = numPages;
-              currentPdfDocBookId = book.id;
-              renderReaderPage(currentReaderPage);
-              if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
-                updateComparisonPage(currentReaderPage);
-              }
-              startBackgroundPdfAnalysis(book, pdfDoc);
-            }
-          } catch (err) {
-            console.warn('PDF IndexedDB restore warning:', err);
+      getOrLoadPdfDocument(book.id).then((loaded) => {
+        if (loaded && currentActiveBook && currentActiveBook.id === book.id) {
+          renderReaderPage(currentReaderPage);
+          if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
+            updateComparisonPage(currentReaderPage);
           }
+          // Start background OCR gracefully after UI settles
+          setTimeout(() => {
+            if (currentActiveBook && currentActiveBook.id === book.id && currentPdfDoc) {
+              startBackgroundPdfAnalysis(book, currentPdfDoc);
+            }
+          }, 300);
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn('PDF restore warning:', err);
+      });
     } else {
-      startBackgroundPdfAnalysis(book, currentPdfDoc);
+      setTimeout(() => {
+        if (currentActiveBook && currentActiveBook.id === book.id && currentPdfDoc) {
+          startBackgroundPdfAnalysis(book, currentPdfDoc);
+        }
+      }, 300);
     }
   }
 
@@ -1039,6 +1101,9 @@ function formatBookHtml(paragraphsOrText, options = {}) {
 }
 
 function renderReaderPage(pageNum) {
+  const metricKey = `page_turn_p${pageNum}`;
+  perfMonitor.start(metricKey);
+
   currentReaderPage = Math.max(1, Math.min(currentTotalPages, pageNum));
   el.readerPageSlider.value = String(currentReaderPage);
   el.readerPageIndicator.textContent = `${currentReaderPage} / ${currentTotalPages}`;
@@ -1080,17 +1145,9 @@ function renderReaderPage(pageNum) {
     if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
       prioritizePageAnalysis(currentReaderPage);
     } else {
-      getPdfFromIdb(currentActiveBook.id).then(async (cachedBlob) => {
-        if (cachedBlob) {
-          try {
-            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
-            if (currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
-              currentPdfDoc = pdfDoc;
-              currentPdfNumPages = numPages;
-              currentPdfDocBookId = currentActiveBook.id;
-              prioritizePageAnalysis(currentReaderPage);
-            }
-          } catch (_) {}
+      getOrLoadPdfDocument(currentActiveBook.id).then((loaded) => {
+        if (loaded && currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
+          prioritizePageAnalysis(currentReaderPage);
         }
       }).catch(() => {});
     }
@@ -1114,10 +1171,17 @@ function renderReaderPage(pageNum) {
   // Smooth scroll to top of reading area
   el.readerContentScroll.scrollTop = 0;
 
-  // If Comparison Modal is currently open, synchronize it immediately!
-  if (!el.comparisonViewModal.classList.contains('hidden')) {
-    updateComparisonPage(currentReaderPage);
+  // If Comparison Modal is currently open, synchronize it immediately without recursive loops!
+  if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden') && !isSyncingComparison) {
+    isSyncingComparison = true;
+    try {
+      updateComparisonPage(currentReaderPage);
+    } finally {
+      isSyncingComparison = false;
+    }
   }
+
+  perfMonitor.end(metricKey);
 }
 
 /* Typography & Theme Adjustments */
@@ -1342,18 +1406,10 @@ async function updateComparisonPage(pageNum) {
     if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
       prioritizePageAnalysis(pageNum);
     } else {
-      getPdfFromIdb(currentActiveBook.id).then(async (cachedBlob) => {
-        if (cachedBlob) {
-          try {
-            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
-            if (currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
-              currentPdfDoc = pdfDoc;
-              currentPdfNumPages = numPages;
-              currentPdfDocBookId = currentActiveBook.id;
-              prioritizePageAnalysis(pageNum);
-              updateComparisonPage(pageNum);
-            }
-          } catch (_) {}
+      getOrLoadPdfDocument(currentActiveBook.id).then((loaded) => {
+        if (loaded && currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
+          prioritizePageAnalysis(pageNum);
+          updateComparisonPage(pageNum);
         }
       }).catch(() => {});
     }
@@ -1402,12 +1458,36 @@ async function updateComparisonPage(pageNum) {
       el.realBookPageImg.classList.add('hidden');
       el.realBookPageCanvas.classList.remove('hidden');
 
-      const canvas = await renderPdfPageToCanvas(currentPdfDoc, pageNum, 2.0);
-      el.realBookPageCanvas.width = canvas.width;
-      el.realBookPageCanvas.height = canvas.height;
-      const ctx = el.realBookPageCanvas.getContext('2d');
-      ctx.drawImage(canvas, 0, 0);
+      // Cancel previous in-flight render task if user turned page quickly
+      if (currentComparisonRenderHandle) {
+        try { currentComparisonRenderHandle.cancel(); } catch (_) {}
+        currentComparisonRenderHandle = null;
+      }
+
+      const docFp = currentPdfDoc.fingerprint || currentActiveBook.id;
+      const targetScale = 2.0;
+
+      // 1. Instant cache check: 0ms paint from Bounded LRU Cache!
+      const cached = pdfPageRenderCache.get(docFp, pageNum, targetScale);
+      if (cached?.canvas) {
+        el.realBookPageCanvas.width = cached.width;
+        el.realBookPageCanvas.height = cached.height;
+        const ctx = el.realBookPageCanvas.getContext('2d', { alpha: false });
+        ctx.drawImage(cached.canvas, 0, 0);
+      } else {
+        // 2. Direct render into existing target canvas without generating detached memory garbage
+        const handle = renderPdfPageDirect(currentPdfDoc, pageNum, el.realBookPageCanvas, { scale: targetScale });
+        currentComparisonRenderHandle = handle;
+        await handle.promise;
+        currentComparisonRenderHandle = null;
+
+        // 3. Store in LRU cache for instant return
+        pdfPageRenderCache.set(docFp, pageNum, targetScale, el.realBookPageCanvas);
+      }
     } catch (err) {
+      if (err.name === 'AbortError' || err.message === 'RenderCancelled') {
+        return; // Page turned, newer render takes over
+      }
       console.warn('PDF canvas render hatası:', err);
       el.realBookPageCanvas.classList.add('hidden');
       if (el.compareOriginalEmpty) {
@@ -1859,8 +1939,20 @@ function setupEventListeners() {
     });
   }
 
-  // Scrubber & Page Slider
+  // Scrubber & Page Slider with 60 FPS RequestAnimationFrame debouncing
+  let readerSliderRafId = null;
   el.readerPageSlider.addEventListener('input', (e) => {
+    const targetVal = parseInt(e.target.value, 10);
+    if (el.readerPageIndicator) {
+      el.readerPageIndicator.textContent = `${targetVal} / ${currentTotalPages}`;
+    }
+    if (readerSliderRafId) cancelAnimationFrame(readerSliderRafId);
+    readerSliderRafId = requestAnimationFrame(() => {
+      renderReaderPage(targetVal);
+    });
+  });
+  el.readerPageSlider.addEventListener('change', (e) => {
+    if (readerSliderRafId) cancelAnimationFrame(readerSliderRafId);
     renderReaderPage(parseInt(e.target.value, 10));
   });
   el.btnReaderPrevPage.addEventListener('click', () => {
@@ -1955,11 +2047,24 @@ function setupEventListeners() {
   }
 
   if (el.comparePageSlider) {
+    let compareSliderRaf = null;
     el.comparePageSlider.addEventListener('input', (e) => {
+      const page = parseInt(e.target.value, 10);
+      if (el.comparePageNumBadge) {
+        el.comparePageNumBadge.textContent = `Sayfa ${page} / ${currentTotalPages}`;
+      }
+      if (compareSliderRaf) cancelAnimationFrame(compareSliderRaf);
+      compareSliderRaf = requestAnimationFrame(() => {
+        if (page && page !== currentReaderPage) {
+          updateComparisonPage(page);
+        }
+      });
+    });
+    el.comparePageSlider.addEventListener('change', (e) => {
+      if (compareSliderRaf) cancelAnimationFrame(compareSliderRaf);
       const page = parseInt(e.target.value, 10);
       if (page && page !== currentReaderPage) {
         updateComparisonPage(page);
-        renderReaderPage(page);
       }
     });
   }
@@ -1967,9 +2072,7 @@ function setupEventListeners() {
   if (el.btnComparePrev) {
     el.btnComparePrev.addEventListener('click', () => {
       if (currentReaderPage > 1) {
-        const prev = currentReaderPage - 1;
-        updateComparisonPage(prev);
-        renderReaderPage(prev);
+        updateComparisonPage(currentReaderPage - 1);
       }
     });
   }
@@ -1977,9 +2080,7 @@ function setupEventListeners() {
   if (el.btnCompareNext) {
     el.btnCompareNext.addEventListener('click', () => {
       if (currentReaderPage < currentTotalPages) {
-        const next = currentReaderPage + 1;
-        updateComparisonPage(next);
-        renderReaderPage(next);
+        updateComparisonPage(currentReaderPage + 1);
       }
     });
   }
@@ -1996,16 +2097,12 @@ function setupEventListeners() {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (currentReaderPage > 1) {
-          const prev = currentReaderPage - 1;
-          updateComparisonPage(prev);
-          renderReaderPage(prev);
+          updateComparisonPage(currentReaderPage - 1);
         }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (currentReaderPage < currentTotalPages) {
-          const next = currentReaderPage + 1;
-          updateComparisonPage(next);
-          renderReaderPage(next);
+          updateComparisonPage(currentReaderPage + 1);
         }
       }
     }
@@ -2385,16 +2482,36 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
       return fastText;
     }
 
+    if (signal?.aborted) return null;
+
     // 2. Gömülü metin yoksa (taranmış sayfa), Vision AI ile dinamik ve yedeklemeli OCR yap
     const provider = appSettings.activeProvider || 'auto';
     const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
     const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
-    // Maksimum Türkçe karakter doğruluğu: 2.0x DPI & 0.96 yüksek JPEG kalitesi
-    // Harf noktaları, çengeller (ç, ğ, ı, ö, ş, ü) ve şapkalı harfler DCT sıkıştırma gürültüsünde kaybolmaz
-    const renderScale = appSettings.renderDpi || 2.0;
-    const canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
-    const pageDataUrl = canvas.toDataURL('image/jpeg', 0.96);
+    // UI donmalarını önlemek için event loop'a nefes aldır
+    await yieldToMainThread(0);
+    if (signal?.aborted) return null;
+
+    perfMonitor.trackOcrStart();
+    const ocrMetricKey = `ocr_req_p${pageNum}`;
+    perfMonitor.start(ocrMetricKey);
+
+    let canvas = null;
+    let pageDataUrl = '';
+    try {
+      const renderScale = appSettings.renderDpi || 2.0;
+      canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
+      pageDataUrl = canvas.toDataURL('image/jpeg', 0.94);
+    } finally {
+      if (canvas) disposeCanvas(canvas); // Canvas belleğini derhal temizle!
+    }
+
+    if (signal?.aborted) {
+      perfMonitor.trackOcrEnd();
+      perfMonitor.end(ocrMetricKey);
+      return null;
+    }
 
     const pageText = await performOcr({
       imageBase64: pageDataUrl,
@@ -2417,6 +2534,9 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
         updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
       }
     });
+
+    perfMonitor.trackOcrEnd();
+    perfMonitor.end(ocrMetricKey);
 
     // Dönen yanıtın bu belgeye ve sayfaya ait olduğunu doğrula
     if (pageText?.pageNumber && Number(pageText.pageNumber) !== Number(pageNum)) {
@@ -2442,6 +2562,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
     resultParagraphs.cleanCer = pageText?.cleanCer || 0;
     return resultParagraphs;
   } catch (err) {
+    perfMonitor.trackOcrEnd();
     if (err.name === 'AbortError') {
       throw err;
     }
@@ -2460,28 +2581,29 @@ function getNextTargetPage(totalPages, pageParagraphs) {
     }
   }
 
-  // 2. Kullanıcının şu an okuduğu sayfa henüz analiz edilmemişse
+  // 2. Kullanıcının şu an okuduğu görünür sayfa (en yüksek öncelik)
   if (currentReaderPage && !pageParagraphs[currentReaderPage] && !activeAnalyzingPages.has(currentReaderPage)) {
     return currentReaderPage;
   }
 
-  // 3. Kullanıcının hemen önündeki sayfalar (akıcı okuma için sonraki 5 sayfa önden taranır!)
+  // 3. Sınırlı önceden yükleme penceresi: Kullanıcının hemen önündeki 2 sayfa (akıcı okuma için)
   if (currentReaderPage) {
-    for (let offset = 1; offset <= 5; offset++) {
+    for (let offset = 1; offset <= 2; offset++) {
       const nextP = currentReaderPage + offset;
       if (nextP <= totalPages && !pageParagraphs[nextP] && !activeAnalyzingPages.has(nextP)) {
         return nextP;
       }
     }
-  }
 
-  // 4. Sıradaki henüz analiz edilmemiş ilk sayfa
-  for (let p = 1; p <= totalPages; p++) {
-    if (!pageParagraphs[p] && !activeAnalyzingPages.has(p)) {
-      return p;
+    // Kullanıcının hemen gerisindeki 1 sayfa (hızlı geri dönüş için)
+    const prevP = currentReaderPage - 1;
+    if (prevP >= 1 && !pageParagraphs[prevP] && !activeAnalyzingPages.has(prevP)) {
+      return prevP;
     }
   }
 
+  // Aktif okuma penceresi dışındaki yüzlerce sayfayı körlemesine tarama!
+  // Bu sayede tarayıcı UI thread'i donmaz ve kullanıcının API kotası korunur.
   return null;
 }
 
@@ -2638,8 +2760,10 @@ async function handlePdfFiles(files) {
   // Clear input so selecting the same file again triggers change event
   if (el.fileInputPdf) el.fileInputPdf.value = '';
 
+  perfMonitor.start('pdf_open_to_first_page');
+
   try {
-    showToast('Kitap kontrol ediliyor...', 'info');
+    showToast('Kitap yükleniyor...', 'info');
     const { numPages, pdfDoc } = await loadPdf(file);
     currentPdfDoc = pdfDoc;
     currentPdfNumPages = numPages;
@@ -2653,18 +2777,21 @@ async function handlePdfFiles(files) {
     const normalizedName = normalize(docName);
 
     const existingBook = allBooks.find(b => {
-      // Kriter 1: Parmak izi (SHA-256 hash) birebir eşleşiyor mu?
       if (b.pdfFingerprint && b.pdfFingerprint === fingerprint) return true;
-      // Kriter 2: Dosya boyutu ve toplam sayfa sayısı eşleşiyor mu?
       if (b.fileSize && b.fileSize === file.size && b.totalPages === numPages) return true;
-      // Kriter 3: İsim ve toplam sayfa sayısı eşleşiyor mu?
       if (normalize(b.title) === normalizedName && b.totalPages === numPages) return true;
       return false;
     });
 
     if (existingBook) {
-      // PDF dosyasını IndexedDB önbelleğinde tazele
-      await savePdfToIdb(existingBook.id, file);
+      currentPdfDoc = pdfDoc;
+      currentPdfNumPages = numPages;
+      currentPdfDocBookId = existingBook.id;
+
+      setCurrentBook(existingBook.id);
+
+      // IndexedDB yazımını arka planda asenkron çalıştır (açılışı bekletme!)
+      savePdfToIdb(existingBook.id, file).catch(e => console.warn('IDB refresh warning:', e));
 
       // Eğer eski kitapta parmak izi eksikse güncelle
       if (!existingBook.pdfFingerprint || !existingBook.fileSize) {
@@ -2673,39 +2800,28 @@ async function handlePdfFiles(files) {
         saveBook(existingBook);
       }
 
-      currentPdfDoc = pdfDoc;
-      currentPdfNumPages = numPages;
-      currentPdfDocBookId = existingBook.id;
-
-      setCurrentBook(existingBook.id);
-      renderHomeScreen();
-      renderLibraryScreen();
-
       openBookInReader(existingBook);
+      perfMonitor.end('pdf_open_to_first_page');
+
+      // UI listelerini arka planda güncelle
+      setTimeout(() => {
+        renderHomeScreen();
+        renderLibraryScreen();
+      }, 100);
+
       const progress = existingBook.progress || 0;
       const page = existingBook.currentPage || 1;
-      showToast(`Bu kitap zaten kitaplığınızda var! Kaldığınız yerden (%${progress}, Sayfa ${page}) devam ediliyor.`, 'success');
-
-      // Taranmamış sayfalar varsa arka plan analizini sürdür
-      startBackgroundPdfAnalysis(existingBook, pdfDoc);
+      showToast(`Kaldığınız yerden (%${progress}, Sayfa ${page}) devam ediliyor.`, 'success');
       return;
     }
 
-    // Gerçek 1. sayfa önizlemesi oluştur (yoksa estetik SVG üret)
-    let coverThumb = '';
-    try {
-      const page1Canvas = await renderPdfPageToCanvas(pdfDoc, 1, 0.45);
-      coverThumb = page1Canvas.toDataURL('image/jpeg', 0.85);
-    } catch (e) {
-      coverThumb = generateBookCoverSvg(docName, 'PDF Belgesi');
-    }
-
-    // Yeni kitap nesnesi oluştur ve hemen kaydet
+    // 2. Yeni kitap nesnesini hemen estetik kapakla oluştur ve kullanıcıyı bekletmeden anında aç!
+    const initialCover = generateBookCoverSvg(docName, 'PDF Belgesi');
     const newBook = {
       id: 'book_' + Date.now(),
       title: docName,
       author: 'Kişisel Belge',
-      cover: coverThumb || generateBookCoverSvg(docName, 'PDF Belgesi'),
+      cover: initialCover,
       totalPages: numPages,
       currentPage: 1,
       progress: 0,
@@ -2725,16 +2841,29 @@ async function handlePdfFiles(files) {
     currentPdfDocBookId = newBook.id;
 
     saveBook(newBook);
-    await savePdfToIdb(newBook.id, file);
-    renderHomeScreen();
-    renderLibraryScreen();
 
-    // DİREKT OKUYUCUYA GEÇ!
+    // DİREKT OKUYUCUYA GEÇ! (Kullanıcı ilk sayfayı anında görür)
     openBookInReader(newBook);
-    showToast(`${docName} (${numPages} Sayfa) açıldı. Sayfalar arka planda taranıyor.`, 'success');
+    perfMonitor.end('pdf_open_to_first_page');
+    showToast(`${docName} (${numPages} Sayfa) açıldı.`, 'success');
 
-    // Arka planda analiz döngüsünü başlat (1. sayfa ve devamı arka planda analiz edilecek)
-    startBackgroundPdfAnalysis(newBook, pdfDoc);
+    // Ağır işlemleri (IndexedDB kalıcı depolama, kapak görseli, liste render'ları) arka plana ertele
+    savePdfToIdb(newBook.id, file).catch(e => console.warn('IDB save warning:', e));
+
+    setTimeout(async () => {
+      try {
+        const page1Canvas = await renderPdfPageToCanvas(pdfDoc, 1, 0.45);
+        const coverThumb = page1Canvas.toDataURL('image/jpeg', 0.85);
+        disposeCanvas(page1Canvas);
+        if (coverThumb) {
+          newBook.cover = coverThumb;
+          saveBook(newBook);
+        }
+      } catch (_) {}
+      renderHomeScreen();
+      renderLibraryScreen();
+    }, 500);
+
   } catch (err) {
     showToast('PDF okunurken hata: ' + err.message, 'error');
   }
@@ -2760,6 +2889,7 @@ async function selectPdfPage(pageNum, cardElement) {
 
   const canvas = await renderPdfPageToCanvas(currentPdfDoc, pageNum, appSettings.renderDpi || 2.0);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.94);
+  disposeCanvas(canvas);
   await setPreviewImage(dataUrl);
 }
 
@@ -3027,6 +3157,7 @@ async function startPdfBatchOcr() {
       // Render page canvas & update preview at 0.96 quality
       const canvas = await renderPdfPageToCanvas(currentPdfDoc, i, appSettings.renderDpi || 2.0);
       const pageDataUrl = canvas.toDataURL('image/jpeg', 0.96);
+      disposeCanvas(canvas);
       await setPreviewImage(pageDataUrl);
 
       // Perform Vision AI OCR with Dynamic Fallback
