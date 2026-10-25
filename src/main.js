@@ -2246,8 +2246,21 @@ function renderNotesScreen() {
         <p class="notes-empty-desc">
           ${currentNotesSearchQuery ? 'Aramanızla eşleşen not bulunamadı.' : 'Kitap okurken metin seçerek alıntı yapabilir, sayfa ekleyebilir veya düşüncelerinizi kaydedebilirsiniz.'}
         </p>
+        ${!currentNotesSearchQuery ? `
+          <button type="button" class="btn-notes-empty-add" id="btnEmptyAddNote">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            <span>Yeni Not Ekle</span>
+          </button>
+        ` : ''}
       </div>
     `;
+
+    const btnEmptyAdd = el.notesListContainer.querySelector('#btnEmptyAddNote');
+    if (btnEmptyAdd) {
+      btnEmptyAdd.addEventListener('click', () => openAddNoteModal('note'));
+    }
     return;
   }
 
@@ -2274,10 +2287,10 @@ function renderNotesScreen() {
     if (note.userNote) {
       bodyHtml += `
         <div class="note-user-comment">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
-          <div>${escape(note.userNote)}</div>
+          <div class="note-comment-text">${escape(note.userNote)}</div>
         </div>
       `;
     }
@@ -2289,7 +2302,8 @@ function renderNotesScreen() {
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
-          <span>${escape(note.bookTitle)} · Sayfa ${note.pageNumber || 1}</span>
+          <span class="note-book-title">${escape(note.bookTitle)}</span>
+          <span class="note-page-pill">Sayfa ${note.pageNumber || 1}</span>
         </div>
         <span class="note-type-pill ${typeConfig.badgeClass}">
           ${typeConfig.icon}
@@ -2305,20 +2319,18 @@ function renderNotesScreen() {
         <span class="note-date-text">${note.dateFormatted || ''}</span>
         <div class="note-actions-row">
           <button type="button" class="btn-note-action action-open" title="Kitapta Aç">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-            </svg>
             <span>Kitapta Aç</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:12px;height:12px;">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
           </button>
-          <button type="button" class="btn-note-action action-copy" title="Kopyala">
+          <button type="button" class="btn-note-action action-icon-only action-copy" title="Kopyala" aria-label="Kopyala">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            <span>Kopyala</span>
           </button>
-          <button type="button" class="btn-note-action action-delete" title="Sil">
+          <button type="button" class="btn-note-action action-icon-only action-delete" title="Sil" aria-label="Sil">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
