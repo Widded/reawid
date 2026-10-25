@@ -110,10 +110,11 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
           const fontSize = Math.max(9, Math.abs(item.height || (item.transform ? item.transform[3] : 12)));
           const avgCharWidth = itemWidth > 0 ? (itemWidth / Math.max(1, item.str.length)) : (fontSize * 0.45);
 
-          // İki bitişik öğe tek harf ise (ayrık glif dizilimi), kelime boşluğu için fontun en az %42'si kadar net aralık gerekir
+          // İki bitişik öğe tek harf ise (ayrık glif dizilimi) veya ek glifi ise, kelime boşluğu için net aralık gerekir
           const isSingleCharTransition = (item.str.trim().length === 1 && text.trim().slice(-1).length === 1);
-          const minWordGap = isSingleCharTransition
-            ? Math.max(4.8, fontSize * 0.42)
+          const isSuffixGlyph = /^(z|n|m|k|t|nı|ni|nu|nü|nda|nde|ndan|nden|yor|yordu|nlık|nlik|nluk|nlük|lık|lik|luk|lük|sız|siz|suz|süz)$/i.test(item.str.trim());
+          const minWordGap = (isSingleCharTransition || isSuffixGlyph)
+            ? Math.max(5.2, fontSize * 0.44)
             : Math.max(3.6, Math.min(fontSize * 0.30, avgCharWidth * 0.52));
 
           if (gap >= minWordGap && !text.endsWith(' ') && !item.str.startsWith(' ')) {

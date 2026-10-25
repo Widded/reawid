@@ -49,12 +49,12 @@ assert('Türkçe karakterler (ç, ğ, ı, ö, ş, ü, İ) eksiksiz korunuyor', p
 assert('CER sıfır olmalı', calculateCer(sampleTurkishPage, pageCleaned) === 0);
 
 // -------------------------------------------------------------------------
-// TEST 3: Harflerin Birbirinden Ayrılabildiği Düşük Kaliteli Tarama
+// TEST 3: Harflerin Birbirinden Ayrılabildiği Düşük Kaliteli Tarama & Morfem Hataları
 // -------------------------------------------------------------------------
-console.log('\n--- Test 3: Harf Aralığı Hataları (k i t a p -> kitap, İ n s a n l a r ...) ---');
+console.log('\n--- Test 3: Harf & Morfem Düzeltmeleri (Gerçek Kullanıcı OCR Hataları) ---');
 const spacedCase1 = 'İ n s a n l a r y o l d a y ü r ü y o r d u.';
 const expectedCase1 = 'İnsanlar yolda yürüyordu.';
-const healed1 = fixSpacedOutLetters(spacedCase1);
+const healed1 = normalizeHyphensAndText(spacedCase1);
 assert('İ n s a n l a r y o l d a y ü r ü y o r d u. -> İnsanlar yolda yürüyordu.', healed1 === expectedCase1, `Sonuç: "${healed1}"`);
 const cerCase1 = calculateCer(expectedCase1, healed1);
 const werCase1 = calculateWer(expectedCase1, healed1);
@@ -63,8 +63,40 @@ assert('Kelime Hata Oranı (WER) %0 olmalı', werCase1 === 0, `WER: ${(werCase1 
 
 const spacedCase2 = 'k i t a p   o k u m a k   g ü z e l d i r';
 const expectedCase2 = 'kitap okumak güzeldir';
-const healed2 = fixSpacedOutLetters(spacedCase2);
+const healed2 = normalizeHyphensAndText(spacedCase2);
 assert('k i t a p   o k u m a k   g ü z e l d i r -> kitap okumak güzeldir', healed2 === expectedCase2, `Sonuç: "${healed2}"`);
+
+// Kullanıcının bildirdiği 6 somut OCR hatası:
+const realWorldCases = [
+  { in: 'bir başkası n yaşamı nı anlatı yor', expected: 'bir başkasının yaşamını anlatıyor' },
+  { in: 'tutarsı z bulduğum da', expected: 'tutarsız bulduğumda' },
+  { in: 'b_ana', expected: 'bana' },
+  { in: 'şaşkı nlık ları', expected: 'şaşkınlıkları' },
+  { in: 'gelgitlerhakkı nda', expected: 'gelgitler hakkında' },
+  { in: 'görmüş türri', expected: 'görmüştüm' }
+];
+
+realWorldCases.forEach((c, idx) => {
+  const healed = normalizeHyphensAndText(c.in);
+  assert(`Kullanıcı Vaka ${idx + 1}: "${c.in}" -> "${c.expected}"`, healed === c.expected, `Sonuç: "${healed}"`);
+  assert(`Vaka ${idx + 1} CER %0 olmalı`, calculateCer(c.expected, healed) === 0);
+});
+
+// Komple Paragraf Karşılaştırmalı Testi (CER ve WER Öncesi ve Sonrası)
+const rawParagraph = 'Bir başkası n yaşamı nı anlatı yor gibiydi; tutarsı z bulduğum da olmuştu ama b_ana şaşkı nlık ları ve içsel gelgitlerhakkı nda çok şey söylemişti. Onu daha önce bir kez görmüş türri.';
+const targetParagraph = 'Bir başkasının yaşamını anlatıyor gibiydi; tutarsız bulduğumda olmuştu ama bana şaşkınlıkları ve içsel gelgitler hakkında çok şey söylemişti. Onu daha önce bir kez görmüştüm.';
+
+const beforeCer = calculateCer(targetParagraph, rawParagraph);
+const beforeWer = calculateWer(targetParagraph, rawParagraph);
+const afterHealed = normalizeHyphensAndText(rawParagraph);
+const afterCer = calculateCer(targetParagraph, afterHealed);
+const afterWer = calculateWer(targetParagraph, afterHealed);
+
+console.log(`  📊 Orijinal Paragraf Hata Oranı -> CER: ${(beforeCer * 100).toFixed(2)}% | WER: ${(beforeWer * 100).toFixed(2)}%`);
+console.log(`  📊 Düzeltilmiş Paragraf Hata Oranı -> CER: ${(afterCer * 100).toFixed(2)}% | WER: ${(afterWer * 100).toFixed(2)}%`);
+assert('Tam paragraf metni birebir hedef metinle eşleşiyor', afterHealed === targetParagraph);
+assert('Düzeltme sonrası Paragraf CER %0.00 olmalı', afterCer === 0);
+assert('Düzeltme sonrası Paragraf WER %0.00 olmalı', afterWer === 0);
 
 // -------------------------------------------------------------------------
 // TEST 4: Birden Fazla Konuşmacının Bulunduğu Diyalog Sayfası

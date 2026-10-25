@@ -331,6 +331,113 @@ export function fixSpacedOutLetters(text) {
 }
 
 /**
+ * Linguistic & Morpheme Healing Engine for Turkish Book OCR
+ * Resolves split suffixes, letter artifacts, merged compounds, and OCR glyph confusions:
+ * e.g. "bir başkası n yaşamı nı anlatı yor" -> "bir başkasının yaşamını anlatıyor"
+ * e.g. "tutarsı z bulduğum da" -> "tutarsız bulduğumda"
+ * e.g. "b_ana" -> "bana"
+ * e.g. "şaşkı nlık ları" -> "şaşkınlıkları"
+ * e.g. "gelgitlerhakkı nda" -> "gelgitler hakkında"
+ * e.g. "görmüş türri" -> "görmüştüm"
+ */
+export function healTurkishOcrArtifacts(text) {
+  if (!text || typeof text !== 'string') return '';
+  let s = text;
+
+  // 1. Remove stray OCR artifacts inside words:
+  // e.g. "b_ana" -> "bana", "k_itap" -> "kitap", "g|eldi" -> "geldi", "s~öz" -> "söz"
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ0-9])[_|~`^]([a-zçğıöşüA-ZÇĞİÖŞÜ0-9])/gu, '$1$2');
+
+  // 2. Fix OCR visual confusion of 'm' misrecognized as 'ri', 'rri', 'rn':
+  // e.g. "görmüş türri" -> "görmüştüm", "yapmış tırri" -> "yapmıştım", "gitmiş tirri" -> "gitmiştim"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]+(?:mış|miş|muş|müş))\s+t([ıituü])(?:rri|rn|ri)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2t$3m'
+  );
+
+  // 3. Fix split past perfect verbs with separate 'tüm/tım/tim/tum':
+  // e.g. "görmüş tüm" -> "görmüştüm", "yapmış tım" -> "yapmıştım"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]+(?:mış|miş|muş|müş))\s+(t[ıituü]m)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // 4. Bound suffix reconnection:
+  // a) Single letter non-words: 'z' (from -sız/-siz)
+  // e.g. "tutarsı z" -> "tutarsız", "anlamsı z" -> "anlamsız", "sessı z" -> "sessiz"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]+[sş][ıiuü])\s+z(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2z'
+  );
+
+  // b) "başkası n" -> "başkasının" or "başkasın"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])başkası\s+n\s+(?=[a-zçğıöşüA-ZÇĞİÖŞÜ]+)/giu,
+    '$1başkasının '
+  );
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])başkası\s+n(?=[^\p{L}\p{N}]|$)/giu,
+    '$1başkasın'
+  );
+
+  // c) Suffixes "-nı", "-ni", "-nu", "-nü":
+  // In Turkish, 'nı', 'ni', 'nu', 'nü' are never standalone words (always accusative/possessive suffixes)
+  // e.g. "yaşamı nı" -> "yaşamını", "kapısı nı" -> "kapısını", "yolu nu" -> "yolunu"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,}[ıiuüa-e])\s+(n[ıiuü])(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // d) Continuous verb suffix "-yor", "-yordu", "-yordun", "-yormuş":
+  // In Turkish, 'yor' is never a standalone word (always verb suffix -ıyor/-iyor)
+  // e.g. "anlatı yor" -> "anlatıyor", "bakı yor" -> "bakıyor", "görü yor" -> "görüyor", "geli yor" -> "geliyor"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,}[ıiuüa-e])\s+(yor(?:du[kmn]?|muş|lar)?)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // e) Suffixes "-nlık", "-nlik", "-nluk", "-nlük":
+  // In Turkish, 'nlık' is never a standalone word
+  // e.g. "şaşkı nlık" -> "şaşkınlık", "yalnı zlık" -> "yalnızlık"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,}[ıiuü])\s+(nl[ıiuü]k)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // f) Attached plural suffix after '-lık/-lik':
+  // e.g. "şaşkınlık ları" -> "şaşkınlıkları", "hastalık ları" -> "hastalıkları"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,}l[ıiuü]k)\s+(lar[ıi]|ler[ıi])(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // g) Suffix "-nda", "-nde", "-ndan", "-nden":
+  // In Turkish, 'nda' / 'nde' is never a standalone word
+  // e.g. "hakkı nda" -> "hakkında", "arasında", "yanında"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,}[ıiuüa-e])\s+(nd[ae][nm]?)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // h) Participle locative "-duğum da", "-diğim de", "-dığında":
+  // e.g. "bulduğum da" -> "bulduğumda", "gördüğüm de" -> "gördüğümde", "baktığım da" -> "baktığımda"
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]+(?:d[ıiuü][kğ][ıiuü]m|d[ıiuü][kğ][ıiuü]n|d[ıiuü][kğ][ıiuü]|d[ıiuü][kğ][ıiuü]m[ıiuü]z|d[ıiuü][kğ][ıiuü]n[ıiuü]z))\s+(d[ae])(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2$3'
+  );
+
+  // 5. Separate erroneously merged compound words:
+  // e.g. "gelgitlerhakkı" or "gelgitlerhakkında" -> "gelgitler hakkında"
+  // When a full plural noun ending in '-ler' / '-lar' is followed by a known noun root without space
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{3,}(?:ler|lar))(hakkı(?:nda)?|için|ile|gibi|kadar|sonra|önce|ve|diye)(?=[^\p{L}\p{N}]|$)/giu,
+    '$1$2 $3'
+  );
+
+  return s;
+}
+
+/**
  * Normalizes text and cleanly merges words split by end-of-line hyphens (matbaa heceleme çizgisi).
  * Preserves true dialogue dashes (—) and proper hyphenated compounds (Türk-İslam, 1923-1938).
  */
@@ -396,6 +503,9 @@ export function normalizeHyphensAndText(text, options = {}) {
 
   // 6. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir
   cleaned = fixSpacedOutLetters(cleaned);
+
+  // 7. Türkçe morfolojik ek ve OCR harf ayrışma hatalarını iyileştir
+  cleaned = healTurkishOcrArtifacts(cleaned);
 
   return cleaned;
 }
@@ -472,8 +582,8 @@ Transcribe the text in the provided book page image as accurately as possible. T
 STRICT RULES:
 
 1. Preserve the exact words, spelling, punctuation, capitalization, and original language.
-2. Never insert spaces between individual letters of a word. For example, 'k i t a p' must be 'kitap' when the image clearly shows that word.
-3. Preserve correct word boundaries. Do not merge separate words or split one word into multiple words.
+2. Never insert spaces between individual letters or suffixes of a word. For example, 'k i t a p' must be 'kitap'; 'tutarsız' must never be 'tutarsı z'; 'yaşamını' must never be 'yaşamı nı'; 'anlatıyor' must never be 'anlatı yor'; 'şaşkınlıkları' must never be 'şaşkı nlık ları'.
+3. Preserve correct word boundaries. Do not merge separate words (e.g. 'gelgitler hakkında', not 'gelgitlerhakkı nda') and do not split one word into multiple words.
 4. Preserve the original paragraph boundaries and reading order.
 5. Preserve dialogue formatting. Keep dialogue dashes such as '—' or '–' when they appear in the source. Do not replace them with hyphens or remove them.
 6. Start a new paragraph when a new speaker begins, if the source formatting indicates a new paragraph.
@@ -487,7 +597,8 @@ STRICT RULES:
 14. Do not remove repeated words or unusual grammatical constructions merely because they seem incorrect.
 15. Handle line breaks carefully. A line ending caused by page layout is not automatically a paragraph break. Rejoin words split by a printed line-end hyphen only when the original word can be determined confidently.
 16. Preserve chapter headings, section headings, indents where representable, and other meaningful book structure.
-17. Output only the transcribed text.
+17. Do not insert stray underscores or scan artifacts inside words (e.g. write 'bana', not 'b_ana'). Carefully distinguish 'm' from 'ri' or 'rn' (e.g. write 'görmüştüm', not 'görmüş türri').
+18. Output only the transcribed text.
 
 ACCURACY PRIORITY:
 Correct word recognition and faithful reproduction of the original text are more important than producing elegant or fluent prose.`;
@@ -500,13 +611,14 @@ export const BOOK_OCR_PROOFREADER_SYSTEM_PROMPT = `You are a meticulous book OCR
 Compare the original page image with the OCR transcription. Correct only errors that are demonstrably supported by the image.
 
 Focus on:
-- Incorrect spaces between letters inside words.
-- Incorrectly split or merged words.
-- Missing or misplaced dialogue dashes.
-- Incorrect paragraph boundaries.
-- Misrecognized Turkish characters.
+- Erroneously split Turkish suffixes and letters (e.g. 'tutarsı z' -> 'tutarsız', 'yaşamı nı' -> 'yaşamını', 'anlatı yor' -> 'anlatıyor', 'şaşkı nlık ları' -> 'şaşkınlıkları', 'hakkı nda' -> 'hakkında').
+- Stray scan artifacts or underscores inside words (e.g. 'b_ana' -> 'bana').
+- Confused 'm' vs 'ri'/'rri'/'rn' glyphs (e.g. 'görmüş türri' -> 'görmüştüm').
+- Accidentally merged words (e.g. 'gelgitlerhakkı nda' -> 'gelgitler hakkında').
+- Missing or misplaced dialogue dashes ('—' or '–').
+- Incorrect paragraph boundaries and reading order.
+- Misrecognized Turkish characters (ç, ğ, ı, İ, ö, ş, ü).
 - Missing or duplicated punctuation.
-- Incorrect reading order.
 - Words incorrectly split at line endings.
 
 Do not paraphrase or rewrite the author's text. Do not improve grammar or style. Do not guess unreadable words. Preserve all correctly transcribed text.
@@ -522,8 +634,10 @@ export function isSuspiciousOcrText(text) {
   if (text.includes('[OKUNAMADI]')) return true;
   // 2. Contains sequences of single letters separated by space
   if (/(?:^|\s)[a-zçğıöşüA-ZÇĞİÖŞÜ]\s[a-zçğıöşüA-ZÇĞİÖŞÜ]\s[a-zçğıöşüA-ZÇĞİÖŞÜ]/iu.test(text)) return true;
-  // 3. Repeated unknown glyphs
-  if (/\?{3,}|\[\?+\]/u.test(text)) return true;
+  // 3. Repeated unknown glyphs or underscores inside words
+  if (/\?{3,}|\[\?+\]|([a-zçğıöşüA-ZÇĞİÖŞÜ])_[a-zçğıöşüA-ZÇĞİÖŞÜ]/iu.test(text)) return true;
+  // 4. Split suffixes after Turkish vowels: e.g. "ı z", "ı nı", "ı yor", "ı nda"
+  if (/[ıiuü]\s+(?:z|nı|ni|nu|nü|yor|nda|nde|nlık|nlik)\b/iu.test(text)) return true;
   return false;
 }
 

@@ -2330,11 +2330,11 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
     const provider = appSettings.activeProvider || 'auto';
     const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
 
-    // Maksimum Türkçe karakter doğruluğu: 2.0x DPI & 0.93 JPEG kalitesi
-    // Harf noktaları, çengeller (ç, ğ, ı, ö, ş, ü) ve şapkalı harfler sıkıştırma gürültüsünde kaybolmaz
+    // Maksimum Türkçe karakter doğruluğu: 2.0x DPI & 0.96 yüksek JPEG kalitesi
+    // Harf noktaları, çengeller (ç, ğ, ı, ö, ş, ü) ve şapkalı harfler DCT sıkıştırma gürültüsünde kaybolmaz
     const renderScale = appSettings.renderDpi || 2.0;
     const canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
-    const pageDataUrl = canvas.toDataURL('image/jpeg', 0.93);
+    const pageDataUrl = canvas.toDataURL('image/jpeg', 0.96);
 
     const pageText = await performOcr({
       imageBase64: pageDataUrl,
@@ -2908,9 +2908,9 @@ async function startPdfBatchOcr() {
       if (el.ocrProgressPages) el.ocrProgressPages.textContent = `${currentIdx + 1} / ${totalInBatch} Sayfa`;
       el.processingStatusText.textContent = `Sayfa ${i} / ${currentPdfNumPages} Vision AI ile taranıyor...`;
 
-      // Render page canvas & update preview
+      // Render page canvas & update preview at 0.96 quality
       const canvas = await renderPdfPageToCanvas(currentPdfDoc, i, appSettings.renderDpi || 2.0);
-      const pageDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const pageDataUrl = canvas.toDataURL('image/jpeg', 0.96);
       await setPreviewImage(pageDataUrl);
 
       // Perform Vision AI OCR with Dynamic Fallback
