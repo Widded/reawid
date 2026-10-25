@@ -674,9 +674,9 @@ textarea,
   width: 100%;
   max-width: 440px;
   height: calc(60px + env(safe-area-inset-bottom, 0px));
-  background: rgba(18, 18, 20, 0.94);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(16, 16, 18, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-hairline);
   display: flex;
   align-items: center;
@@ -927,8 +927,8 @@ textarea,
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
   transition: all 180ms ease;
   user-select: none;
@@ -1325,7 +1325,9 @@ textarea,
   flex-direction: column;
   gap: 6px;
   border-top: 1px solid var(--border-subtle);
-  backdrop-filter: blur(20px);
+  background: rgba(12, 12, 14, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .scrubber-track-wrap {
@@ -1795,10 +1797,10 @@ input:checked + .switch-slider:before {
   justify-content: space-between;
   padding: 0 16px;
   padding-top: env(safe-area-inset-top, 0px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(12, 12, 14, 0.98);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 12, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   box-sizing: border-box;
   z-index: 100;
   flex-shrink: 0;
@@ -2412,10 +2414,10 @@ input:checked + .switch-slider:before {
   justify-content: center;
   padding: 0 16px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(12, 12, 14, 0.98);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 12, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
   z-index: 100;
   flex-shrink: 0;
