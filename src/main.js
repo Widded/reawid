@@ -105,6 +105,7 @@ let isBinarized = false;
 
 let currentPdfDoc = null;
 let currentPdfNumPages = 0;
+let currentPdfDocBookId = null; // Strictly tracks WHICH book the in-memory PDF belongs to!
 let selectedPdfPage = 1;
 let currentPdfPagesMap = {}; // Maps pageNum -> array of paragraphs
 let pdfBatchStartPage = 1;
@@ -116,6 +117,19 @@ let isBackgroundOcrActive = false;
 let priorityPageQueue = []; // Array of page numbers requested with top priority
 const activeAnalyzingPages = new Set(); // Pages currently in-flight across parallel workers
 const activeWorkerControllers = new Map(); // workerId -> { controller, pageNum }
+
+function stopBackgroundOcrQueue() {
+  isBackgroundOcrActive = false;
+  priorityPageQueue.length = 0;
+  for (const [wId, worker] of activeWorkerControllers.entries()) {
+    if (worker?.controller) {
+      try { worker.controller.abort(); } catch (_) {}
+    }
+  }
+  activeWorkerControllers.clear();
+  activeAnalyzingPages.clear();
+  hideReaderBgOcrStatus();
+}
 
 let lastOcrResult = '';
 let isOcrRunning = false;
@@ -743,6 +757,17 @@ function closeLibraryHeaderMenu() {
    ========================================================================== */
 function openBookInReader(book, targetPage = null) {
   if (!book) return;
+
+  // Safely stop background OCR and clear prior PDF document if switching books
+  if (!currentActiveBook || currentActiveBook.id !== book.id) {
+    stopBackgroundOcrQueue();
+    if (currentPdfDocBookId !== book.id) {
+      currentPdfDoc = null;
+      currentPdfNumPages = 0;
+      currentPdfDocBookId = null;
+    }
+  }
+
   currentActiveBook = book;
   setCurrentBook(book.id);
 
@@ -753,25 +778,31 @@ function openBookInReader(book, targetPage = null) {
     currentReaderPage = book.currentPage || 1;
   }
 
-  // Restore PDF document from IndexedDB if available and not yet loaded in memory
-  if (book.isPdf && !currentPdfDoc) {
-    getPdfFromIdb(book.id).then(async (cachedBlob) => {
-      if (cachedBlob) {
-        try {
-          const { numPages, pdfDoc } = await loadPdf(cachedBlob);
-          currentPdfDoc = pdfDoc;
-          currentPdfNumPages = numPages;
-          if (currentActiveBook && currentActiveBook.id === book.id) {
-            renderReaderPage(currentReaderPage);
-            if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
-              updateComparisonPage(currentReaderPage);
+  // Restore PDF document specifically for this book from IndexedDB
+  if (book.isPdf) {
+    if (!currentPdfDoc || currentPdfDocBookId !== book.id) {
+      getPdfFromIdb(book.id).then(async (cachedBlob) => {
+        if (cachedBlob) {
+          try {
+            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
+            if (currentActiveBook && currentActiveBook.id === book.id) {
+              currentPdfDoc = pdfDoc;
+              currentPdfNumPages = numPages;
+              currentPdfDocBookId = book.id;
+              renderReaderPage(currentReaderPage);
+              if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
+                updateComparisonPage(currentReaderPage);
+              }
+              startBackgroundPdfAnalysis(book, pdfDoc);
             }
+          } catch (err) {
+            console.warn('PDF IndexedDB restore warning:', err);
           }
-        } catch (err) {
-          console.warn('PDF IndexedDB restore warning:', err);
         }
-      }
-    }).catch(() => {});
+      }).catch(() => {});
+    } else {
+      startBackgroundPdfAnalysis(book, currentPdfDoc);
+    }
   }
 
   el.readerHeaderTitle.textContent = book.title;
@@ -1034,8 +1065,8 @@ function renderReaderPage(pageNum) {
     el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
       enabled: appSettings.smartDialogueFormatting !== false
     });
-  } else if (currentActiveBook.isPdf && currentPdfDoc) {
-    // Sayfa henüz analiz edilmediyse kullanıcıya şık bir bekleme kartı gösterip sayfayı ÖNCELİKLİ analiz et!
+  } else if (currentActiveBook.isPdf) {
+    // PDF Kitabı: Sayfa henüz analiz edilmediyse bekleme kartı göster (ASLA başka sayfanın metnini gösterme!)
     el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
     el.readerArticleTitle.textContent = currentActiveBook.title;
     el.readerParagraphsContainer.innerHTML = `
@@ -1046,22 +1077,33 @@ function renderReaderPage(pageNum) {
       </div>
     `;
 
-    prioritizePageAnalysis(currentReaderPage);
+    if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
+      prioritizePageAnalysis(currentReaderPage);
+    } else {
+      getPdfFromIdb(currentActiveBook.id).then(async (cachedBlob) => {
+        if (cachedBlob) {
+          try {
+            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
+            if (currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
+              currentPdfDoc = pdfDoc;
+              currentPdfNumPages = numPages;
+              currentPdfDocBookId = currentActiveBook.id;
+              prioritizePageAnalysis(currentReaderPage);
+            }
+          } catch (_) {}
+        }
+      }).catch(() => {});
+    }
   } else if (currentActiveBook.content) {
+    // Sadece doğrudan düz metin/e-kitap olarak eklenmiş belgeler için
     const rawParagraphs = currentActiveBook.content
       .split('\n\n')
       .map(p => p.trim())
       .filter(p => p && !p.startsWith('#') && !p.startsWith('*') && !p.startsWith('BÖLÜM'));
 
-    if (rawParagraphs.length > 0) {
-      const idx = (currentReaderPage - 1) % rawParagraphs.length;
-      paragraphs = [rawParagraphs[idx]];
-      if (rawParagraphs[idx + 1]) paragraphs.push(rawParagraphs[idx + 1]);
-    } else {
-      paragraphs = [
-        "Bu kitapta henüz okunabilir metin katmanı bulunmuyor. Sayfaları analiz etmek için lütfen Dönüştürücü'yü kullanın."
-      ];
-    }
+    paragraphs = rawParagraphs.length > 0 ? rawParagraphs : [
+      "Bu kitapta henüz okunabilir metin katmanı bulunmuyor."
+    ];
     el.readerChapterBadge.textContent = chapterTitle;
     el.readerArticleTitle.textContent = currentActiveBook.title;
     el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
@@ -1295,20 +1337,32 @@ async function updateComparisonPage(pageNum) {
 
   if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[pageNum]) {
     paragraphs = currentActiveBook.pageParagraphs[pageNum];
-  } else if (currentActiveBook.isPdf && currentPdfDoc) {
+  } else if (currentActiveBook.isPdf) {
     isAnalyzing = true;
-    prioritizePageAnalysis(pageNum);
+    if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
+      prioritizePageAnalysis(pageNum);
+    } else {
+      getPdfFromIdb(currentActiveBook.id).then(async (cachedBlob) => {
+        if (cachedBlob) {
+          try {
+            const { numPages, pdfDoc } = await loadPdf(cachedBlob);
+            if (currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
+              currentPdfDoc = pdfDoc;
+              currentPdfNumPages = numPages;
+              currentPdfDocBookId = currentActiveBook.id;
+              prioritizePageAnalysis(pageNum);
+              updateComparisonPage(pageNum);
+            }
+          } catch (_) {}
+        }
+      }).catch(() => {});
+    }
   } else if (currentActiveBook.content) {
     const rawParagraphs = currentActiveBook.content
       .split('\n\n')
       .map(p => p.trim())
       .filter(p => p && !p.startsWith('#') && !p.startsWith('*') && !p.startsWith('BÖLÜM'));
-
-    if (rawParagraphs.length > 0) {
-      const idx = (pageNum - 1) % rawParagraphs.length;
-      paragraphs = [rawParagraphs[idx]];
-      if (rawParagraphs[idx + 1]) paragraphs.push(rawParagraphs[idx + 1]);
-    }
+    paragraphs = rawParagraphs;
   }
 
   if (isAnalyzing) {
@@ -1342,7 +1396,7 @@ async function updateComparisonPage(pageNum) {
   }
 
   // 2. Orijinal Kitap Sayfası (Original Scanned Book Page)
-  if (currentPdfDoc && pageNum <= currentPdfNumPages) {
+  if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id && pageNum <= currentPdfNumPages) {
     try {
       if (el.compareOriginalEmpty) el.compareOriginalEmpty.classList.add('hidden');
       el.realBookPageImg.classList.add('hidden');
@@ -2370,13 +2424,23 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
       return null;
     }
 
+    if (pageText?.isBlank || String(pageText).trim() === '[SAYFADA METİN YOK]') {
+      const blankRes = ['[SAYFADA METİN YOK]'];
+      blankRes.rawText = '[SAYFADA METİN YOK]';
+      blankRes.isBlank = true;
+      return blankRes;
+    }
+
     const rawText = String(pageText);
     const paragraphs = rawText
       .split('\n\n')
       .map(p => p.trim())
       .filter(p => p && !p.startsWith('#') && !p.startsWith('*'));
 
-    return paragraphs.length > 0 ? paragraphs : [rawText];
+    const resultParagraphs = paragraphs.length > 0 ? paragraphs : [rawText];
+    resultParagraphs.rawText = pageText?.rawText || rawText;
+    resultParagraphs.cleanCer = pageText?.cleanCer || 0;
+    return resultParagraphs;
   } catch (err) {
     if (err.name === 'AbortError') {
       throw err;
@@ -2422,7 +2486,7 @@ function getNextTargetPage(totalPages, pageParagraphs) {
 }
 
 function prioritizePageAnalysis(pageNum) {
-  if (!currentActiveBook || !currentPdfDoc) return;
+  if (!currentActiveBook || !currentPdfDoc || currentPdfDocBookId !== currentActiveBook.id) return;
   if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[pageNum]) return;
 
   const total = currentTotalPages || currentPdfDoc.numPages || (currentActiveBook?.totalPages || 1);
@@ -2456,16 +2520,27 @@ function prioritizePageAnalysis(pageNum) {
 
 async function startBackgroundPdfAnalysis(book, pdfDoc) {
   if (!book || !pdfDoc) return;
-  if (isBackgroundOcrActive) return;
+  if (currentActiveBook && currentActiveBook.id !== book.id) return;
+
+  // Başka bir kitabın analizi devam ediyorsa öncelikle onu güvenle durdur
+  if (isBackgroundOcrActive) {
+    stopBackgroundOcrQueue();
+    await new Promise(r => setTimeout(r, 40));
+  }
 
   isBackgroundOcrActive = true;
   const totalPages = pdfDoc.numPages;
   if (!book.pageParagraphs) book.pageParagraphs = {};
 
-  const PARALLEL_WORKERS = 2; // Çift kanal paralel analiz motoru ile 2-3 kat hız artışı
+  const PARALLEL_WORKERS = 1; // Sıralı ve kontrollü analiz (Rate limit ve çapraz sayfa yarışını önler)
 
   const workerPromises = Array.from({ length: PARALLEL_WORKERS }, async (_, workerId) => {
     while (isBackgroundOcrActive) {
+      // Kitap değiştiyse bu worker hemen durmalı
+      if (!currentActiveBook || currentActiveBook.id !== book.id) {
+        break;
+      }
+
       const targetPage = getNextTargetPage(totalPages, book.pageParagraphs);
       if (!targetPage) {
         if (activeAnalyzingPages.size === 0) break;
@@ -2491,10 +2566,16 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
           continue;
         }
 
+        // Kitap hâlâ aynı mı tekrar teyit et
+        if (!currentActiveBook || currentActiveBook.id !== book.id) {
+          break;
+        }
+
         if (paragraphs && paragraphs.length > 0) {
           if (book && book.pageParagraphs) {
             book.pageParagraphs[targetPage] = paragraphs;
-            updateBookPageParagraphs(book.id, targetPage, paragraphs);
+            const rawText = paragraphs.rawText || (Array.isArray(paragraphs) ? paragraphs.join('\n\n') : String(paragraphs));
+            updateBookPageParagraphs(book.id, targetPage, paragraphs, rawText);
 
             // Eğer kullanıcı o an bu sayfaya bakıyorsa ekranı anında güncelle!
             if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
@@ -2517,14 +2598,18 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
 
   try {
     await Promise.all(workerPromises);
-    updateReaderBgOcrStatus(`${totalPages} / ${totalPages}`, false, true);
-    setTimeout(() => hideReaderBgOcrStatus(), 4000);
+    if (currentActiveBook && currentActiveBook.id === book.id) {
+      updateReaderBgOcrStatus(`${totalPages} / ${totalPages}`, false, true);
+      setTimeout(() => hideReaderBgOcrStatus(), 4000);
+    }
   } catch (err) {
     console.warn('Arka plan analizi durduruldu:', err);
   } finally {
-    isBackgroundOcrActive = false;
-    activeAnalyzingPages.clear();
-    activeWorkerControllers.clear();
+    if (currentActiveBook && currentActiveBook.id === book.id) {
+      isBackgroundOcrActive = false;
+      activeAnalyzingPages.clear();
+      activeWorkerControllers.clear();
+    }
   }
 }
 
@@ -2588,6 +2673,10 @@ async function handlePdfFiles(files) {
         saveBook(existingBook);
       }
 
+      currentPdfDoc = pdfDoc;
+      currentPdfNumPages = numPages;
+      currentPdfDocBookId = existingBook.id;
+
       setCurrentBook(existingBook.id);
       renderHomeScreen();
       renderLibraryScreen();
@@ -2630,6 +2719,10 @@ async function handlePdfFiles(files) {
       isPdf: true,
       isCurrent: true
     };
+
+    currentPdfDoc = pdfDoc;
+    currentPdfNumPages = numPages;
+    currentPdfDocBookId = newBook.id;
 
     saveBook(newBook);
     await savePdfToIdb(newBook.id, file);
@@ -3054,12 +3147,19 @@ function handleSaveOcrToLibrary() {
 
   const docName = (el.conversionSheetTitle.textContent || 'Yeni Belge').replace(/\.[^/.]+$/, '');
   
-  // Re-index pages sequentially if batch analysis was performed
+  // Preserve exact page numbers for PDF, or sequential for multi-image uploads
   const analyzedKeys = Object.keys(currentPdfPagesMap).map(Number).sort((a, b) => a - b);
   let pageParagraphs = {};
   let totalPages = 1;
 
-  if (analyzedKeys.length > 0) {
+  if (currentPdfDoc) {
+    // Exact 1-to-1 PDF page correspondence
+    analyzedKeys.forEach((origPage) => {
+      pageParagraphs[origPage] = currentPdfPagesMap[origPage];
+    });
+    totalPages = currentPdfNumPages || Math.max(...analyzedKeys, 1);
+  } else if (analyzedKeys.length > 0) {
+    // Non-PDF multi-image batch
     analyzedKeys.forEach((origPage, idx) => {
       pageParagraphs[idx + 1] = currentPdfPagesMap[origPage];
     });
@@ -3080,6 +3180,10 @@ function handleSaveOcrToLibrary() {
     isPdf: !!currentPdfDoc,
     isCurrent: true
   };
+
+  if (currentPdfDoc) {
+    currentPdfDocBookId = newBook.id;
+  }
 
   saveBook(newBook);
   closeConversionModal();

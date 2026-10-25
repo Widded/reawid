@@ -528,25 +528,26 @@ export function normalizeHyphensAndText(text, options = {}) {
       '$1$2'
     );
 
-    // 4. Aynı satırda OCR hece bölünmesi (örn: "pencere- sinden" veya "kapı -sından")
+    // 4. Aynı satırda OCR hece bölünmesi (Yalnızca ASCII tire '-' ve doğrulanmış Türkçe ekler için!)
+    // Asla diyalog veya parantez em-dash (—) ya da en-dash (–) tirelerine dokunulmaz!
+    const TURKISH_BOUND_SUFFIXES = /^(sinden|sinde|sından|sında|lerine|lerinde|lerinden|lerini|larına|larında|larından|larını|leriyle|larıyla|lerin|ların|deki|daki|lerle|larla|dendir|dandır|miştir|mıştır|ecektir|acaktır|dıkça|dikçe|liğine|lığına|likten|lıktan)$/i;
+
     cleaned = cleaned.replace(
-      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]\s+([a-zçğıöşü]{2,})/gu,
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)-\s+([a-zçğıöşü]{3,})/gu,
       (match, word, apostrophe, suffix) => {
-        const lower = suffix.toLowerCase();
-        if (['ve', 'de', 'da', 'ile', 'ama', 'fakat', 'ancak'].includes(lower)) {
-          return match;
+        if (TURKISH_BOUND_SUFFIXES.test(suffix)) {
+          return `${word}${apostrophe || ''}${suffix}`;
         }
-        return `${word}${apostrophe || ''}${suffix}`;
+        return match;
       }
     );
     cleaned = cleaned.replace(
-      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s+[-–—]([a-zçğıöşü]{2,})/gu,
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s+-([a-zçğıöşü]{3,})/gu,
       (match, word, suffix) => {
-        const lower = suffix.toLowerCase();
-        if (['ve', 'de', 'da', 'ile', 'ama', 'fakat', 'ancak'].includes(lower)) {
-          return match;
+        if (TURKISH_BOUND_SUFFIXES.test(suffix)) {
+          return `${word}${suffix}`;
         }
-        return `${word}${suffix}`;
+        return match;
       }
     );
 
@@ -654,7 +655,9 @@ STRICT RULES:
 15. Handle line breaks carefully. A line ending caused by page layout is not automatically a paragraph break. Rejoin words split by a printed line-end hyphen only when the original word can be determined confidently.
 16. Preserve chapter headings, section headings, indents where representable, and other meaningful book structure.
 17. Do not insert stray underscores or scan artifacts inside words (e.g. write 'bana', not 'b_ana'). Carefully distinguish 'm' from 'ri' or 'rn' (e.g. write 'görmüştüm', not 'görmüş türri').
-18. Output only the transcribed text.
+18. If the page is blank, has no readable text, or contains only illustrations, graphics, or cover art without book text, output ONLY: [SAYFADA METİN YOK]. Never invent stories, conversations, or text from memory.
+19. Never carry over or blend text from previously processed pages or other books. Every page image must be transcribed in absolute isolation based solely on visible pixels.
+20. Output only the transcribed text.
 
 ACCURACY PRIORITY:
 Correct word recognition and faithful reproduction of the original text are more important than producing elegant or fluent prose.`;
@@ -864,6 +867,23 @@ export async function performOcr({
         });
       }
 
+      // Handle blank page detection immediately without running linguistic healing
+      if (resultText.trim() === '[SAYFADA METİN YOK]') {
+        const verifiableResult = new String('[SAYFADA METİN YOK]');
+        verifiableResult.text = '[SAYFADA METİN YOK]';
+        verifiableResult.rawText = '[SAYFADA METİN YOK]';
+        verifiableResult.cleanedText = '[SAYFADA METİN YOK]';
+        verifiableResult.isBlank = true;
+        verifiableResult.documentId = String(documentId || 'single_doc');
+        verifiableResult.pageNumber = Number(pageNumber) || 1;
+        verifiableResult.provider = candidate.provider;
+        verifiableResult.model = candidate.model;
+        verifiableResult.selectedModel = model;
+        verifiableResult.actualModel = candidate.model;
+        verifiableResult.durationMs = elapsedMs;
+        return verifiableResult;
+      }
+
       // Targeted Stage 2: Proofreading if suspicious artifacts are detected
       const shouldProofread = options.enableProofreading === true ||
         (options.autoProofread !== false && isSuspiciousOcrText(resultText));
@@ -897,25 +917,49 @@ export async function performOcr({
           }
 
           if (corrected && corrected.trim().length > 0) {
-            resultText = corrected.trim();
+            // Strict validation: Do not overwrite if second stage text is severely truncated or hallucinating
+            const origLen = resultText.length;
+            const corrLen = corrected.trim().length;
+            const ratio = corrLen / Math.max(1, origLen);
+            if (ratio >= 0.70 && ratio <= 1.30) {
+              console.info(`[AI Proofreader] 2. aşama düzeltmesi başarıyla uygulandı (${origLen} -> ${corrLen} kr).`);
+              resultText = corrected.trim();
+            } else {
+              console.warn(`[AI Proofreader] 2. aşama çıktısı şüpheli oranda farklı (${origLen} -> ${corrLen} kr, oran: ${ratio.toFixed(2)}), orijinal metin korundu.`);
+            }
           }
         } catch (proofErr) {
           console.warn('[AI Proofreader] İkinci aşama kontrolü atlandı (hata koruması):', proofErr.message);
         }
       }
 
-      // Metin temizleme: Harf boşluklarını ve tireleri normalize et
-      resultText = normalizeHyphensAndText(resultText, {
+      // Preserve pristine raw AI output before post-processing
+      const rawAiOutput = resultText;
+
+      // Metin temizleme: Harf boşluklarını ve tireleri güvenli biçimde normalize et
+      const cleanedText = normalizeHyphensAndText(rawAiOutput, {
         mergeHyphens: options.mergeHyphenatedWords !== false
       });
 
-      // Attach verification metadata to returned string instance for application-side validation
-      const verifiableResult = new String(resultText);
-      verifiableResult.text = resultText;
+      // Calculate Character Error Rate between raw and cleaned text
+      const cleanCer = calculateCer(rawAiOutput, cleanedText);
+      if (cleanCer > 0.15) {
+        console.warn(`[AI OCR Clean Warning] Sayfa ${pageNumber}: Temizleme işlemi metni %${(cleanCer * 100).toFixed(1)} oranında değiştirdi. Ham çıktı güvenceye alındı.`);
+      }
+
+      // Attach verification metadata and raw text to returned string instance for application-side validation
+      const verifiableResult = new String(cleanedText);
+      verifiableResult.text = cleanedText;
+      verifiableResult.rawText = rawAiOutput;
+      verifiableResult.cleanedText = cleanedText;
+      verifiableResult.cleanCer = cleanCer;
+      verifiableResult.hasModifications = (rawAiOutput !== cleanedText);
       verifiableResult.documentId = String(documentId || 'single_doc');
       verifiableResult.pageNumber = Number(pageNumber) || 1;
       verifiableResult.provider = candidate.provider;
       verifiableResult.model = candidate.model;
+      verifiableResult.selectedModel = model;
+      verifiableResult.actualModel = candidate.model;
       verifiableResult.durationMs = elapsedMs;
 
       return verifiableResult;

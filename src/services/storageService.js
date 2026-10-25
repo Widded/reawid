@@ -600,20 +600,22 @@ export function deleteBook(bookId) {
   }
 }
 
-export function updateBookPageParagraphs(bookId, pageNum, paragraphs) {
+export function updateBookPageParagraphs(bookId, pageNum, paragraphs, rawText = null) {
   try {
     const books = getBooks();
     let updatedBook = null;
-    const cleanedParagraphs = Array.isArray(paragraphs)
-      ? paragraphs.map(p => (typeof p === 'string' ? fixSpacedOutLetters(p) : p))
-      : paragraphs;
+    const safeParagraphs = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
 
     const updated = books.map(b => {
       if (b.id === bookId) {
-        const pageParagraphs = { ...(b.pageParagraphs || {}), [pageNum]: cleanedParagraphs };
+        const pageParagraphs = { ...(b.pageParagraphs || {}), [pageNum]: safeParagraphs };
+        const pageRawTexts = rawText
+          ? { ...(b.pageRawTexts || {}), [pageNum]: rawText }
+          : (b.pageRawTexts || {});
         updatedBook = {
           ...b,
-          pageParagraphs
+          pageParagraphs,
+          pageRawTexts
         };
         return updatedBook;
       }
