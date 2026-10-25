@@ -298,6 +298,12 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
 
     let clean = text.trim();
     if (clean.length > 0) {
+      // Bozuk font encoding, binary glif veya (cid:xxx) kalıntılarını denetle
+      if (clean.includes('(cid:') || (clean.length > 40 && (clean.match(/[\p{L}\p{N}]/gu) || []).length / clean.length < 0.40)) {
+        console.warn(`[PDF Engine] Sayfa ${pageNumber} gömülü metninde bozuk font/glif encoding tespit edildi. OCR motoruna yönlendiriliyor.`);
+        return null;
+      }
+
       // Satır sonu kesme ve heceleme tirelerini birleştir
       clean = normalizeHyphensAndText(clean);
 
@@ -307,7 +313,7 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
         const turkishSpecificCount = (clean.match(/[çğışöüÇĞİÖŞÜ]/g) || []).length;
 
         if (turkishKeywordRegex.test(clean) && turkishSpecificCount < 2) {
-          console.warn(`[PDF Engine] Sayfa ${pageNumber} gömülü metninde Türkçe karakter kaybı tespit edildi (eski/bozuk OCR katmanı). Vision AI ile taranıyor.`);
+          console.warn(`[PDF Engine] Sayfa ${pageNumber} gömülü metninde Türkçe karakter kaybı tespit edildi (eski/bozuk OCR katmanı). OCR ile taranıyor.`);
           return null;
         }
       }

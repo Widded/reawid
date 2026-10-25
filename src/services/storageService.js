@@ -161,11 +161,12 @@ export function generateBookCoverSvg(title = 'Kitap', author = 'ReaWid') {
 }
 
 // Read environment variables (supports both VITE_ and EXPO_PUBLIC_ prefixes)
-const ENV_ACTIVE_PROVIDER = (import.meta.env.VITE_OCR_PROVIDER || import.meta.env.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
-const ENV_GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || import.meta.env.EXPO_PUBLIC_GROQ_API_KEY || '';
-const ENV_OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || import.meta.env.EXPO_PUBLIC_OPENROUTER_API_KEY || '';
-const ENV_GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL || import.meta.env.EXPO_PUBLIC_GROQ_MODEL || 'auto';
-const ENV_OPENROUTER_MODEL = import.meta.env.VITE_OPENROUTER_MODEL || import.meta.env.EXPO_PUBLIC_OPENROUTER_MODEL || 'auto';
+const metaEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+const ENV_ACTIVE_PROVIDER = (metaEnv.VITE_OCR_PROVIDER || metaEnv.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
+const ENV_GROQ_KEY = metaEnv.VITE_GROQ_API_KEY || metaEnv.EXPO_PUBLIC_GROQ_API_KEY || '';
+const ENV_OPENROUTER_KEY = metaEnv.VITE_OPENROUTER_API_KEY || metaEnv.EXPO_PUBLIC_OPENROUTER_API_KEY || '';
+const ENV_GROQ_MODEL = metaEnv.VITE_GROQ_MODEL || metaEnv.EXPO_PUBLIC_GROQ_MODEL || 'auto';
+const ENV_OPENROUTER_MODEL = metaEnv.VITE_OPENROUTER_MODEL || metaEnv.EXPO_PUBLIC_OPENROUTER_MODEL || 'auto';
 
 export const DEFAULT_SETTINGS = {
   // Reading & Display Experience
@@ -181,6 +182,7 @@ export const DEFAULT_SETTINGS = {
   ttsSpeed: 1.0, // 0.8, 1.0, 1.25, 1.5
   offlineCache: true, // Çevrimdışı sayfa önbelleği
   renderDpi: 2.0, // PDF render scale for ultra sharpness
+  ocrEngine: 'auto', // 'auto' | 'tesseract' | 'vision_ai'
 
   // Silent AI Engine (auto from .env)
   activeProvider: ENV_ACTIVE_PROVIDER,
@@ -265,6 +267,7 @@ const DEPRECATED_OR_MODELS = [
 
 // Comprehensive purge of legacy mock data and stale caches stored in client devices
 function cleanLegacyMockDataOnce() {
+  if (typeof localStorage === 'undefined') return;
   try {
     const rawBooks = localStorage.getItem(BOOKS_KEY);
     if (rawBooks) {

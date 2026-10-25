@@ -70,6 +70,11 @@ import {
   pdfPageRenderCache
 } from './services/pdfService.js';
 
+import {
+  performTesseractOcr,
+  terminateTesseractWorker
+} from './services/tesseractService.js';
+
 import { perfMonitor } from './services/perfMonitor.js';
 
 import {
@@ -412,6 +417,8 @@ const el = {
   setDialogueFormatting: document.getElementById('setDialogueFormatting'),
   badgeTtsSpeed: document.getElementById('badgeTtsSpeed'),
   settingsTtsSelector: document.getElementById('settingsTtsSelector'),
+  badgeOcrEngine: document.getElementById('badgeOcrEngine'),
+  settingsOcrEngineSelector: document.getElementById('settingsOcrEngineSelector'),
   setOfflineCache: document.getElementById('setOfflineCache'),
   btnExportData: document.getElementById('btnExportData'),
   btnImportData: document.getElementById('btnImportData'),
@@ -898,6 +905,7 @@ function openBookInReader(book, targetPage = null) {
 function closeReader() {
   stopSpeech();
   releaseWakeLock();
+  terminateTesseractWorker().catch(() => {});
   el.inAppReaderView.classList.add('hidden');
   closeComparisonView();
   closeMoreMenu();
@@ -1430,11 +1438,39 @@ async function updateComparisonPage(pageNum) {
       </div>
     `;
   } else if (paragraphs.length > 0) {
+    const pageData = currentActiveBook.pageParagraphs ? currentActiveBook.pageParagraphs[pageNum] : null;
+    const engine = pageData?.engine || (pageData?.confidence ? 'tesseract' : 'vision_ai');
+    const conf = pageData?.confidence ? ` (%${pageData.confidence})` : '';
+    const engineLabel = engine === 'tesseract' ? `Tesseract OCR${conf}` : (engine === 'embedded' ? 'Gömülü PDF Metni' : 'Vision AI');
+    const altEngine = engine === 'tesseract' ? 'vision_ai' : 'tesseract';
+    const altEngineName = engine === 'tesseract' ? 'Vision AI ile Tara' : 'Tesseract ile Tara';
+
     el.compareDigitalContent.innerHTML = `
-      <span class="compare-chapter-tag">${currentActiveBook.chapter || `BÖLÜM ${pageNum}`}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span class="compare-chapter-tag">${currentActiveBook.chapter || `SAYFA ${pageNum}`} &bull; ${engineLabel}</span>
+        <button type="button" id="btnCompareRescanPage" style="font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-color, #444); background: var(--bg-tertiary, #2c2c2e); color: var(--text-secondary, #ccc); cursor: pointer;">${altEngineName}</button>
+      </div>
       <h3>${currentActiveBook.title}</h3>
       ${formatBookHtml(paragraphs, { enabled: appSettings.smartDialogueFormatting !== false })}
     `;
+
+    const rescanBtn = document.getElementById('btnCompareRescanPage');
+    if (rescanBtn) {
+      rescanBtn.addEventListener('click', async () => {
+        showToast(`Sayfa ${pageNum} ${altEngineName}...`, 'info');
+        if (currentActiveBook.pageParagraphs) {
+          delete currentActiveBook.pageParagraphs[pageNum];
+        }
+        const origEngine = appSettings.ocrEngine;
+        appSettings.ocrEngine = altEngine;
+        try {
+          prioritizePageAnalysis(pageNum);
+          await updateComparisonPage(pageNum);
+        } finally {
+          appSettings.ocrEngine = origEngine;
+        }
+      });
+    }
   } else {
     el.compareDigitalContent.innerHTML = `
       <div class="compare-empty-viewport">
@@ -2484,18 +2520,13 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
 
     if (signal?.aborted) return null;
 
-    // 2. Gömülü metin yoksa (taranmış sayfa), Vision AI ile dinamik ve yedeklemeli OCR yap
-    const provider = appSettings.activeProvider || 'auto';
-    const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
+    // 2. Gömülü metin yoksa (taranmış sayfa), seçili OCR motoru ile işle
+    const ocrEngine = appSettings.ocrEngine || 'auto';
     const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
     // UI donmalarını önlemek için event loop'a nefes aldır
     await yieldToMainThread(0);
     if (signal?.aborted) return null;
-
-    perfMonitor.trackOcrStart();
-    const ocrMetricKey = `ocr_req_p${pageNum}`;
-    perfMonitor.start(ocrMetricKey);
 
     let canvas = null;
     let pageDataUrl = '';
@@ -2507,36 +2538,51 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
       if (canvas) disposeCanvas(canvas); // Canvas belleğini derhal temizle!
     }
 
-    if (signal?.aborted) {
-      perfMonitor.trackOcrEnd();
-      perfMonitor.end(ocrMetricKey);
-      return null;
-    }
+    if (signal?.aborted) return null;
 
-    const pageText = await performOcr({
-      imageBase64: pageDataUrl,
-      provider,
-      groqApiKey: appSettings.groqApiKey,
-      openrouterApiKey: appSettings.openrouterApiKey,
-      model,
-      documentId,
-      pageNumber: pageNum,
-      options: {
-        strictTurkish: appSettings.strictTurkish !== false,
-        mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
-        ignorePageNumbers: appSettings.ignorePageNumbers !== false,
-        preserveFormatting: appSettings.preserveFormatting !== false,
-        temperature: 0.05
-      },
-      signal,
-      onModelFallback: ({ from, to, reason }) => {
-        console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason}) | Belge: ${documentId} | Sayfa: ${pageNum}`);
-        updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
+    let pageText = null;
+
+    if (ocrEngine === 'tesseract') {
+      pageText = await performTesseractOcr({
+        imageSource: pageDataUrl,
+        documentId,
+        pageNumber: pageNum,
+        options: {
+          mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false
+        },
+        signal,
+        onProgress: ({ status, progress }) => {
+          updateReaderBgOcrStatus(`Tesseract: %${progress} (S.${pageNum})`, true);
+        }
+      });
+    } else if (ocrEngine === 'vision_ai') {
+      pageText = await performVisionAiOcr(pageDataUrl, pageNum, documentId, signal);
+    } else {
+      // 'auto' Modu: Önce yerel ve hızlı Tesseract dene; yetersiz kalırsa Vision AI'ya aktar
+      try {
+        pageText = await performTesseractOcr({
+          imageSource: pageDataUrl,
+          documentId,
+          pageNumber: pageNum,
+          options: {
+            mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false
+          },
+          signal,
+          onProgress: ({ status, progress }) => {
+            updateReaderBgOcrStatus(`OCR: %${progress} (S.${pageNum})`, true);
+          }
+        });
+
+        if (!pageText || pageText.isBlank || (pageText.confidence && pageText.confidence < 50)) {
+          console.info(`[OCR Auto Route] Tesseract güven skoru yetersiz (%${pageText?.confidence || 0}), Vision AI devreye alınıyor...`);
+          pageText = await performVisionAiOcr(pageDataUrl, pageNum, documentId, signal);
+        }
+      } catch (tessErr) {
+        if (signal?.aborted) throw tessErr;
+        console.warn('[OCR Auto Route] Tesseract başlatılamadı, Vision AI deneniyor:', tessErr.message);
+        pageText = await performVisionAiOcr(pageDataUrl, pageNum, documentId, signal);
       }
-    });
-
-    perfMonitor.trackOcrEnd();
-    perfMonitor.end(ocrMetricKey);
+    }
 
     // Dönen yanıtın bu belgeye ve sayfaya ait olduğunu doğrula
     if (pageText?.pageNumber && Number(pageText.pageNumber) !== Number(pageNum)) {
@@ -2560,14 +2606,52 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
     const resultParagraphs = paragraphs.length > 0 ? paragraphs : [rawText];
     resultParagraphs.rawText = pageText?.rawText || rawText;
     resultParagraphs.cleanCer = pageText?.cleanCer || 0;
+    resultParagraphs.confidence = pageText?.confidence || null;
+    resultParagraphs.engine = pageText?.engine || pageText?.provider || 'ocr';
     return resultParagraphs;
   } catch (err) {
-    perfMonitor.trackOcrEnd();
     if (err.name === 'AbortError') {
       throw err;
     }
     console.warn(`Sayfa ${pageNum} analizi sırasında hata:`, err);
     return null;
+  }
+}
+
+async function performVisionAiOcr(pageDataUrl, pageNum, documentId, signal) {
+  const provider = appSettings.activeProvider || 'auto';
+  const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
+
+  perfMonitor.trackOcrStart();
+  const ocrMetricKey = `ocr_req_p${pageNum}`;
+  perfMonitor.start(ocrMetricKey);
+
+  try {
+    const pageText = await performOcr({
+      imageBase64: pageDataUrl,
+      provider,
+      groqApiKey: appSettings.groqApiKey,
+      openrouterApiKey: appSettings.openrouterApiKey,
+      model,
+      documentId,
+      pageNumber: pageNum,
+      options: {
+        strictTurkish: appSettings.strictTurkish !== false,
+        mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+        ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+        preserveFormatting: appSettings.preserveFormatting !== false,
+        temperature: 0.05
+      },
+      signal,
+      onModelFallback: ({ from, to, reason }) => {
+        console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason}) | Belge: ${documentId} | Sayfa: ${pageNum}`);
+        updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
+      }
+    });
+    return pageText;
+  } finally {
+    perfMonitor.trackOcrEnd();
+    perfMonitor.end(ocrMetricKey);
   }
 }
 
@@ -3059,35 +3143,102 @@ async function startOcrProcess() {
   isOcrRunning = true;
   abortController = new AbortController();
   el.btnStartOcr.disabled = true;
-  el.scanningLaser.classList.remove('hidden');
-  el.processingOverlay.classList.remove('hidden');
-  el.processingStatusText.textContent = `Vision AI ile taranıyor...`;
+  const engine = appSettings.ocrEngine || 'auto';
+  el.processingStatusText.textContent = engine === 'tesseract' ? 'Tesseract OCR ile taranıyor...' : 'OCR ile taranıyor...';
 
   const startTime = Date.now();
 
   try {
-    const text = await performOcr({
-      imageBase64: currentProcessedImage,
-      provider,
-      groqApiKey: appSettings.groqApiKey,
-      openrouterApiKey: appSettings.openrouterApiKey,
-      model,
-      documentId: 'single_image_doc',
-      pageNumber: 1,
-      options: {
-        strictTurkish: appSettings.strictTurkish !== false,
-        mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
-        ignorePageNumbers: appSettings.ignorePageNumbers !== false,
-        preserveFormatting: appSettings.preserveFormatting !== false,
-        temperature: appSettings.temperature ?? 0.1
-      },
-      signal: abortController.signal,
-      onModelFallback: ({ from, to, reason }) => {
-        const fromShort = from.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
-        const toShort = to.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
-        showToast(`${fromShort} yoğun, ${toShort}'a geçildi`, 'info');
+    let text = null;
+    if (engine === 'tesseract') {
+      text = await performTesseractOcr({
+        imageSource: currentProcessedImage,
+        documentId: 'single_image_doc',
+        pageNumber: 1,
+        options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+        signal: abortController.signal,
+        onProgress: ({ progress }) => {
+          el.processingStatusText.textContent = `Tesseract OCR: %${progress}`;
+        }
+      });
+    } else if (engine === 'vision_ai') {
+      text = await performOcr({
+        imageBase64: currentProcessedImage,
+        provider,
+        groqApiKey: appSettings.groqApiKey,
+        openrouterApiKey: appSettings.openrouterApiKey,
+        model,
+        documentId: 'single_image_doc',
+        pageNumber: 1,
+        options: {
+          strictTurkish: appSettings.strictTurkish !== false,
+          mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+          ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+          preserveFormatting: appSettings.preserveFormatting !== false,
+          temperature: appSettings.temperature ?? 0.1
+        },
+        signal: abortController.signal,
+        onModelFallback: ({ from, to }) => {
+          const fromShort = from.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
+          const toShort = to.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
+          showToast(`${fromShort} yoğun, ${toShort}'a geçildi`, 'info');
+        }
+      });
+    } else {
+      // Auto: Try Tesseract first; fallback to Vision AI
+      try {
+        text = await performTesseractOcr({
+          imageSource: currentProcessedImage,
+          documentId: 'single_image_doc',
+          pageNumber: 1,
+          options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+          signal: abortController.signal,
+          onProgress: ({ progress }) => {
+            el.processingStatusText.textContent = `Tesseract OCR: %${progress}`;
+          }
+        });
+        if (!text || text.isBlank || (text.confidence && text.confidence < 50)) {
+          el.processingStatusText.textContent = 'Vision AI devreye alınıyor...';
+          text = await performOcr({
+            imageBase64: currentProcessedImage,
+            provider,
+            groqApiKey: appSettings.groqApiKey,
+            openrouterApiKey: appSettings.openrouterApiKey,
+            model,
+            documentId: 'single_image_doc',
+            pageNumber: 1,
+            options: {
+              strictTurkish: appSettings.strictTurkish !== false,
+              mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+              ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+              preserveFormatting: appSettings.preserveFormatting !== false,
+              temperature: appSettings.temperature ?? 0.1
+            },
+            signal: abortController.signal
+          });
+        }
+      } catch (tessErr) {
+        if (abortController.signal.aborted) throw tessErr;
+        el.processingStatusText.textContent = 'Vision AI ile taranıyor...';
+        text = await performOcr({
+          imageBase64: currentProcessedImage,
+          provider,
+          groqApiKey: appSettings.groqApiKey,
+          openrouterApiKey: appSettings.openrouterApiKey,
+          model,
+          documentId: 'single_image_doc',
+          pageNumber: 1,
+          options: {
+            strictTurkish: appSettings.strictTurkish !== false,
+            mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+            ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+            preserveFormatting: appSettings.preserveFormatting !== false,
+            temperature: appSettings.temperature ?? 0.1
+          },
+          signal: abortController.signal
+        });
       }
-    });
+    }
 
     displayOcrResult(text, Date.now() - startTime);
 
@@ -3160,30 +3311,91 @@ async function startPdfBatchOcr() {
       disposeCanvas(canvas);
       await setPreviewImage(pageDataUrl);
 
-      // Perform Vision AI OCR with Dynamic Fallback
+      // Perform OCR based on chosen engine (Tesseract / Vision AI / Auto)
       const batchDocId = currentPdfDoc?.fingerprint || 'batch_pdf_doc';
-      const pageText = await performOcr({
-        imageBase64: pageDataUrl,
-        provider,
-        groqApiKey: appSettings.groqApiKey,
-        openrouterApiKey: appSettings.openrouterApiKey,
-        model,
-        documentId: batchDocId,
-        pageNumber: i,
-        options: {
-          strictTurkish: appSettings.strictTurkish !== false,
-          mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
-          ignorePageNumbers: appSettings.ignorePageNumbers !== false,
-          preserveFormatting: appSettings.preserveFormatting !== false,
-          temperature: appSettings.temperature ?? 0.1
-        },
-        signal: abortController.signal,
-        onModelFallback: ({ from, to, reason }) => {
-          const fromShort = from.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
-          const toShort = to.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
-          showToast(`Sayfa ${i}: ${fromShort} yoğun, ${toShort}'a geçildi`, 'info');
+      const engine = appSettings.ocrEngine || 'auto';
+      let pageText = null;
+
+      if (engine === 'tesseract') {
+        pageText = await performTesseractOcr({
+          imageSource: pageDataUrl,
+          documentId: batchDocId,
+          pageNumber: i,
+          options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+          signal: abortController.signal
+        });
+      } else if (engine === 'vision_ai') {
+        pageText = await performOcr({
+          imageBase64: pageDataUrl,
+          provider,
+          groqApiKey: appSettings.groqApiKey,
+          openrouterApiKey: appSettings.openrouterApiKey,
+          model,
+          documentId: batchDocId,
+          pageNumber: i,
+          options: {
+            strictTurkish: appSettings.strictTurkish !== false,
+            mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+            ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+            preserveFormatting: appSettings.preserveFormatting !== false,
+            temperature: appSettings.temperature ?? 0.1
+          },
+          signal: abortController.signal,
+          onModelFallback: ({ from, to }) => {
+            const fromShort = from.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
+            const toShort = to.replace(/OpenRouter \(|\)/g, '').replace(/Groq \(|\)/g, '');
+            showToast(`Sayfa ${i}: ${fromShort} yoğun, ${toShort}'a geçildi`, 'info');
+          }
+        });
+      } else {
+        // Auto: Try Tesseract first; fallback to Vision AI
+        try {
+          pageText = await performTesseractOcr({
+            imageSource: pageDataUrl,
+            documentId: batchDocId,
+            pageNumber: i,
+            options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+            signal: abortController.signal
+          });
+          if (!pageText || pageText.isBlank || (pageText.confidence && pageText.confidence < 50)) {
+            pageText = await performOcr({
+              imageBase64: pageDataUrl,
+              provider,
+              groqApiKey: appSettings.groqApiKey,
+              openrouterApiKey: appSettings.openrouterApiKey,
+              model,
+              documentId: batchDocId,
+              pageNumber: i,
+              options: {
+                strictTurkish: appSettings.strictTurkish !== false,
+                mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+                ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+                preserveFormatting: appSettings.preserveFormatting !== false,
+                temperature: appSettings.temperature ?? 0.1
+              },
+              signal: abortController.signal
+            });
+          }
+        } catch {
+          pageText = await performOcr({
+            imageBase64: pageDataUrl,
+            provider,
+            groqApiKey: appSettings.groqApiKey,
+            openrouterApiKey: appSettings.openrouterApiKey,
+            model,
+            documentId: batchDocId,
+            pageNumber: i,
+            options: {
+              strictTurkish: appSettings.strictTurkish !== false,
+              mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+              ignorePageNumbers: appSettings.ignorePageNumbers !== false,
+              preserveFormatting: appSettings.preserveFormatting !== false,
+              temperature: appSettings.temperature ?? 0.1
+            },
+            signal: abortController.signal
+          });
         }
-      });
+      }
 
       // Sayfa doğrulaması: Yanıtın bu sayfaya ait olduğunu teyit et
       if (pageText?.pageNumber && Number(pageText.pageNumber) !== Number(i)) {
@@ -3691,9 +3903,39 @@ function renderSettingsScreen() {
   if (el.badgeTtsSpeed) {
     el.badgeTtsSpeed.textContent = `${currentSpeed}x`;
   }
+
+  // 5. OCR Engine Selector
+  const currentEngine = appSettings.ocrEngine || 'auto';
+  if (el.settingsOcrEngineSelector) {
+    el.settingsOcrEngineSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.engine === currentEngine);
+    });
+  }
+  if (el.badgeOcrEngine) {
+    const engineNames = { auto: 'Otomatik', tesseract: 'Tesseract (Yerel)', vision_ai: 'Vision AI (Bulut)' };
+    el.badgeOcrEngine.textContent = engineNames[currentEngine] || 'Otomatik';
+  }
 }
 
 function setupSettingsScreenEvents() {
+  // OCR Engine Selector
+  if (el.settingsOcrEngineSelector) {
+    el.settingsOcrEngineSelector.querySelectorAll('.segmented-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const engine = btn.dataset.engine;
+        appSettings.ocrEngine = engine;
+        saveSettings(appSettings);
+        renderSettingsScreen();
+        const names = {
+          auto: 'Otomatik (Gömülü + Tesseract + AI)',
+          tesseract: 'Tesseract OCR (Türkçe Yerel & Ücretsiz)',
+          vision_ai: 'Vision AI (Groq / OpenRouter)'
+        };
+        showToast(`OCR Motoru: ${names[engine] || engine}`, 'success');
+      });
+    });
+  }
+
   // Theme selector
   if (el.settingsThemeSelector) {
     el.settingsThemeSelector.querySelectorAll('.segmented-pill').forEach(btn => {

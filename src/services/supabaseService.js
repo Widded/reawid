@@ -3,8 +3,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const metaEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+const SUPABASE_URL = metaEnv.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = metaEnv.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 

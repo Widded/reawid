@@ -493,6 +493,24 @@
         <div class="settings-group-box">
           <h2 class="settings-group-heading">Akıllı Okuyucu & Sayfa Analizi</h2>
           <div class="settings-ios-card">
+            <!-- OCR Motoru Tercihi -->
+            <div class="settings-ios-row-stack">
+              <div class="settings-row-label-row">
+                <span class="settings-row-title">OCR Motoru Tercihi</span>
+                <span class="settings-row-hint-badge" id="badgeOcrEngine">Otomatik</span>
+              </div>
+              <div class="settings-segmented-control" id="settingsOcrEngineSelector">
+                <button type="button" class="segmented-pill active" data-engine="auto">Otomatik</button>
+                <button type="button" class="segmented-pill" data-engine="tesseract">Tesseract (Yerel)</button>
+                <button type="button" class="segmented-pill" data-engine="vision_ai">Vision AI (Bulut)</button>
+              </div>
+              <span class="settings-row-desc" style="margin-top: 6px;">
+                <strong>Otomatik:</strong> Taranmış sayfalarda önce hızlı ve ücretsiz Tesseract OCR'ı dener; gerekirse Vision AI'ya geçer.
+              </span>
+            </div>
+
+            <div class="settings-row-divider"></div>
+
             <!-- Arka Planda Ön-Yükleme -->
             <div class="settings-ios-row">
               <div class="settings-row-icon-box">

@@ -490,6 +490,44 @@ export function healTurkishOcrArtifacts(text) {
     '$1$2 $3'
   );
 
+  // 6. Safe healing for digit '1' misrecognized as dotless 'ı' or 'i' inside words:
+  // e.g. "yay1mlanan" -> "yayımlanan", "k1tap" -> "kitap", "b1r" -> "bir"
+  // Strictly preserves standalone numbers ("1946", "11", "1.", "1'inci", etc.)
+  s = s.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ])1([a-zçğıöşüA-ZÇĞİÖŞÜ])/gu,
+    (match, before, after) => {
+      const matchIndex = s.indexOf(match);
+      const precedingText = s.slice(Math.max(0, matchIndex - 12), matchIndex + 1);
+      const vowels = precedingText.match(/[aıoueiöüAIOUEİÖÜ]/gu);
+      const lastVowel = vowels ? vowels[vowels.length - 1].toLowerCase() : '';
+      const isFrontVowel = ['e', 'i', 'ö', 'ü'].includes(lastVowel);
+      return `${before}${isFrontVowel ? 'i' : 'ı'}${after}`;
+    }
+  );
+
+  // 7. Safe healing for double 'ii' OCR confusion for 'ü' (umlaut dots read as 'ii'):
+  // e.g. "Ziilfii" -> "Zülfü", "miizik" -> "müzik", "siirgiinde" -> "sürgünde", "tiim" -> "tüm"
+  const safeIiPatterns = [
+    { pattern: /\b(z)iilf(ii|u)\b/giu, repl: '$1ülfü' },
+    { pattern: /\bm[iı]{2}z[iı]k/giu, repl: 'müzik' },
+    { pattern: /\bs[iı]{2}rg[iı]{2}n/giu, repl: 'sürgün' },
+    { pattern: /\b(t)[iı]{2}m\b/giu, repl: '$1üm' },
+    { pattern: /\b(g)[iı]{2}z(el|ellik)/giu, repl: '$1üz$2' },
+    { pattern: /\b(b)[iı]{2}y([uü]k)/giu, repl: '$1üy$2' },
+    { pattern: /\b(k)[iı]{2}ç([uü]k)/giu, repl: '$1üç$2' },
+    { pattern: /\b(g)[iı]{2}ç(l[uü]|s[uü]z)?\b/giu, repl: '$1üç$2' },
+    { pattern: /\b(d)[iı]{2}ş([uü]n)/giu, repl: '$1üş$2' },
+    { pattern: /\b(g)[iı]{2}r(d[uü]|m[uü]ş|en)/giu, repl: '$1ür$2' },
+    { pattern: /\b(y)[iı]{2}r([uü]y)/giu, repl: '$1ür$2' }
+  ];
+  for (const { pattern, repl } of safeIiPatterns) {
+    s = s.replace(pattern, repl);
+  }
+
+  // 8. Safe contextual fix for OCR dropped breve on "doğdu":
+  // e.g. "1946 yılında dogdu" -> "1946 yılında doğdu"
+  s = s.replace(/\b(d)ogdu(k|m|n|lar)?\b/giu, '$1oğdu$2');
+
   return s;
 }
 
@@ -528,7 +566,14 @@ export function normalizeHyphensAndText(text, options = {}) {
       '$1$2'
     );
 
-    // 4. Aynı satırda OCR hece bölünmesi (Yalnızca ASCII tire '-' ve doğrulanmış Türkçe ekler için!)
+    // 4. Hece bölme tiresi ardında boşluk olan durumlar (OCR satır birleştirmesi):
+    // e.g. "Stock- holm'de" -> "Stockholm'de", "Meh- ta" -> "Mehta", "Bal- kan" -> "Balkan", "Ya- zar" -> "Yazar", "ötü- rü" -> "ötürü"
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*[-–]\s+([a-zçğıöşü]+(?:['’][a-zçğıöşü]+)?)/gu,
+      '$1$2'
+    );
+
+    // 5. Aynı satırda OCR hece bölünmesi (Yalnızca ASCII tire '-' ve doğrulanmış Türkçe ekler için!)
     // Asla diyalog veya parantez em-dash (—) ya da en-dash (–) tirelerine dokunulmaz!
     const TURKISH_BOUND_SUFFIXES = /^(sinden|sinde|sından|sında|lerine|lerinde|lerinden|lerini|larına|larında|larından|larını|leriyle|larıyla|lerin|ların|deki|daki|lerle|larla|dendir|dandır|miştir|mıştır|ecektir|acaktır|dıkça|dikçe|liğine|lığına|likten|lıktan)$/i;
 
@@ -551,17 +596,17 @@ export function normalizeHyphensAndText(text, options = {}) {
       }
     );
 
-    // 5. Satır sonundaki gerçek bileşik kelimeler (örn: "Ankara-\nİstanbul" -> "Ankara-İstanbul")
+    // 6. Satır sonundaki gerçek bileşik kelimeler (örn: "Ankara-\nİstanbul" -> "Ankara-İstanbul")
     cleaned = cleaned.replace(
       /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)[-–—]\s*\n+\s*([A-ZÇĞİÖŞÜ0-9][a-zçğıöşüA-ZÇĞİÖŞÜ0-9]*)/gu,
       '$1-$2'
     );
   }
 
-  // 6. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir
+  // 7. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir
   cleaned = fixSpacedOutLetters(cleaned);
 
-  // 7. Türkçe morfolojik ek ve OCR harf ayrışma hatalarını iyileştir
+  // 8. Türkçe morfolojik ek ve OCR harf ayrışma hatalarını iyileştir
   cleaned = healTurkishOcrArtifacts(cleaned);
 
   return cleaned;
