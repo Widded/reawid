@@ -120,7 +120,7 @@ textarea,
 
 /* Screen Views */
 .view-screen {
-  padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px));
+  padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px));
   padding-left: 16px;
   padding-right: 16px;
   padding-bottom: 24px;
@@ -817,13 +817,12 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
+  padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px));
   padding-bottom: 10px;
   padding-left: max(12px, env(safe-area-inset-left, 0px));
   padding-right: max(12px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--border-hairline);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #000000;
   z-index: 10;
   position: relative;
   box-sizing: border-box;
@@ -1058,22 +1057,26 @@ textarea,
 
 /* Floating Context Popover Menu */
 .reader-context-popover {
-  position: absolute;
-  top: 56px;
+  position: fixed;
+  top: max(72px, calc(env(safe-area-inset-top, 0px) + 58px));
   right: 14px;
-  width: 175px;
-  background: rgba(28, 28, 30, 0.96);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--border-hairline);
-  border-radius: 14px;
+  width: 190px;
+  max-width: calc(100vw - 28px);
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 110;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
   animation: popoverFadeIn 160ms ease-out;
+}
+
+#libraryHeaderMenu {
+  top: max(74px, calc(env(safe-area-inset-top, 0px) + 58px));
+  right: 16px;
 }
 
 @keyframes popoverFadeIn {
@@ -1349,12 +1352,10 @@ textarea,
 
 /* Typography & Theme Settings Bottom Sheet Overlay */
 .reader-settings-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 105;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 180;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1376,7 +1377,7 @@ textarea,
 }
 
 .reader-settings-panel {
-  padding: 8px 18px 24px;
+  padding: 8px 18px max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px));
   background: #1c1c1e;
   border-radius: 22px 22px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -1386,7 +1387,11 @@ textarea,
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.85);
   animation: slideSheetUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
-  z-index: 106;
+  z-index: 181;
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .sheet-handle-bar {
@@ -1660,14 +1665,12 @@ input:checked + .switch-slider:before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
+  padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px));
   padding-bottom: 10px;
   padding-left: max(14px, env(safe-area-inset-left, 0px));
   padding-right: max(14px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--border-hairline);
-  background: rgba(18, 18, 20, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #121214;
   gap: 8px;
   box-sizing: border-box;
 }
@@ -1958,9 +1961,8 @@ input:checked + .switch-slider:before {
 .conversion-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  z-index: 80;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 180;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1969,14 +1971,16 @@ input:checked + .switch-slider:before {
 .conversion-modal-sheet {
   width: 100%;
   max-width: 440px;
-  max-height: 90vh;
+  max-height: calc(90vh - env(safe-area-inset-top, 0px));
+  max-height: calc(90dvh - env(safe-area-inset-top, 0px));
   background: var(--bg-sheet);
-  border-radius: 20px 20px 0 0;
+  border-radius: 22px 22px 0 0;
   border-top: 1px solid var(--border-hairline);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: slideSheetUp 200ms ease-out;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
 }
 
 @keyframes slideSheetUp {
@@ -2472,8 +2476,7 @@ input:checked + .switch-slider:before {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  z-index: 90;
+  z-index: 180;
   display: flex;
   justify-content: flex-end;
 }
@@ -4133,9 +4136,27 @@ input:checked + .switch-slider:before {
 /* ==========================================================================
    ADD NOTE / QUOTE MODAL SHEET
    ========================================================================== */
-.add-note-drawer-panel {
-  max-width: 480px;
+#addNoteModal {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 180;
+}
+
+#addNoteModal .add-note-drawer-panel {
+  width: 100%;
+  max-width: 440px;
   margin: 0 auto;
+  height: auto;
+  max-height: calc(88vh - env(safe-area-inset-top, 0px));
+  max-height: calc(88dvh - env(safe-area-inset-top, 0px));
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: none;
+  border-right: none;
+  background: #1c1c1e;
+  animation: slideSheetUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
 }
 
 .add-note-book-tag {
