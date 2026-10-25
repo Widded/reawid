@@ -930,7 +930,7 @@ textarea,
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
-  transition: all 180ms ease;
+  transition: opacity 180ms ease;
   user-select: none;
 }
 
@@ -939,6 +939,9 @@ textarea,
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
   color: #ffffff;
+  min-width: 50px;
+  text-align: center;
+  display: inline-block;
 }
 
 .reader-bg-ocr-pill.priority-active {

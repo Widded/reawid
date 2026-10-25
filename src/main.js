@@ -43,7 +43,8 @@ import {
   performOcr,
   testApiConnection,
   normalizeHyphensAndText,
-  fixSpacedOutLetters
+  fixSpacedOutLetters,
+  mergeAccidentalParagraphSplits
 } from './services/aiService.js';
 
 import {
@@ -868,8 +869,11 @@ function formatBookHtml(paragraphsOrText, options = {}) {
     return '';
   }
 
-  // Pre-process: ALWAYS heal spaced letters and normalize hyphens across blocks
+  // Pre-process 1: ALWAYS heal spaced letters and normalize hyphens across blocks
   rawList = rawList.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p, { mergeHyphens: shouldMergeHyphens }) : p));
+
+  // Pre-process 2: Reconstruct accidental paragraph breaks caused by line heights or wrapped hyphens
+  rawList = mergeAccidentalParagraphSplits(rawList);
 
   // If disabled, render plain paragraphs without novel styling
   if (!isEnabled) {
@@ -903,16 +907,33 @@ function formatBookHtml(paragraphsOrText, options = {}) {
         currentSegment = line;
         currentIsDialogue = lineIsDialogue;
       } else {
+        // Line-end hyphen check
+        const hyphenMatch = currentSegment.match(/([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]$/u);
+        if (hyphenMatch) {
+          const baseWord = hyphenMatch[1];
+          const apostrophe = hyphenMatch[2] || '';
+          const prefix = currentSegment.slice(0, hyphenMatch.index);
+          const nextWordMatch = line.match(/^([a-zçğıöşüA-ZÇĞİÖŞÜ0-9']+)(.*)$/su);
+          if (nextWordMatch) {
+            const nextWord = nextWordMatch[1];
+            const rest = nextWordMatch[2];
+            if (/^[a-zçğıöşü]/u.test(nextWord)) {
+              currentSegment = `${prefix}${baseWord}${apostrophe}${nextWord}${rest}`;
+              continue;
+            } else {
+              currentSegment = `${prefix}${baseWord}${apostrophe}-${nextWord}${rest}`;
+              continue;
+            }
+          }
+        }
+
         if (lineIsDialogue) {
           // New speaker dialogue turn starts! Flush previous segment
           segmentedParagraphs.push(currentSegment);
           currentSegment = line;
           currentIsDialogue = true;
         } else if (currentIsDialogue) {
-          // Current segment is dialogue.
-          // If previous dialogue line ended with sentence punctuation (.!?…) and this line starts with a capital letter,
-          // then the dialogue turn finished and a new narrative paragraph begins!
-          const prevEndsSentence = /[.!?…]["”»]?$/.test(currentSegment);
+          const prevEndsSentence = /[.!?…]["”»]?$/.test(currentSegment.trim());
           const nextStartsWithCap = /^[A-ZÇĞİÖŞÜ]/.test(line);
 
           if (prevEndsSentence && nextStartsWithCap) {
@@ -936,12 +957,15 @@ function formatBookHtml(paragraphsOrText, options = {}) {
     }
   }
 
+  // Clean and merge any remaining accidental splits
+  const cleanSegmented = mergeAccidentalParagraphSplits(segmentedParagraphs);
+
   // 2. Mid-sentence dialogue splitting:
   // When a narrative sentence completes (.!?…) and is followed on the same line
   // by a genuine dialogue dash (— or - ) + Capital letter:
   // e.g. "Yaşlı adam duraksadı. — Artık vakit geldi, dedi fısıltıyla."
   const finalSegments = [];
-  for (const seg of segmentedParagraphs) {
+  for (const seg of cleanSegmented) {
     const parts = seg.split(/(?<=[.!?…]["”»]?)\s+(?=[—–―]\s*[A-ZÇĞİÖŞÜ0-9"“«]|-\s+[A-ZÇĞİÖŞÜ0-9"“«])/);
     for (const part of parts) {
       const trimmedPart = part.trim();
@@ -2252,16 +2276,45 @@ function updatePdfBatchActionButtons() {
 /* ==========================================================================
    Background & Priority PDF Analysis Engine
    ========================================================================== */
+let lastOcrStatusUpdate = 0;
+let ocrStatusHideTimeout = null;
+
 function updateReaderBgOcrStatus(message, isPriority = false, isCompleted = false) {
   if (!el.readerBgOcrPill || !el.readerBgOcrText) return;
-  el.readerBgOcrPill.classList.remove('hidden', 'priority-active', 'completed');
-  if (isPriority) el.readerBgOcrPill.classList.add('priority-active');
-  if (isCompleted) el.readerBgOcrPill.classList.add('completed');
-  el.readerBgOcrText.textContent = message;
+
+  const now = Date.now();
+  // Glitch ve titreme önleme: Hızlı tarama esnasında saniyede en fazla 3-4 kez güncelle (260ms limit)
+  if (!isCompleted && !isPriority && now - lastOcrStatusUpdate < 260) {
+    return;
+  }
+  lastOcrStatusUpdate = now;
+
+  if (ocrStatusHideTimeout) {
+    clearTimeout(ocrStatusHideTimeout);
+    ocrStatusHideTimeout = null;
+  }
+
+  el.readerBgOcrPill.classList.remove('hidden');
+  el.readerBgOcrPill.classList.toggle('priority-active', isPriority);
+  el.readerBgOcrPill.classList.toggle('completed', isCompleted);
+  el.readerBgOcrText.textContent = isCompleted ? 'Tamamlandı' : message;
+
+  if (isCompleted) {
+    ocrStatusHideTimeout = setTimeout(() => {
+      hideReaderBgOcrStatus();
+    }, 2800);
+  }
 }
 
 function hideReaderBgOcrStatus() {
-  if (el.readerBgOcrPill) el.readerBgOcrPill.classList.add('hidden');
+  if (ocrStatusHideTimeout) {
+    clearTimeout(ocrStatusHideTimeout);
+    ocrStatusHideTimeout = null;
+  }
+  if (el.readerBgOcrPill) {
+    el.readerBgOcrPill.classList.add('hidden');
+    el.readerBgOcrPill.classList.remove('priority-active', 'completed');
+  }
 }
 
 async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
@@ -2409,8 +2462,9 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
       activeWorkerControllers.set(workerId, { controller, pageNum: targetPage });
 
       const isPriority = (targetPage === currentReaderPage);
+      const doneCount = Object.keys(book.pageParagraphs || {}).length;
       updateReaderBgOcrStatus(
-        `${targetPage} / ${totalPages}`,
+        `${Math.min(totalPages, doneCount + 1)} / ${totalPages}`,
         isPriority
       );
 

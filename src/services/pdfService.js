@@ -1,7 +1,7 @@
 // PDF Handling and Rendering Service using PDF.js
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { normalizeHyphensAndText } from './aiService.js';
+import { normalizeHyphensAndText, mergeAccidentalParagraphSplits } from './aiService.js';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -96,11 +96,13 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
 
       if (lastY !== null && currentY !== null) {
         const deltaY = Math.abs(currentY - lastY);
-        if (deltaY > 16) {
-          // Yeni paragraf
+        const fontSize = Math.max(9, Math.abs(item.height || (item.transform ? item.transform[3] : 12)));
+
+        if (deltaY > Math.max(26, fontSize * 1.85)) {
+          // Gerçek paragraf boşluğu
           if (!text.endsWith('\n\n')) text += '\n\n';
-        } else if (deltaY > 4) {
-          // Yeni satır
+        } else if (deltaY > 3.5) {
+          // Aynı paragraf içi satır sonu
           if (!text.endsWith('\n')) text += '\n';
         } else if (lastX !== null && currentX !== null) {
           // Aynı satır: Öğeler arasındaki yatay mesafeyi hesapla
@@ -143,10 +145,11 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
         return null;
       }
 
-      const paragraphs = clean
+      const rawParagraphs = clean
         .split('\n\n')
         .map(p => p.trim())
         .filter(p => p.length > 0);
+      const paragraphs = mergeAccidentalParagraphSplits(rawParagraphs);
       if (paragraphs.length > 0) return paragraphs;
       return [clean];
     }

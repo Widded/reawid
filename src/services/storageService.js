@@ -12,7 +12,7 @@ import {
   subscribeAuth,
   getCurrentUser
 } from './supabaseService.js';
-import { fixSpacedOutLetters } from './aiService.js';
+import { fixSpacedOutLetters, mergeAccidentalParagraphSplits } from './aiService.js';
 
 const SETTINGS_KEY = 'reawid_settings_v1';
 const HISTORY_KEY = 'reawid_history_v1';
@@ -445,24 +445,22 @@ export function getBooks() {
     const cleanBooks = books
       .filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title))
       .map(b => {
-        // Auto-heal any legacy cached page paragraphs with spaced-out letters
+        // Auto-heal legacy cached page paragraphs: fix spaced letters and merge accidental line splits
         if (b.pageParagraphs && typeof b.pageParagraphs === 'object') {
           let bookModified = false;
           const healedPages = {};
           for (const [pNum, paras] of Object.entries(b.pageParagraphs)) {
             if (Array.isArray(paras)) {
-              healedPages[pNum] = paras.map(p => {
-                if (typeof p === 'string') {
-                  const cleaned = fixSpacedOutLetters(p);
-                  if (cleaned !== p) bookModified = true;
-                  return cleaned;
-                }
-                return p;
-              });
+              const cleanedList = paras.map(p => (typeof p === 'string' ? fixSpacedOutLetters(p) : p));
+              const merged = mergeAccidentalParagraphSplits(cleanedList);
+              healedPages[pNum] = merged;
+              bookModified = true;
             } else if (typeof paras === 'string') {
               const cleaned = fixSpacedOutLetters(paras);
-              if (cleaned !== paras) bookModified = true;
-              healedPages[pNum] = cleaned;
+              const split = cleaned.split(/\r?\n\n+/);
+              const merged = mergeAccidentalParagraphSplits(split);
+              healedPages[pNum] = merged;
+              bookModified = true;
             } else {
               healedPages[pNum] = paras;
             }

@@ -280,6 +280,73 @@ export function normalizeHyphensAndText(text, options = {}) {
   return cleaned;
 }
 
+/**
+ * Merges paragraphs and lines that were accidentally split mid-sentence or mid-word
+ * due to PDF extraction leading thresholds or line-wrap hyphens.
+ * e.g. "Pencere-" + "sinden" -> "Penceresinden"
+ * e.g. "Bu sabah erkenden" + "dışarıya baktım." -> "Bu sabah erkenden dışarıya baktım."
+ */
+export function mergeAccidentalParagraphSplits(blocks) {
+  if (!blocks || !blocks.length) return [];
+  const merged = [];
+
+  function isDialogueTurn(s) {
+    if (!s) return false;
+    const str = s.trim();
+    if (/^[—–―]\s*[A-ZÇĞİÖŞÜ0-9"“«]/.test(str)) return true;
+    if (/^-\s+[A-ZÇĞİÖŞÜ0-9"“«]/.test(str)) return true;
+    if (/^[“"«][A-ZÇĞİÖŞÜ0-9—–]/.test(str)) return true;
+    return false;
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    const rawBlock = typeof blocks[i] === 'string' ? blocks[i].trim() : '';
+    if (!rawBlock) continue;
+
+    if (merged.length === 0) {
+      merged.push(rawBlock);
+      continue;
+    }
+
+    const prevIdx = merged.length - 1;
+    const prev = merged[prevIdx].trim();
+    const curr = rawBlock;
+
+    const prevEndsWithHyphen = /[-–—]$/.test(prev);
+    const prevEndsWithSentencePunct = /[.!?…]["”»]?$/.test(prev);
+    const currIsDialogue = isDialogueTurn(curr);
+    const currStartsLower = /^[a-zçğıöşü]/u.test(curr);
+
+    // Merge conditions:
+    // 1. Previous ended with line-break hyphen
+    // 2. Or previous didn't end a sentence AND current is not dialogue
+    // 3. Or current starts with lowercase letter (never a new paragraph in Turkish)
+    const shouldMerge = prevEndsWithHyphen || (!prevEndsWithSentencePunct && !currIsDialogue) || currStartsLower;
+
+    if (shouldMerge) {
+      if (prevEndsWithHyphen) {
+        const base = prev.replace(/[-–—]+$/, '');
+        if (currStartsLower) {
+          const firstWordMatch = curr.match(/^([a-zçğıöşüA-ZÇĞİÖŞÜ0-9']+)(.*)$/su);
+          if (firstWordMatch) {
+            merged[prevIdx] = base + firstWordMatch[1] + firstWordMatch[2];
+          } else {
+            merged[prevIdx] = base + curr;
+          }
+        } else {
+          merged[prevIdx] = base + '-' + curr;
+        }
+      } else {
+        merged[prevIdx] = prev + ' ' + curr;
+      }
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  return merged;
+}
+
 export function buildSystemPrompt(options = {}) {
   const strictTurkish = options.strictTurkish !== false;
   const mergeHyphens = options.mergeHyphenatedWords !== false;
