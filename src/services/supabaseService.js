@@ -149,7 +149,7 @@ function dbRowToBook(row) {
     id: row.id,
     title: row.title || 'Başlıksız Kitap',
     author: row.author || '',
-    cover: row.cover || '/cover-1.jpg',
+    cover: row.cover || '',
     totalPages: Number(row.total_pages) || 1,
     currentPage: Number(row.current_page) || 1,
     progress: Number(row.progress) || 0,

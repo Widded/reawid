@@ -134,20 +134,21 @@
         </div>
 
         <div class="apple-card card-continue-book" id="cardContinueBook" role="button" tabindex="0">
-          <img src="/cover-1.jpg" alt="Devam Eden Kitap Kapağı" class="book-cover-thumb" id="currentBookCover">
-          <div class="continue-info">
-            <h3 class="continue-book-title" id="currentBookTitle">İnsan Ne ile Yaşar?</h3>
-            <p class="continue-book-author" id="currentBookAuthor">Lev Tolstoy</p>
-            <div class="continue-progress-row">
-              <div class="progress-track">
-                <div class="progress-fill" id="currentBookProgressFill" style="width: 42%;"></div>
-              </div>
-              <span class="progress-percent" id="currentBookProgressLabel">%42</span>
+          <div class="empty-continue-card">
+            <div class="empty-continue-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+            </div>
+            <div class="empty-continue-text">
+              <h3 class="empty-continue-title">Henüz Bir Kitap Yok</h3>
+              <p class="empty-continue-subtitle">PDF yükleyerek veya taratarak okumaya başlayın.</p>
+            </div>
+            <div class="empty-continue-btn-badge">
+              <span>Kitap Ekle</span>
             </div>
           </div>
-          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
         </div>
       </section>
 
@@ -727,8 +728,8 @@
         </button>
 
         <div class="reader-book-meta">
-          <span class="reader-header-title" id="readerHeaderTitle">İnsan Ne ile Yaşar?</span>
-          <span class="reader-header-author" id="readerHeaderAuthor">Lev Tolstoy</span>
+          <span class="reader-header-title" id="readerHeaderTitle">Kitap Başlığı</span>
+          <span class="reader-header-author" id="readerHeaderAuthor">ReaWid Okuyucu</span>
         </div>
 
         <div class="reader-header-actions">
@@ -834,13 +835,13 @@
       <!-- Reader Scrollable Main Content -->
       <div class="reader-content-scroll" id="readerContentScroll">
         <article class="reader-article font-family-serif font-size-xl line-height-standard margin-standard" id="readerArticleBody">
-          <span class="reader-chapter-badge" id="readerChapterBadge">BÖLÜM 1</span>
-          <h2 class="reader-article-title" id="readerArticleTitle">İnsan Ne ile Yaşar?</h2>
+          <span class="reader-chapter-badge" id="readerChapterBadge">SAYFA 1</span>
+          <h2 class="reader-article-title" id="readerArticleTitle">ReaWid Okuyucu</h2>
           <div class="reader-paragraphs" id="readerParagraphsContainer">
-            <p class="reader-paragraph reader-narrative">İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
-            <p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">Bazen en küçük bir iyilik bile, dedi bilge adam, bir insanın tüm hayatını değiştirebilir.</span></p>
-            <p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</span></p>
-            <p class="reader-paragraph reader-narrative">İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
+            <div class="reader-page-analyzing-card">
+              <h4>Okumak İçin Bir Kitap Seçin</h4>
+              <p>Kitaplığınızdan bir kitap açabilir veya yeni bir PDF / görsel yükleyebilirsiniz.</p>
+            </div>
           </div>
         </article>
       </div>
@@ -848,14 +849,14 @@
       <!-- Interactive Scrubber & Page Slider -->
       <div class="reader-scrubber-bar">
         <div class="scrubber-track-wrap">
-          <input type="range" class="reader-page-slider" id="readerPageSlider" min="1" max="218" value="3">
+          <input type="range" class="reader-page-slider" id="readerPageSlider" min="1" max="1" value="1">
         </div>
         <div class="scrubber-controls">
           <!-- Analiz Bilgilendirme Durumu (Sayfa Seçicinin Solunda) -->
           <div class="scrubber-status-slot">
             <div id="readerBgOcrPill" class="reader-bg-ocr-pill hidden">
               <span id="readerBgOcrDot" class="pulse-indicator-dot"></span>
-              <span id="readerBgOcrText">1 / 218</span>
+              <span id="readerBgOcrText">1 / 1</span>
             </div>
           </div>
           <div class="scrubber-center-nav">
@@ -864,7 +865,7 @@
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
             </button>
-            <span class="page-count-indicator" id="readerPageIndicator">3 / 218</span>
+            <span class="page-count-indicator" id="readerPageIndicator">1 / 1</span>
             <button class="page-nav-arrow" id="btnReaderNextPage" aria-label="Sonraki Sayfa">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <polyline points="9 18 15 12 9 6"></polyline>
@@ -1030,27 +1031,46 @@
 
     </div>
 
-    <!-- REAL BOOK PAGE COMPARISON VIEW (Orijinal Sayfa ile Karşılaştırma) -->
+    <!-- REAL BOOK PAGE COMPARISON STUDIO (Orijinal Sayfa ile Karşılaştırma) -->
     <div id="comparisonViewModal" class="comparison-screen hidden">
       <!-- Comparison Header -->
       <header class="comparison-header">
-        <button class="comparison-back-btn" id="btnCloseComparison">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="comparison-back-btn" id="btnCloseComparison" aria-label="Okuyucuya Dön">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
           <span>Okuyucu</span>
         </button>
 
         <div class="comparison-title-box">
-          <span class="comparison-page-title" id="comparePageTitle">Sayfa 3 Karşılaştırma</span>
-          <span class="comparison-book-sub" id="compareBookSub">İnsan Ne ile Yaşar?</span>
+          <span class="comparison-page-title" id="comparePageTitle">Sayfa Karşılaştırma</span>
+          <span class="comparison-book-sub" id="compareBookSub">Orijinal Sayfa vs Dijital Metin</span>
         </div>
 
         <!-- Segmented Mode Control: Yan Yana | Orijinal | Dijital -->
-        <div class="comparison-mode-switch">
-          <button class="compare-mode-tab active" data-mode="split" id="btnModeSplit">Yan Yana</button>
-          <button class="compare-mode-tab" data-mode="original" id="btnModeOriginal">Orijinal</button>
-          <button class="compare-mode-tab" data-mode="digital" id="btnModeDigital">Dijital</button>
+        <div class="comparison-mode-switch" role="tablist">
+          <button class="compare-mode-tab active" data-mode="split" id="btnModeSplit" title="Yan Yana Karşılaştır">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="12" y1="3" x2="12" y2="21"></line>
+            </svg>
+            <span>Yan Yana</span>
+          </button>
+          <button class="compare-mode-tab" data-mode="original" id="btnModeOriginal" title="Yalnızca Orijinal Sayfa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Orijinal</span>
+          </button>
+          <button class="compare-mode-tab" data-mode="digital" id="btnModeDigital" title="Yalnızca Dijital Metin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+              <polyline points="4 7 4 4 20 4 20 7"></polyline>
+              <line x1="9" y1="20" x2="15" y2="20"></line>
+              <line x1="12" y1="4" x2="12" y2="20"></line>
+            </svg>
+            <span>Dijital</span>
+          </button>
         </div>
       </header>
 
@@ -1061,28 +1081,42 @@
         <div class="comparison-pane pane-original" id="paneOriginal">
           <div class="pane-header">
             <span class="pane-badge badge-original">
+              <span class="badge-dot-amber"></span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
               </svg>
-              Kitabın Gerçek Sayfası
+              <span>Orijinal Kitap Sayfası</span>
             </span>
             <div class="pane-actions">
               <button class="pane-action-btn" id="btnZoomOriginalIn" title="Yakınlaştır">+</button>
-              <button class="pane-action-btn" id="btnZoomOriginalReset" title="Sıfırla">1:1</button>
+              <button class="pane-action-btn" id="btnZoomOriginalReset" title="Varsayılan Boyut">1:1</button>
               <button class="pane-action-btn" id="btnZoomOriginalOut" title="Uzaklaştır">-</button>
+              <button class="pane-action-btn" id="btnFitOriginal" title="Genişliğe Sığdır">⊡</button>
             </div>
           </div>
 
           <div class="original-page-viewport" id="originalPageViewport">
-            <!-- Dynamic PDF canvas or real page SVG image -->
-            <img src="/real-page-insan-ne-ile-yasar.svg" alt="Kitabın Gerçek Sayfası" class="real-book-page-img" id="realBookPageImg">
+            <!-- Dynamic PDF canvas or scanned page image -->
             <canvas id="realBookPageCanvas" class="real-book-page-canvas hidden"></canvas>
+            <img id="realBookPageImg" alt="Kitabın Gerçek Sayfası" class="real-book-page-img hidden">
+            
+            <!-- Sleek Empty / Loading Placeholder -->
+            <div class="compare-empty-viewport hidden" id="compareOriginalEmpty">
+              <div class="compare-empty-icon-ring">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </div>
+              <h4 id="compareOriginalEmptyTitle">Orijinal Sayfa Hazırlanıyor...</h4>
+              <p id="compareOriginalEmptyDesc">Yüksek çözünürlüklü sayfa görüntüsü taranıyor.</p>
+            </div>
           </div>
         </div>
 
         <!-- Divider with Synchronization Indicator -->
-        <div class="comparison-split-handle" aria-hidden="true">
+        <div class="comparison-split-handle" id="comparisonSplitHandle" aria-hidden="true">
           <div class="handle-pill"></div>
         </div>
 
@@ -1090,48 +1124,59 @@
         <div class="comparison-pane pane-digital" id="paneDigital">
           <div class="pane-header">
             <span class="pane-badge badge-digital">
+              <span class="badge-dot-cyan"></span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="4 7 4 4 20 4 20 7"></polyline>
                 <line x1="9" y1="20" x2="15" y2="20"></line>
                 <line x1="12" y1="4" x2="12" y2="20"></line>
               </svg>
-              O Anki Dijital Metin
+              <span>Dijital Çeviri Metni</span>
             </span>
             <div class="pane-actions">
-              <button class="pane-action-btn" id="btnCopyCompareText" title="Metni Kopyala">Kopyala</button>
+              <button class="pane-action-btn btn-action-speak" id="btnSpeakCompareText" title="Sesli Oku">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-mini-icon">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <span id="compareSpeakLabel">Sesli Dinle</span>
+              </button>
+              <button class="pane-action-btn" id="btnCopyCompareText" title="Metni Kopyala">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-mini-icon">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Kopyala</span>
+              </button>
             </div>
           </div>
 
           <div class="digital-text-viewport" id="digitalTextViewport">
             <div class="digital-page-content" id="compareDigitalContent">
-              <span class="compare-chapter-tag">BÖLÜM 1</span>
-              <h3>İnsan Ne ile Yaşar?</h3>
-              <p>İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
-              <p>Bazen en küçük bir iyilik, bir insanın tüm hayatını değiştirebilir. Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</p>
-              <p>İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
+              <!-- Dynamically populated from book's real transcribed paragraphs -->
             </div>
           </div>
         </div>
 
       </div>
 
-      <!-- Comparison Footer with Page Scrubber -->
+      <!-- Comparison Footer with Interactive Page Scrubber -->
       <footer class="comparison-footer">
         <div class="compare-footer-inner">
-          <button class="compare-page-btn" id="btnComparePrev">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="compare-page-btn" id="btnComparePrev" title="Önceki Sayfa (Sol Ok)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
             <span>Önceki</span>
           </button>
           
           <div class="compare-page-center">
-            <span class="compare-page-num" id="comparePageNumBadge">Sayfa 3 / 218</span>
+            <input type="range" class="compare-page-slider" id="comparePageSlider" min="1" max="1" value="1" title="Sayfaya Git">
+            <span class="compare-page-num" id="comparePageNumBadge">Sayfa 1 / 1</span>
           </div>
 
-          <button class="compare-page-btn" id="btnCompareNext">
+          <button class="compare-page-btn" id="btnCompareNext" title="Sonraki Sayfa (Sağ Ok)">
             <span>Sonraki</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
@@ -1283,7 +1328,7 @@
         <div class="drawer-header">
           <div class="add-note-header-text">
             <h3 class="drawer-title" id="addNoteModalTitle">Yeni Not Ekle</h3>
-            <span class="add-note-book-tag" id="addNoteBookTag">İnsan Ne ile Yaşar? · Sayfa 142</span>
+            <span class="add-note-book-tag" id="addNoteBookTag">Kitap Notu</span>
           </div>
           <button id="btnCloseNoteModal" class="drawer-close-btn" aria-label="Kapat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

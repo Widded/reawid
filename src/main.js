@@ -24,6 +24,9 @@ import {
   saveHistoryItem,
   syncLocalWithCloudDb,
   resetAllAppData,
+  savePdfToIdb,
+  getPdfFromIdb,
+  generateBookCoverSvg,
   AVAILABLE_MODELS
 } from './services/storageService.js';
 
@@ -72,14 +75,15 @@ import {
    ========================================================================== */
 let appSettings = getSettings();
 let currentActiveBook = null;
-let currentReaderPage = 3;
-let currentTotalPages = 218;
+let currentReaderPage = 1;
+let currentTotalPages = 1;
 let currentReaderTheme = 'koyu';
 let currentReaderFontSize = 'xl'; // 'sm' | 'md' | 'lg' | 'xl'
 let currentReaderLineHeight = 'standard'; // 'tight' | 'standard' | 'wide'
 let currentReaderFont = 'serif'; // 'serif' | 'sans' | 'mono'
 let currentReaderMargin = 'standard'; // 'narrow' | 'standard' | 'wide'
 let currentCompareZoom = 1.0;
+let isCompareSpeaking = false;
 let isBookmarked = false;
 
 let currentImageRaw = null;
@@ -248,11 +252,19 @@ const el = {
   comparisonWorkspace: document.getElementById('comparisonWorkspace'),
   realBookPageImg: document.getElementById('realBookPageImg'),
   realBookPageCanvas: document.getElementById('realBookPageCanvas'),
+  compareOriginalEmpty: document.getElementById('compareOriginalEmpty'),
+  compareOriginalEmptyTitle: document.getElementById('compareOriginalEmptyTitle'),
+  compareOriginalEmptyDesc: document.getElementById('compareOriginalEmptyDesc'),
   btnZoomOriginalIn: document.getElementById('btnZoomOriginalIn'),
   btnZoomOriginalReset: document.getElementById('btnZoomOriginalReset'),
   btnZoomOriginalOut: document.getElementById('btnZoomOriginalOut'),
+  btnFitOriginal: document.getElementById('btnFitOriginal'),
+  btnSpeakCompareText: document.getElementById('btnSpeakCompareText'),
+  compareSpeakLabel: document.getElementById('compareSpeakLabel'),
   btnCopyCompareText: document.getElementById('btnCopyCompareText'),
   compareDigitalContent: document.getElementById('compareDigitalContent'),
+  comparisonSplitHandle: document.getElementById('comparisonSplitHandle'),
+  comparePageSlider: document.getElementById('comparePageSlider'),
   btnComparePrev: document.getElementById('btnComparePrev'),
   btnCompareNext: document.getElementById('btnCompareNext'),
   comparePageNumBadge: document.getElementById('comparePageNumBadge'),
@@ -450,7 +462,7 @@ function renderHomeScreen() {
 
   if (currentBook) {
     el.cardContinueBook.innerHTML = `
-      <img src="${currentBook.cover || '/cover-1.jpg'}" alt="Devam Eden Kitap Kapağı" class="book-cover-thumb" id="currentBookCover">
+      <img src="${(currentBook.cover && !currentBook.cover.includes('/cover-1.jpg')) ? currentBook.cover : generateBookCoverSvg(currentBook.title, currentBook.author)}" alt="Devam Eden Kitap Kapağı" class="book-cover-thumb" id="currentBookCover">
       <div class="continue-info">
         <h3 class="continue-book-title" id="currentBookTitle">${currentBook.title}</h3>
         <p class="continue-book-author" id="currentBookAuthor">${currentBook.author || ''}</p>
@@ -511,7 +523,7 @@ function renderHomeScreen() {
       const row = document.createElement('div');
       row.className = 'book-row-item';
       row.innerHTML = `
-        <img src="${book.cover || '/cover-1.jpg'}" alt="${book.title}" class="book-row-cover">
+        <img src="${(book.cover && !book.cover.includes('/cover-1.jpg')) ? book.cover : generateBookCoverSvg(book.title, book.author)}" alt="${book.title}" class="book-row-cover">
         <div class="book-row-info">
           <h4 class="book-row-title">${book.title}</h4>
           <p class="book-row-author">${book.author || ''}</p>
@@ -636,7 +648,7 @@ function renderLibraryScreen() {
     const subtitle = book.chapterSubtitle || (book.chapter && book.chapter !== '-' ? `${book.chapter} · ${book.currentPage || 1} / ${book.totalPages} sayfa` : `- / ${book.totalPages} sayfa`);
 
     card.innerHTML = `
-      <img src="${book.cover || '/cover-1.jpg'}" alt="${book.title} Kapağı" class="library-book-cover" loading="lazy">
+      <img src="${(book.cover && !book.cover.includes('/cover-1.jpg')) ? book.cover : generateBookCoverSvg(book.title, book.author)}" alt="${book.title} Kapağı" class="library-book-cover" loading="lazy">
       <div class="library-book-details">
         <h3 class="library-book-title">${book.title}</h3>
         <p class="library-book-author">${book.author}</p>
@@ -722,7 +734,28 @@ function openBookInReader(book, targetPage = null) {
   if (targetPage !== null && targetPage !== undefined) {
     currentReaderPage = Math.max(1, Math.min(currentTotalPages, Number(targetPage)));
   } else {
-    currentReaderPage = book.currentPage || (book.id === 'book_insan_ne_ile_yasar' ? 3 : 1);
+    currentReaderPage = book.currentPage || 1;
+  }
+
+  // Restore PDF document from IndexedDB if available and not yet loaded in memory
+  if (book.isPdf && !currentPdfDoc) {
+    getPdfFromIdb(book.id).then(async (cachedBlob) => {
+      if (cachedBlob) {
+        try {
+          const { numPages, pdfDoc } = await loadPdf(cachedBlob);
+          currentPdfDoc = pdfDoc;
+          currentPdfNumPages = numPages;
+          if (currentActiveBook && currentActiveBook.id === book.id) {
+            renderReaderPage(currentReaderPage);
+            if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
+              updateComparisonPage(currentReaderPage);
+            }
+          }
+        } catch (err) {
+          console.warn('PDF IndexedDB restore warning:', err);
+        }
+      }
+    }).catch(() => {});
   }
 
   el.readerHeaderTitle.textContent = book.title;
@@ -988,10 +1021,7 @@ function renderReaderPage(pageNum) {
       if (rawParagraphs[idx + 1]) paragraphs.push(rawParagraphs[idx + 1]);
     } else {
       paragraphs = [
-        "İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.",
-        "— Bazen en küçük bir iyilik bile, dedi bilge adam, bir insanın tüm hayatını değiştirebilir.",
-        "— Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.",
-        "İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır."
+        "Bu kitapta henüz okunabilir metin katmanı bulunmuyor. Sayfaları analiz etmek için lütfen Dönüştürücü'yü kullanın."
       ];
     }
     el.readerChapterBadge.textContent = chapterTitle;
@@ -1138,50 +1168,90 @@ async function openComparisonView() {
   if (!currentActiveBook) return;
   closeMoreMenu();
   closeReaderSearch();
-  await updateComparisonPage(currentReaderPage);
+
+  // If PDF book and not loaded in memory yet, attempt restore from IndexedDB
+  if (currentActiveBook.isPdf && !currentPdfDoc) {
+    try {
+      const cachedBlob = await getPdfFromIdb(currentActiveBook.id);
+      if (cachedBlob) {
+        const { numPages, pdfDoc } = await loadPdf(cachedBlob);
+        currentPdfDoc = pdfDoc;
+        currentPdfNumPages = numPages;
+      }
+    } catch (err) {
+      console.warn('PDF restore for comparison warning:', err);
+    }
+  }
+
   el.comparisonViewModal.classList.remove('hidden');
-  showToast(`Sayfa ${currentReaderPage} gerçek kitapla karşılaştırılıyor`, 'info');
+  await updateComparisonPage(currentReaderPage);
+  showToast(`Sayfa ${currentReaderPage} karşılaştırma stüdyosunda açıldı`, 'info');
 }
 
 function closeComparisonView() {
+  stopSpeech();
+  if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+  if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
   el.comparisonViewModal.classList.add('hidden');
 }
 
 function setComparisonMode(mode) {
-  el.btnModeSplit.classList.remove('active');
-  el.btnModeOriginal.classList.remove('active');
-  el.btnModeDigital.classList.remove('active');
+  if (el.btnModeSplit) el.btnModeSplit.classList.remove('active');
+  if (el.btnModeOriginal) el.btnModeOriginal.classList.remove('active');
+  if (el.btnModeDigital) el.btnModeDigital.classList.remove('active');
 
-  el.comparisonWorkspace.classList.remove('mode-split', 'mode-original', 'mode-digital');
+  if (el.comparisonWorkspace) {
+    el.comparisonWorkspace.classList.remove('mode-split', 'mode-original', 'mode-digital');
+  }
 
   if (mode === 'split') {
-    el.btnModeSplit.classList.add('active');
-    el.comparisonWorkspace.classList.add('mode-split');
+    if (el.btnModeSplit) el.btnModeSplit.classList.add('active');
+    if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-split');
   } else if (mode === 'original') {
-    el.btnModeOriginal.classList.add('active');
-    el.comparisonWorkspace.classList.add('mode-original');
+    if (el.btnModeOriginal) el.btnModeOriginal.classList.add('active');
+    if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-original');
   } else if (mode === 'digital') {
-    el.btnModeDigital.classList.add('active');
-    el.comparisonWorkspace.classList.add('mode-digital');
+    if (el.btnModeDigital) el.btnModeDigital.classList.add('active');
+    if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-digital');
   }
 }
 
 async function updateComparisonPage(pageNum) {
-  pageNum = Math.max(1, Math.min(currentTotalPages, pageNum));
-  currentReaderPage = pageNum;
-  el.readerPageSlider.value = String(pageNum);
-  el.readerPageIndicator.textContent = `${pageNum} / ${currentTotalPages}`;
+  if (!currentActiveBook) return;
 
+  pageNum = Math.max(1, Math.min(currentTotalPages, Number(pageNum) || 1));
+  currentReaderPage = pageNum;
+
+  // Sync reader slider and indicator behind the modal
+  if (el.readerPageSlider) el.readerPageSlider.value = String(pageNum);
+  if (el.readerPageIndicator) el.readerPageIndicator.textContent = `${pageNum} / ${currentTotalPages}`;
+
+  // Update comparison studio UI headers & badge
   if (el.comparePageTitle) el.comparePageTitle.textContent = `Sayfa ${pageNum} Karşılaştırma`;
   if (el.compareBookSub) el.compareBookSub.textContent = currentActiveBook.title;
   if (el.comparePageNumBadge) el.comparePageNumBadge.textContent = `Sayfa ${pageNum} / ${currentTotalPages}`;
+  if (el.comparePageSlider) {
+    el.comparePageSlider.min = '1';
+    el.comparePageSlider.max = String(currentTotalPages);
+    el.comparePageSlider.value = String(pageNum);
+  }
 
-  // 1. Digital Text Pane Content
+  if (el.btnComparePrev) el.btnComparePrev.disabled = (pageNum <= 1);
+  if (el.btnCompareNext) el.btnCompareNext.disabled = (pageNum >= currentTotalPages);
+
+  // Stop previous speech if any
+  stopSpeech();
+  if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+  if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
+
+  // 1. Dijital Metin Bölümü (Digital Text Pane)
   let paragraphs = [];
+  let isAnalyzing = false;
+
   if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[pageNum]) {
     paragraphs = currentActiveBook.pageParagraphs[pageNum];
   } else if (currentActiveBook.isPdf && currentPdfDoc) {
-    paragraphs = [`Sayfa ${pageNum} öncelikli olarak analiz ediliyor. Lütfen bekleyin...`];
+    isAnalyzing = true;
     prioritizePageAnalysis(pageNum);
   } else if (currentActiveBook.content) {
     const rawParagraphs = currentActiveBook.content
@@ -1193,25 +1263,46 @@ async function updateComparisonPage(pageNum) {
       const idx = (pageNum - 1) % rawParagraphs.length;
       paragraphs = [rawParagraphs[idx]];
       if (rawParagraphs[idx + 1]) paragraphs.push(rawParagraphs[idx + 1]);
-    } else {
-      paragraphs = [
-        "İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir."
-      ];
     }
   }
 
-  el.compareDigitalContent.innerHTML = `
-    <span class="compare-chapter-tag">${currentActiveBook.chapter || 'BÖLÜM 1'}</span>
-    <h3>${currentActiveBook.title}</h3>
-    ${formatBookHtml(paragraphs, { enabled: appSettings.smartDialogueFormatting !== false })}
-  `;
+  if (isAnalyzing) {
+    el.compareDigitalContent.innerHTML = `
+      <div class="reader-page-analyzing-card">
+        <div class="analyzing-spinner"></div>
+        <h4>Sayfa ${pageNum} Metni Çözümleniyor</h4>
+        <p>Orijinal sayfa metni arka planda taranıp dijital formata dönüştürülüyor.</p>
+      </div>
+    `;
+  } else if (paragraphs.length > 0) {
+    el.compareDigitalContent.innerHTML = `
+      <span class="compare-chapter-tag">${currentActiveBook.chapter || `BÖLÜM ${pageNum}`}</span>
+      <h3>${currentActiveBook.title}</h3>
+      ${formatBookHtml(paragraphs, { enabled: appSettings.smartDialogueFormatting !== false })}
+    `;
+  } else {
+    el.compareDigitalContent.innerHTML = `
+      <div class="compare-empty-viewport">
+        <div class="compare-empty-icon-ring">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="4 7 4 4 20 4 20 7"></polyline>
+            <line x1="9" y1="20" x2="15" y2="20"></line>
+            <line x1="12" y1="4" x2="12" y2="20"></line>
+          </svg>
+        </div>
+        <h4>Dijital Metin Bulunmuyor</h4>
+        <p>Bu sayfa için henüz transkript metni oluşturulmamış.</p>
+      </div>
+    `;
+  }
 
-  // 2. Real Original Scanned Book Page
+  // 2. Orijinal Kitap Sayfası (Original Scanned Book Page)
   if (currentPdfDoc && pageNum <= currentPdfNumPages) {
-    // If a PDF document is currently open
     try {
+      if (el.compareOriginalEmpty) el.compareOriginalEmpty.classList.add('hidden');
       el.realBookPageImg.classList.add('hidden');
       el.realBookPageCanvas.classList.remove('hidden');
+
       const canvas = await renderPdfPageToCanvas(currentPdfDoc, pageNum, 2.0);
       el.realBookPageCanvas.width = canvas.width;
       el.realBookPageCanvas.height = canvas.height;
@@ -1219,41 +1310,99 @@ async function updateComparisonPage(pageNum) {
       ctx.drawImage(canvas, 0, 0);
     } catch (err) {
       console.warn('PDF canvas render hatası:', err);
-    }
-  } else {
-    // Show authentic high-res real scanned book page SVG / Image
-    el.realBookPageCanvas.classList.add('hidden');
-    el.realBookPageImg.classList.remove('hidden');
-
-    if (currentActiveBook.id === 'book_insan_ne_ile_yasar') {
-      if (pageNum === 3) {
-        el.realBookPageImg.src = '/real-page-insan-ne-ile-yasar.svg';
-      } else {
-        el.realBookPageImg.src = '/sample-book.jpg';
+      el.realBookPageCanvas.classList.add('hidden');
+      if (el.compareOriginalEmpty) {
+        el.compareOriginalEmpty.classList.remove('hidden');
+        if (el.compareOriginalEmptyTitle) el.compareOriginalEmptyTitle.textContent = 'Sayfa Yüklenemedi';
+        if (el.compareOriginalEmptyDesc) el.compareOriginalEmptyDesc.textContent = 'PDF sayfasının görüntüsü alınırken bir sorun oluştu.';
       }
-    } else {
-      el.realBookPageImg.src = currentActiveBook.realPageImage || '/real-page-insan-ne-ile-yasar.svg';
+    }
+  } else if (currentActiveBook.pageImages && currentActiveBook.pageImages[pageNum]) {
+    el.realBookPageCanvas.classList.add('hidden');
+    if (el.compareOriginalEmpty) el.compareOriginalEmpty.classList.add('hidden');
+    el.realBookPageImg.classList.remove('hidden');
+    el.realBookPageImg.src = currentActiveBook.pageImages[pageNum];
+  } else if (currentActiveBook.realPageImage) {
+    el.realBookPageCanvas.classList.add('hidden');
+    if (el.compareOriginalEmpty) el.compareOriginalEmpty.classList.add('hidden');
+    el.realBookPageImg.classList.remove('hidden');
+    el.realBookPageImg.src = currentActiveBook.realPageImage;
+  } else {
+    // Sayfa görseli bulunmuyor - şık ve bilgilendirici empty state
+    el.realBookPageCanvas.classList.add('hidden');
+    el.realBookPageImg.classList.add('hidden');
+    if (el.compareOriginalEmpty) {
+      el.compareOriginalEmpty.classList.remove('hidden');
+      if (el.compareOriginalEmptyTitle) el.compareOriginalEmptyTitle.textContent = 'Orijinal Sayfa Görüntüsü Yok';
+      if (el.compareOriginalEmptyDesc) el.compareOriginalEmptyDesc.textContent = currentActiveBook.isPdf
+        ? 'Bu PDF sayfasının görüntüsü henüz hazır değil veya dosya önbellekte bulunamadı.'
+        : 'Bu eser doğrudan dijital metin olarak kaydedildiği için fiziksel taranmış sayfası bulunmuyor.';
     }
   }
 
-  // Reset zoom
+  // Reset zoom & scroll position
   currentCompareZoom = 1.0;
   applyCompareZoom();
+  const originalViewport = document.getElementById('originalPageViewport');
+  if (originalViewport) originalViewport.scrollTop = 0;
+  const digitalViewport = document.getElementById('digitalTextViewport');
+  if (digitalViewport) digitalViewport.scrollTop = 0;
 }
 
 function zoomOriginal(delta) {
   if (delta === 0) {
     currentCompareZoom = 1.0;
   } else {
-    currentCompareZoom = Math.max(0.7, Math.min(3.0, currentCompareZoom + delta));
+    currentCompareZoom = Math.max(0.5, Math.min(3.5, Math.round((currentCompareZoom + delta) * 100) / 100));
   }
   applyCompareZoom();
 }
 
 function applyCompareZoom() {
-  const target = el.realBookPageCanvas.classList.contains('hidden') ? el.realBookPageImg : el.realBookPageCanvas;
+  const target = !el.realBookPageCanvas.classList.contains('hidden') ? el.realBookPageCanvas : el.realBookPageImg;
   if (target) {
     target.style.transform = `scale(${currentCompareZoom})`;
+    target.style.transformOrigin = 'top center';
+    target.style.transition = 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)';
+  }
+  if (el.btnZoomOriginalReset) {
+    el.btnZoomOriginalReset.textContent = `${Math.round(currentCompareZoom * 100)}%`;
+  }
+}
+
+function toggleCompareSpeech() {
+  if (isSpeaking()) {
+    stopSpeech();
+    if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+    if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
+    return;
+  }
+
+  const textToRead = (el.compareDigitalContent ? el.compareDigitalContent.innerText : '').trim();
+  if (!textToRead) {
+    showToast('Seslendirilecek dijital metin bulunamadı', 'warning');
+    return;
+  }
+
+  if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Durdur';
+  if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.add('speaking');
+
+  try {
+    speakText(textToRead, {
+      rate: appSettings.ttsSpeed || 1.0,
+      onEnd: () => {
+        if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+        if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
+      },
+      onError: () => {
+        if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+        if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
+      }
+    });
+  } catch (err) {
+    showToast(err.message || 'Sesli okuma başlatılamadı', 'error');
+    if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
+    if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
   }
 }
 
@@ -1460,29 +1609,86 @@ function setupEventListeners() {
     });
   }
 
-  // Comparison View Controls
-  el.btnCloseComparison.addEventListener('click', closeComparisonView);
-  el.btnModeSplit.addEventListener('click', () => setComparisonMode('split'));
-  el.btnModeOriginal.addEventListener('click', () => setComparisonMode('original'));
-  el.btnModeDigital.addEventListener('click', () => setComparisonMode('digital'));
+  // Comparison Studio 10/10 View Controls
+  if (el.btnCloseComparison) el.btnCloseComparison.addEventListener('click', closeComparisonView);
+  if (el.btnModeSplit) el.btnModeSplit.addEventListener('click', () => setComparisonMode('split'));
+  if (el.btnModeOriginal) el.btnModeOriginal.addEventListener('click', () => setComparisonMode('original'));
+  if (el.btnModeDigital) el.btnModeDigital.addEventListener('click', () => setComparisonMode('digital'));
 
-  el.btnZoomOriginalIn.addEventListener('click', () => zoomOriginal(0.25));
-  el.btnZoomOriginalReset.addEventListener('click', () => zoomOriginal(0));
-  el.btnZoomOriginalOut.addEventListener('click', () => zoomOriginal(-0.25));
+  if (el.btnZoomOriginalIn) el.btnZoomOriginalIn.addEventListener('click', () => zoomOriginal(0.25));
+  if (el.btnZoomOriginalReset) el.btnZoomOriginalReset.addEventListener('click', () => zoomOriginal(0));
+  if (el.btnZoomOriginalOut) el.btnZoomOriginalOut.addEventListener('click', () => zoomOriginal(-0.25));
+  if (el.btnFitOriginal) el.btnFitOriginal.addEventListener('click', () => { currentCompareZoom = 1.0; applyCompareZoom(); });
 
-  el.btnCopyCompareText.addEventListener('click', async () => {
-    const text = el.compareDigitalContent.innerText || '';
-    if (text) {
-      await copyToClipboard(text);
-      showToast('Dijital metin kopyalandı', 'success');
+  if (el.btnSpeakCompareText) el.btnSpeakCompareText.addEventListener('click', toggleCompareSpeech);
+
+  if (el.btnCopyCompareText) {
+    el.btnCopyCompareText.addEventListener('click', async () => {
+      const text = el.compareDigitalContent ? (el.compareDigitalContent.innerText || '').trim() : '';
+      if (text) {
+        await copyToClipboard(text);
+        showToast('Dijital metin panoya kopyalandı', 'success');
+      } else {
+        showToast('Kopyalanacak metin bulunamadı', 'warning');
+      }
+    });
+  }
+
+  if (el.comparePageSlider) {
+    el.comparePageSlider.addEventListener('input', (e) => {
+      const page = parseInt(e.target.value, 10);
+      if (page && page !== currentReaderPage) {
+        updateComparisonPage(page);
+        renderReaderPage(page);
+      }
+    });
+  }
+
+  if (el.btnComparePrev) {
+    el.btnComparePrev.addEventListener('click', () => {
+      if (currentReaderPage > 1) {
+        const prev = currentReaderPage - 1;
+        updateComparisonPage(prev);
+        renderReaderPage(prev);
+      }
+    });
+  }
+
+  if (el.btnCompareNext) {
+    el.btnCompareNext.addEventListener('click', () => {
+      if (currentReaderPage < currentTotalPages) {
+        const next = currentReaderPage + 1;
+        updateComparisonPage(next);
+        renderReaderPage(next);
+      }
+    });
+  }
+
+  // Keyboard navigation for Reader and Comparison Studio
+  window.addEventListener('keydown', (e) => {
+    const isTyping = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
+    if (isTyping) return;
+
+    if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeComparisonView();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentReaderPage > 1) {
+          const prev = currentReaderPage - 1;
+          updateComparisonPage(prev);
+          renderReaderPage(prev);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentReaderPage < currentTotalPages) {
+          const next = currentReaderPage + 1;
+          updateComparisonPage(next);
+          renderReaderPage(next);
+        }
+      }
     }
-  });
-
-  el.btnComparePrev.addEventListener('click', () => {
-    renderReaderPage(currentReaderPage - 1);
-  });
-  el.btnCompareNext.addEventListener('click', () => {
-    renderReaderPage(currentReaderPage + 1);
   });
 
   // Conversion Sheet Events
@@ -2060,6 +2266,9 @@ async function handlePdfFiles(files) {
     });
 
     if (existingBook) {
+      // PDF dosyasını IndexedDB önbelleğinde tazele
+      await savePdfToIdb(existingBook.id, file);
+
       // Eğer eski kitapta parmak izi eksikse güncelle
       if (!existingBook.pdfFingerprint || !existingBook.fileSize) {
         existingBook.pdfFingerprint = fingerprint;
@@ -2081,12 +2290,21 @@ async function handlePdfFiles(files) {
       return;
     }
 
+    // Gerçek 1. sayfa önizlemesi oluştur (yoksa estetik SVG üret)
+    let coverThumb = '';
+    try {
+      const page1Canvas = await renderPdfPageToCanvas(pdfDoc, 1, 0.45);
+      coverThumb = page1Canvas.toDataURL('image/jpeg', 0.85);
+    } catch (e) {
+      coverThumb = generateBookCoverSvg(docName, 'PDF Belgesi');
+    }
+
     // Yeni kitap nesnesi oluştur ve hemen kaydet
     const newBook = {
       id: 'book_' + Date.now(),
       title: docName,
       author: 'Kişisel Belge',
-      cover: '/cover-1.jpg',
+      cover: coverThumb || generateBookCoverSvg(docName, 'PDF Belgesi'),
       totalPages: numPages,
       currentPage: 1,
       progress: 0,
@@ -2102,6 +2320,7 @@ async function handlePdfFiles(files) {
     };
 
     saveBook(newBook);
+    await savePdfToIdb(newBook.id, file);
     renderHomeScreen();
     renderLibraryScreen();
 
@@ -2527,7 +2746,7 @@ function handleSaveOcrToLibrary() {
     id: 'book_' + Date.now(),
     title: docName,
     author: 'Kişisel Belge',
-    cover: currentProcessedImage ? createThumbnail(el.activePreviewImg) : '/cover-1.jpg',
+    cover: currentProcessedImage ? createThumbnail(el.activePreviewImg) : generateBookCoverSvg(docName, 'Kişisel Belge'),
     totalPages: totalPages,
     currentPage: 1,
     progress: 0,

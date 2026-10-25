@@ -18,7 +18,146 @@ const HISTORY_KEY = 'reawid_history_v1';
 const NOTES_KEY = 'reawid_notes_v2';
 const BOOKS_KEY = 'reawid_books_v2';
 const CURRENT_BOOK_KEY = 'reawid_current_book_id';
-const PURGE_CACHE_KEY = 'reawid_purge_cache_v25';
+const PURGE_CACHE_KEY = 'reawid_purge_cache_v35';
+
+export const MOCK_BOOK_IDS = new Set([
+  'book_insan_ne_ile_yasar',
+  'book_sefiller',
+  'book_suc_ve_ceza',
+  'book_donusum',
+  'book_kurk_mantolu_madonna',
+  'book_tutunamayanlar'
+]);
+
+export const MOCK_TITLES = new Set([
+  'İnsan Ne ile Yaşar?',
+  'Sefiller',
+  'Suç ve Ceza',
+  'Dönüşüm',
+  'Kürk Mantolu Madonna',
+  'Tutunamayanlar'
+]);
+
+/* ==========================================================================
+   IndexedDB Offline PDF Blob Storage
+   ========================================================================== */
+const IDB_NAME = 'reawid_pdf_cache';
+const IDB_STORE_PDFS = 'pdf_files';
+let idbPromise = null;
+
+function getPdfDb() {
+  if (!idbPromise) {
+    idbPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) {
+        resolve(null);
+        return;
+      }
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE_PDFS)) {
+          db.createObjectStore(IDB_STORE_PDFS);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return idbPromise;
+}
+
+export async function savePdfToIdb(bookId, blobOrBuffer) {
+  try {
+    const db = await getPdfDb();
+    if (!db) return false;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_PDFS, 'readwrite');
+      tx.objectStore(IDB_STORE_PDFS).put(blobOrBuffer, String(bookId));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('PDF IndexedDB save error:', err);
+    return false;
+  }
+}
+
+export async function getPdfFromIdb(bookId) {
+  try {
+    const db = await getPdfDb();
+    if (!db) return null;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_PDFS, 'readonly');
+      const req = tx.objectStore(IDB_STORE_PDFS).get(String(bookId));
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('PDF IndexedDB get error:', err);
+    return null;
+  }
+}
+
+export async function deletePdfFromIdb(bookId) {
+  try {
+    const db = await getPdfDb();
+    if (!db) return false;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_PDFS, 'readwrite');
+      tx.objectStore(IDB_STORE_PDFS).delete(String(bookId));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('PDF IndexedDB delete error:', err);
+    return false;
+  }
+}
+
+export async function clearAllPdfsFromIdb() {
+  try {
+    const db = await getPdfDb();
+    if (!db) return false;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_PDFS, 'readwrite');
+      tx.objectStore(IDB_STORE_PDFS).clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('PDF IndexedDB clear error:', err);
+    return false;
+  }
+}
+
+/**
+ * Generates an elegant, modern Apple-style SVG book cover thumbnail data URL
+ */
+export function generateBookCoverSvg(title = 'Kitap', author = 'ReaWid') {
+  const safeTitle = String(title || 'Kitap').replace(/[<>&"]/g, '').substring(0, 32);
+  const safeAuthor = String(author || 'Kişisel Belge').replace(/[<>&"]/g, '').substring(0, 24);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" width="200" height="280">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1f1f23"/>
+        <stop offset="100%" stop-color="#09090b"/>
+      </linearGradient>
+      <linearGradient id="s" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </linearGradient>
+    </defs>
+    <rect width="200" height="280" rx="8" fill="url(#g)"/>
+    <rect x="0" y="0" width="14" height="280" rx="4" fill="url(#s)"/>
+    <rect x="18" y="16" width="164" height="248" rx="6" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <circle cx="100" cy="80" r="28" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <path d="M88 72h24M88 80h24M88 88h16" stroke="#64d2ff" stroke-width="2" stroke-linecap="round"/>
+    <text x="100" y="142" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="600" text-anchor="middle">${safeTitle}</text>
+    <text x="100" y="166" fill="#8e8e93" font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', sans-serif" font-size="11" text-anchor="middle">${safeAuthor}</text>
+    <text x="100" y="244" fill="#48484a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" letter-spacing="1.5" text-anchor="middle">REAWID READER</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 
 // Read environment variables (supports both VITE_ and EXPO_PUBLIC_ prefixes)
 const ENV_ACTIVE_PROVIDER = (import.meta.env.VITE_OCR_PROVIDER || import.meta.env.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
@@ -122,24 +261,21 @@ const DEPRECATED_OR_MODELS = ['google/gemini-2.0-flash-001', 'google/gemini-flas
 // Comprehensive purge of legacy mock data and stale caches stored in client devices
 function cleanLegacyMockDataOnce() {
   try {
-    if (!localStorage.getItem(PURGE_CACHE_KEY)) {
-      const mockBookIds = new Set([
-        'book_insan_ne_ile_yasar',
-        'book_sefiller',
-        'book_suc_ve_ceza',
-        'book_donusum',
-        'book_kurk_mantolu_madonna',
-        'book_tutunamayanlar'
-      ]);
-      const rawBooks = localStorage.getItem(BOOKS_KEY);
-      if (rawBooks) {
-        const parsed = JSON.parse(rawBooks);
-        if (Array.isArray(parsed)) {
-          const cleanBooks = parsed.filter(b => !mockBookIds.has(b.id));
-          localStorage.setItem(BOOKS_KEY, JSON.stringify(cleanBooks));
-        }
+    const rawBooks = localStorage.getItem(BOOKS_KEY);
+    if (rawBooks) {
+      const parsed = JSON.parse(rawBooks);
+      if (Array.isArray(parsed)) {
+        const cleanBooks = parsed.filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title));
+        localStorage.setItem(BOOKS_KEY, JSON.stringify(cleanBooks));
       }
+    }
 
+    const currentId = localStorage.getItem(CURRENT_BOOK_KEY);
+    if (currentId && MOCK_BOOK_IDS.has(currentId)) {
+      localStorage.removeItem(CURRENT_BOOK_KEY);
+    }
+
+    if (!localStorage.getItem(PURGE_CACHE_KEY)) {
       const mockNoteIds = new Set(['note_1', 'note_2', 'note_3']);
       const rawNotes = localStorage.getItem(NOTES_KEY);
       if (rawNotes) {
@@ -160,7 +296,7 @@ function cleanLegacyMockDataOnce() {
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (key !== 'reawid-cloud-v25') {
+            if (key !== 'reawid-cloud-v35') {
               caches.delete(key);
             }
           });
@@ -304,7 +440,7 @@ export function getBooks() {
     if (!raw) return [];
     const books = JSON.parse(raw);
     if (!Array.isArray(books)) return [];
-    return books;
+    return books.filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title));
   } catch (err) {
     console.error('Kitaplar okunurken hata:', err);
     return [];
@@ -340,8 +476,12 @@ export function getCurrentBook() {
   if (!books || books.length === 0) return null;
   const currentId = localStorage.getItem(CURRENT_BOOK_KEY);
   if (currentId) {
-    const found = books.find(b => b.id === currentId);
-    if (found) return found;
+    if (MOCK_BOOK_IDS.has(currentId)) {
+      localStorage.removeItem(CURRENT_BOOK_KEY);
+    } else {
+      const found = books.find(b => b.id === currentId);
+      if (found) return found;
+    }
   }
   const current = books.find(b => b.isCurrent);
   return current || books[0] || null;
@@ -403,6 +543,9 @@ export function deleteBook(bookId) {
     const books = getBooks();
     const filtered = books.filter(b => b.id !== bookId);
     localStorage.setItem(BOOKS_KEY, JSON.stringify(filtered));
+
+    // Delete cached PDF blob from IndexedDB
+    deletePdfFromIdb(bookId).catch(() => {});
 
     // Background cloud sync
     deleteBookFromCloud(bookId).catch(() => {});
@@ -527,7 +670,10 @@ export async function resetAllAppData() {
       await supabase.from('notes').delete().eq('user_id', user.id);
     }
 
-    // 3. Purge caches
+    // 3. Clear IndexedDB PDF blobs
+    await clearAllPdfsFromIdb().catch(() => {});
+
+    // 4. Purge caches
     if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
