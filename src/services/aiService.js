@@ -140,6 +140,55 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
   });
 }
 
+/**
+ * Normalizes text and cleanly merges words split by end-of-line hyphens (matbaa heceleme çizgisi).
+ * Preserves true dialogue dashes (—) and proper hyphenated compounds (Türk-İslam, 1923-1938).
+ */
+export function normalizeHyphensAndText(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  let cleaned = text
+    .replace(/[\u00AD\u200B\uFEFF]/g, '')
+    .replace(/\r\n/g, '\n');
+
+  // 1. Standart satır sonu hece bölme tireleri:
+  // "kelime-\nhece" veya "kelime–\nhece" -> "kelimehece"
+  // "Ahmet'-\nte" -> "Ahmet'te"
+  cleaned = cleaned.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]\s*\n+\s*[-–—]?\s*([a-zçğıöşü])/gu,
+    (match, word, apostrophe, nextLetter) => {
+      return `${word}${apostrophe || ''}${nextLetter}`;
+    }
+  );
+
+  // 2. Özel isim kesme işareti ile satır sonu:
+  // "Ahmet'-\nte" veya "Ankara'-\nda" -> "Ahmet'te", "Ankara'da"
+  cleaned = cleaned.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)['’][-–—]\s*\n+\s*([a-zçğıöşü])/gu,
+    "$1'$2"
+  );
+  cleaned = cleaned.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*['’][-–—]?\s*([a-zçğıöşü])/gu,
+    "$1'$2"
+  );
+
+  // 3. OCR / PDF'te tirenin alt satırın başına kaldığı durumlar:
+  // "kapı\n-sından" -> "kapısından"
+  cleaned = cleaned.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*[-–—]([a-zçğıöşü]+)/gu,
+    '$1$2'
+  );
+
+  // 4. İki kelime arasında satır sonuna denk gelen gerçek bileşik kelimeler (örn: "Ankara-\nİstanbul")
+  // Tireyi koruyarak tek satıra topla: "Ankara-İstanbul"
+  cleaned = cleaned.replace(
+    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)[-–—]\s*\n+\s*([A-ZÇĞİÖŞÜ0-9][a-zçğıöşüA-ZÇĞİÖŞÜ0-9]*)/gu,
+    '$1-$2'
+  );
+
+  return cleaned;
+}
+
 export function buildSystemPrompt(options = {}) {
   const strictTurkish = options.strictTurkish !== false;
   const mergeHyphens = options.mergeHyphenatedWords !== false;
@@ -154,11 +203,14 @@ ${strictTurkish ? `1. TÜRKÇE KARAKTERLER (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, �
    - Kesinlikle hiçbir Türkçe karakteri İngilizce benzerleriyle (c, g, i, o, s, u) değiştirme veya atlama.
    - Noktalı 'i' ve noktasız 'ı' ayrımına azami dikkat göster (örn: "ışık" kelimesini "isik" yapma; "bilir" kelimesini "bılır" yapma).
    - "değil, çünkü, için, hiçbir, yağmur, doğru, olduğu, büyük, küçük, çocuk, şey, başka, nasıl" gibi Türkçe sözcükleri kusursuz Türkçe imlasıyla yaz.` : ''}
-${mergeHyphens ? '2. Satır sonu tire ile bölünen kelimeleri birleştir (örn: "yapı-" + "lan" -> "yapılan").' : ''}
+${mergeHyphens ? `2. SATIR SONU HECE BÖLME TİRELERİNİ BİRLEŞTİR:
+   - Matbaada satır sonuna sığmayıp tire ile bölünen kelimeleri birleştir (örn: "pencere-" + "sinden" -> "penceresinden"; "yapıl-" + "mıştı" -> "yapılmıştı").
+   - Satır sonundaki heceleme tirelerini ASLA konuşma çizgisiyle (diyalog) KARIŞTIRMA! Hece bölünmelerinde tireyi silip kelimeyi birleştir.` : ''}
 ${ignorePageNumbers ? '3. Tek başına duran sayfa numaralarını veya tekrarlayan başlıkları metne dahil etme.' : ''}
-${preserveFormatting ? `4. Kitap formatını ve diyalog yapısını koru:
+${preserveFormatting ? `4. KİTAP FORMATI VE DİYALOG YAPISI:
    - Paragrafları çift satır boşluğu (\\n\\n) ile ayır.
-   - Konuşma ve diyalog cümlelerini (uzun çizgi '—' veya tırnak ile başlayan kısımları) mutlaka ayrı birer satır/paragraf olarak yaz.` : ''}
+   - Yalnızca gerçek konuşma cümlelerini (uzun konuşma çizgisi '—' veya tırnak ile başlayıp büyük harfle devam eden kısımları) ayrı bir satır olarak yaz.
+   - Satır sonu veya cümle içi hece tirelerini diyalog satırına dönüştürme.` : ''}
 5. Selamlama, önsöz veya açıklama yazma. Yalnızca ve doğrudan belgeden okunan metni çıktı ver.`;
 }
 
@@ -253,6 +305,10 @@ export async function performOcr({
           provider: candidate.provider,
           name: candidate.name
         });
+      }
+
+      if (options.mergeHyphenatedWords !== false) {
+        resultText = normalizeHyphensAndText(resultText);
       }
 
       return resultText;

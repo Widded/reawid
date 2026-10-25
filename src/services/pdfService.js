@@ -1,6 +1,7 @@
 // PDF Handling and Rendering Service using PDF.js
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { normalizeHyphensAndText } from './aiService.js';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -87,15 +88,23 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
 
     for (const item of textContent.items) {
       if (!item.str) continue;
-      if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
-        text += '\n';
+      if (lastY !== null) {
+        const deltaY = Math.abs(item.transform[5] - lastY);
+        if (deltaY > 18) {
+          text += '\n\n';
+        } else if (deltaY > 5) {
+          text += '\n';
+        }
       }
       text += item.str + ' ';
       lastY = item.transform[5];
     }
 
-    const clean = text.trim();
+    let clean = text.trim();
     if (clean.length > 25) {
+      // Satır sonu kesme ve heceleme tirelerini birleştir
+      clean = normalizeHyphensAndText(clean);
+
       // Türkçe Karakter Bütünlüğü Kontrolü:
       // Taranmış PDF'lerin arka planında eski/hatalı OCR katmanları ("degil", "icin", "oldugu", "birkac")
       // bulunabilir. Eğer Türkçe kelimeler olmasına rağmen özel Türkçe harfler (ç, ğ, ı, ö, ş, ü) yoksa,
@@ -113,7 +122,7 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
         .map(p => p.trim())
         .filter(p => p.length > 0);
       if (paragraphs.length > 0) return paragraphs;
-      return clean.split('\n').map(p => p.trim()).filter(Boolean);
+      return [clean];
     }
   } catch (err) {
     console.warn(`Sayfa ${pageNumber} metin katmanı okunamadı:`, err);

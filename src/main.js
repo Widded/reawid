@@ -38,7 +38,8 @@ import {
 
 import {
   performOcr,
-  testApiConnection
+  testApiConnection,
+  normalizeHyphensAndText
 } from './services/aiService.js';
 
 import {
@@ -785,11 +786,35 @@ function formatInlineQuotes(escapedText) {
 }
 
 /**
+ * Checks if a string is a genuine dialogue turn.
+ * True dialogue starts with em-dash (—, –, ―) or hyphen with space (- ),
+ * strictly followed by an UPPERCASE letter, quotation mark, or number.
+ * Lowercase continuation (e.g. "-den dolayı" or "-miş gibi") is NEVER dialogue.
+ */
+function isDialogueTurn(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  // Starts with em/en dash followed by capital letter, quote, or number
+  if (/^[—–―]\s*([A-ZÇĞİÖŞÜ0-9"“«])/.test(s)) return true;
+  // Starts with hyphen followed by space and capital letter, quote, or number
+  if (/^-\s+([A-ZÇĞİÖŞÜ0-9"“«])/.test(s)) return true;
+  // Starts with quotation mark followed by dialogue text
+  if (/^[“"«][A-ZÇĞİÖŞÜ0-9—–]/.test(s)) return true;
+  return false;
+}
+
+/**
  * Formats book paragraphs and dialogs with authentic novel typography.
- * Segments mid-sentence dialogue dashes (—) and quotes into separate lines with hanging indents.
+ * - Merges end-of-line hyphens (matbaa heceleme çizgisi) so words are whole.
+ * - Never confuses end-of-line hyphens or lowercase continuations with dialogue dashes.
+ * - Groups wrapped lines into full narrative paragraphs.
+ * - Formats genuine dialogues with em-dashes and hanging indents.
  */
 function formatBookHtml(paragraphsOrText, options = {}) {
   const isEnabled = options.enabled !== false;
+  const shouldMergeHyphens = options.mergeHyphens !== false &&
+    (typeof appSettings !== 'undefined' ? appSettings.mergeHyphenatedWords !== false : true);
+
   if (!paragraphsOrText) return '';
 
   let rawList = [];
@@ -801,10 +826,15 @@ function formatBookHtml(paragraphsOrText, options = {}) {
     return '';
   }
 
-  // If disabled, render plain paragraphs
+  // Pre-process: merge end-of-line hyphens across blocks
+  if (shouldMergeHyphens) {
+    rawList = rawList.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p) : p));
+  }
+
+  // If disabled, render plain paragraphs without novel styling
   if (!isEnabled) {
     return rawList
-      .map(p => p.trim())
+      .map(p => (typeof p === 'string' ? p.trim() : ''))
       .filter(Boolean)
       .map(p => `<p class="reader-paragraph">${escapeBookHtml(p)}</p>`)
       .join('');
@@ -818,34 +848,78 @@ function formatBookHtml(paragraphsOrText, options = {}) {
     const trimmedBlock = block.trim();
     if (!trimmedBlock) continue;
 
-    // Split on explicit line breaks first
-    const lines = trimmedBlock.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
+    // Split on explicit line breaks within the block
+    const rawLines = trimmedBlock.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
+    if (rawLines.length === 0) continue;
 
-    for (const line of lines) {
-      // Split mid-paragraph dialogue triggers:
-      // When a sentence finishes with . or ! or ? or … and is immediately followed
-      // by a dialogue dash (—, –, ―, - ) or quote, break into separate speaker turns!
-      const dialoguePieces = line.split(/(?<=[.!?…]["”»]?)\s+(?=[—–―]\s*|-\s+[A-ZÇĞİÖŞÜa-zçğıöşü]|["“«])/);
-      for (const piece of dialoguePieces) {
-        const cleanPiece = piece.trim();
-        if (cleanPiece) segmentedParagraphs.push(cleanPiece);
+    let currentSegment = '';
+    let currentIsDialogue = false;
+
+    for (let i = 0; i < rawLines.length; i++) {
+      const line = rawLines[i];
+      const lineIsDialogue = isDialogueTurn(line);
+
+      if (currentSegment === '') {
+        currentSegment = line;
+        currentIsDialogue = lineIsDialogue;
+      } else {
+        if (lineIsDialogue) {
+          // New speaker dialogue turn starts! Flush previous segment
+          segmentedParagraphs.push(currentSegment);
+          currentSegment = line;
+          currentIsDialogue = true;
+        } else if (currentIsDialogue) {
+          // Current segment is dialogue.
+          // If previous dialogue line ended with sentence punctuation (.!?…) and this line starts with a capital letter,
+          // then the dialogue turn finished and a new narrative paragraph begins!
+          const prevEndsSentence = /[.!?…]["”»]?$/.test(currentSegment);
+          const nextStartsWithCap = /^[A-ZÇĞİÖŞÜ]/.test(line);
+
+          if (prevEndsSentence && nextStartsWithCap) {
+            segmentedParagraphs.push(currentSegment);
+            currentSegment = line;
+            currentIsDialogue = false;
+          } else {
+            // Continuation of speech wrapped across lines
+            currentSegment += ' ' + line;
+          }
+        } else {
+          // Previous segment is narrative. Current line is also narrative.
+          // In book pages/PDFs, sentences within the same paragraph wrap across lines.
+          currentSegment += ' ' + line;
+        }
       }
+    }
+
+    if (currentSegment) {
+      segmentedParagraphs.push(currentSegment);
     }
   }
 
-  if (segmentedParagraphs.length === 0) {
+  // 2. Mid-sentence dialogue splitting:
+  // When a narrative sentence completes (.!?…) and is followed on the same line
+  // by a genuine dialogue dash (— or - ) + Capital letter:
+  // e.g. "Yaşlı adam duraksadı. — Artık vakit geldi, dedi fısıltıyla."
+  const finalSegments = [];
+  for (const seg of segmentedParagraphs) {
+    const parts = seg.split(/(?<=[.!?…]["”»]?)\s+(?=[—–―]\s*[A-ZÇĞİÖŞÜ0-9"“«]|-\s+[A-ZÇĞİÖŞÜ0-9"“«])/);
+    for (const part of parts) {
+      const trimmedPart = part.trim();
+      if (trimmedPart) finalSegments.push(trimmedPart);
+    }
+  }
+
+  if (finalSegments.length === 0) {
     return '';
   }
 
-  // 2. Render each segmented piece with authentic typography
-  return segmentedParagraphs.map(p => {
-    // Check if line is a dialogue dash turn (starts with —, –, ―, or - )
-    const isDashDialogue = /^[—–―]/.test(p) || /^-\s+/.test(p);
-    // Check if line starts with quotation marks (“...” or "..." or «...»)
-    const isQuoteDialogue = /^[“"«]/.test(p);
+  // 3. Render each segment with authentic typography
+  return finalSegments.map(p => {
+    const isDashDialogue = isDialogueTurn(p) && (/^[—–―]/.test(p) || /^-\s+/.test(p));
+    const isQuoteDialogue = isDialogueTurn(p) && /^[“"«]/.test(p);
 
     if (isDashDialogue) {
-      // Strip leading dash & space
+      // Strip leading dash & space cleanly
       const speechBody = p.replace(/^[—–―]\s*|^-\s+/, '').trim();
       const formattedBody = formatInlineQuotes(escapeBookHtml(speechBody));
       return `<p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">${formattedBody}</span></p>`;
