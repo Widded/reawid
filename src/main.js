@@ -234,6 +234,7 @@ const el = {
   themeSwatchesRow: document.getElementById('themeSwatchesRow'),
   marginSelector: document.getElementById('marginSelector'),
   toggleNightMode: document.getElementById('toggleNightMode'),
+  toggleBookDialogueFormat: document.getElementById('toggleBookDialogueFormat'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -315,6 +316,7 @@ const el = {
   setAutoPrefetch: document.getElementById('setAutoPrefetch'),
   setMergeHyphens: document.getElementById('setMergeHyphens'),
   setIgnorePageNums: document.getElementById('setIgnorePageNums'),
+  setDialogueFormatting: document.getElementById('setDialogueFormatting'),
   badgeTtsSpeed: document.getElementById('badgeTtsSpeed'),
   settingsTtsSelector: document.getElementById('settingsTtsSelector'),
   setOfflineCache: document.getElementById('setOfflineCache'),
@@ -763,6 +765,103 @@ function closeReader() {
   switchBottomTab(previousActiveTab || 'home');
 }
 
+/* ==========================================================================
+   Smart Book Typography & Dialogue Formatting Engine
+   ========================================================================== */
+function escapeBookHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatInlineQuotes(escapedText) {
+  if (!escapedText) return '';
+  // Highlight inline quotes inside narrative: "..." or &quot;...&quot; or “...”
+  return escapedText
+    .replace(/(?:&quot;|"|“)([^&"\n]+?)(?:&quot;|"|”)/g, '<span class="reader-inline-quote">“$1”</span>');
+}
+
+/**
+ * Formats book paragraphs and dialogs with authentic novel typography.
+ * Segments mid-sentence dialogue dashes (—) and quotes into separate lines with hanging indents.
+ */
+function formatBookHtml(paragraphsOrText, options = {}) {
+  const isEnabled = options.enabled !== false;
+  if (!paragraphsOrText) return '';
+
+  let rawList = [];
+  if (Array.isArray(paragraphsOrText)) {
+    rawList = paragraphsOrText;
+  } else if (typeof paragraphsOrText === 'string') {
+    rawList = paragraphsOrText.split(/\r?\n\n+/);
+  } else {
+    return '';
+  }
+
+  // If disabled, render plain paragraphs
+  if (!isEnabled) {
+    return rawList
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => `<p class="reader-paragraph">${escapeBookHtml(p)}</p>`)
+      .join('');
+  }
+
+  // 1. Smart Paragraph & Dialogue Segmenter
+  const segmentedParagraphs = [];
+
+  for (const block of rawList) {
+    if (!block || typeof block !== 'string') continue;
+    const trimmedBlock = block.trim();
+    if (!trimmedBlock) continue;
+
+    // Split on explicit line breaks first
+    const lines = trimmedBlock.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
+
+    for (const line of lines) {
+      // Split mid-paragraph dialogue triggers:
+      // When a sentence finishes with . or ! or ? or … and is immediately followed
+      // by a dialogue dash (—, –, ―, - ) or quote, break into separate speaker turns!
+      const dialoguePieces = line.split(/(?<=[.!?…]["”»]?)\s+(?=[—–―]\s*|-\s+[A-ZÇĞİÖŞÜa-zçğıöşü]|["“«])/);
+      for (const piece of dialoguePieces) {
+        const cleanPiece = piece.trim();
+        if (cleanPiece) segmentedParagraphs.push(cleanPiece);
+      }
+    }
+  }
+
+  if (segmentedParagraphs.length === 0) {
+    return '';
+  }
+
+  // 2. Render each segmented piece with authentic typography
+  return segmentedParagraphs.map(p => {
+    // Check if line is a dialogue dash turn (starts with —, –, ―, or - )
+    const isDashDialogue = /^[—–―]/.test(p) || /^-\s+/.test(p);
+    // Check if line starts with quotation marks (“...” or "..." or «...»)
+    const isQuoteDialogue = /^[“"«]/.test(p);
+
+    if (isDashDialogue) {
+      // Strip leading dash & space
+      const speechBody = p.replace(/^[—–―]\s*|^-\s+/, '').trim();
+      const formattedBody = formatInlineQuotes(escapeBookHtml(speechBody));
+      return `<p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">${formattedBody}</span></p>`;
+    }
+
+    if (isQuoteDialogue) {
+      const formattedBody = formatInlineQuotes(escapeBookHtml(p));
+      return `<p class="reader-paragraph reader-dialogue reader-quote-speech">${formattedBody}</p>`;
+    }
+
+    // Standard narrative prose
+    const formattedBody = formatInlineQuotes(escapeBookHtml(p));
+    return `<p class="reader-paragraph reader-narrative">${formattedBody}</p>`;
+  }).join('');
+}
+
 function renderReaderPage(pageNum) {
   currentReaderPage = Math.max(1, Math.min(currentTotalPages, pageNum));
   el.readerPageSlider.value = String(currentReaderPage);
@@ -787,7 +886,9 @@ function renderReaderPage(pageNum) {
     paragraphs = currentActiveBook.pageParagraphs[currentReaderPage];
     el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
     el.readerArticleTitle.textContent = currentActiveBook.title;
-    el.readerParagraphsContainer.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
+    el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
+      enabled: appSettings.smartDialogueFormatting !== false
+    });
   } else if (currentActiveBook.isPdf && currentPdfDoc) {
     // Sayfa henüz analiz edilmediyse kullanıcıya şık bir bekleme kartı gösterip sayfayı ÖNCELİKLİ analiz et!
     el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
@@ -813,12 +914,17 @@ function renderReaderPage(pageNum) {
       if (rawParagraphs[idx + 1]) paragraphs.push(rawParagraphs[idx + 1]);
     } else {
       paragraphs = [
-        "İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir."
+        "İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.",
+        "— Bazen en küçük bir iyilik bile, dedi bilge adam, bir insanın tüm hayatını değiştirebilir.",
+        "— Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.",
+        "İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır."
       ];
     }
     el.readerChapterBadge.textContent = chapterTitle;
     el.readerArticleTitle.textContent = currentActiveBook.title;
-    el.readerParagraphsContainer.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
+    el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
+      enabled: appSettings.smartDialogueFormatting !== false
+    });
   }
 
   // Smooth scroll to top of reading area
@@ -882,6 +988,9 @@ function openSettingsSheet() {
   el.readerSettingsBackdrop.classList.remove('hidden');
   el.btnToggleSettings?.classList.add('active');
   el.btnReaderAppearance?.classList.add('active');
+  if (el.toggleBookDialogueFormat) {
+    el.toggleBookDialogueFormat.checked = (appSettings.smartDialogueFormatting !== false);
+  }
   closeMoreMenu();
   closeReaderSearch();
 }
@@ -1020,7 +1129,7 @@ async function updateComparisonPage(pageNum) {
   el.compareDigitalContent.innerHTML = `
     <span class="compare-chapter-tag">${currentActiveBook.chapter || 'BÖLÜM 1'}</span>
     <h3>${currentActiveBook.title}</h3>
-    ${paragraphs.map(p => `<p>${p}</p>`).join('')}
+    ${formatBookHtml(paragraphs, { enabled: appSettings.smartDialogueFormatting !== false })}
   `;
 
   // 2. Real Original Scanned Book Page
@@ -1264,6 +1373,18 @@ function setupEventListeners() {
   el.toggleNightMode.addEventListener('change', (e) => {
     applyReaderTheme(e.target.checked ? 'koyu' : 'acik');
   });
+
+  // Kitap & Diyalog Düzeni Switch
+  if (el.toggleBookDialogueFormat) {
+    el.toggleBookDialogueFormat.checked = (appSettings.smartDialogueFormatting !== false);
+    el.toggleBookDialogueFormat.addEventListener('change', (e) => {
+      appSettings.smartDialogueFormatting = e.target.checked;
+      saveSettings(appSettings);
+      if (el.setDialogueFormatting) el.setDialogueFormatting.checked = e.target.checked;
+      renderReaderPage(currentReaderPage);
+      showToast(e.target.checked ? 'Diyalog ve kitap düzeni açıldı' : 'Diyalog düzeni kapatıldı', 'info');
+    });
+  }
 
   // Comparison View Controls
   el.btnCloseComparison.addEventListener('click', closeComparisonView);
@@ -2705,6 +2826,7 @@ function renderSettingsScreen() {
   if (el.setAutoPrefetch) el.setAutoPrefetch.checked = appSettings.autoPrefetch !== false;
   if (el.setMergeHyphens) el.setMergeHyphens.checked = appSettings.mergeHyphenatedWords !== false;
   if (el.setIgnorePageNums) el.setIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
+  if (el.setDialogueFormatting) el.setDialogueFormatting.checked = appSettings.smartDialogueFormatting !== false;
   if (el.setOfflineCache) el.setOfflineCache.checked = appSettings.offlineCache !== false;
 
   // 4. TTS Speed Selector
@@ -2796,6 +2918,19 @@ function setupSettingsScreenEvents() {
     el.setIgnorePageNums.addEventListener('change', (e) => {
       appSettings.ignorePageNumbers = e.target.checked;
       saveSettings(appSettings);
+    });
+  }
+
+  // Smart Dialogue Formatting
+  if (el.setDialogueFormatting) {
+    el.setDialogueFormatting.addEventListener('change', (e) => {
+      appSettings.smartDialogueFormatting = e.target.checked;
+      saveSettings(appSettings);
+      if (el.toggleBookDialogueFormat) el.toggleBookDialogueFormat.checked = e.target.checked;
+      if (!el.inAppReaderView.classList.contains('hidden') && currentReaderPage) {
+        renderReaderPage(currentReaderPage);
+      }
+      showToast(e.target.checked ? 'Diyalog ve kitap düzeni açıldı' : 'Diyalog düzeni kapatıldı', 'info');
     });
   }
 

@@ -156,7 +156,9 @@ ${strictTurkish ? `1. TÜRKÇE KARAKTERLER (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, �
    - "değil, çünkü, için, hiçbir, yağmur, doğru, olduğu, büyük, küçük, çocuk, şey, başka, nasıl" gibi Türkçe sözcükleri kusursuz Türkçe imlasıyla yaz.` : ''}
 ${mergeHyphens ? '2. Satır sonu tire ile bölünen kelimeleri birleştir (örn: "yapı-" + "lan" -> "yapılan").' : ''}
 ${ignorePageNumbers ? '3. Tek başına duran sayfa numaralarını veya tekrarlayan başlıkları metne dahil etme.' : ''}
-${preserveFormatting ? '4. Paragraf yapısını ve bölüm başlıklarını (#) koru.' : ''}
+${preserveFormatting ? `4. Kitap formatını ve diyalog yapısını koru:
+   - Paragrafları çift satır boşluğu (\\n\\n) ile ayır.
+   - Konuşma ve diyalog cümlelerini (uzun çizgi '—' veya tırnak ile başlayan kısımları) mutlaka ayrı birer satır/paragraf olarak yaz.` : ''}
 5. Selamlama, önsöz veya açıklama yazma. Yalnızca ve doğrudan belgeden okunan metni çıktı ver.`;
 }
 

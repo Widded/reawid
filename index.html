@@ -550,6 +550,25 @@
 
             <div class="settings-row-divider"></div>
 
+            <!-- Akıllı Diyalog & Paragraf Düzeni -->
+            <div class="settings-ios-row">
+              <div class="settings-row-icon-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <div class="settings-row-text">
+                <span class="settings-row-title">Diyalog ve Kitap Düzeni</span>
+                <span class="settings-row-desc">Kitaplardaki konuşma çizgilerini (—) ve paragrafları matbaa düzeninde ayrı satırlara döker.</span>
+              </div>
+              <label class="apple-switch-wrap">
+                <input type="checkbox" id="setDialogueFormatting" class="apple-switch" checked>
+                <span class="apple-slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row-divider"></div>
+
             <!-- Sesli Okuma (TTS) Hızı -->
             <div class="settings-ios-row-stack">
               <div class="settings-row-label-row">
@@ -818,9 +837,10 @@
           <span class="reader-chapter-badge" id="readerChapterBadge">BÖLÜM 1</span>
           <h2 class="reader-article-title" id="readerArticleTitle">İnsan Ne ile Yaşar?</h2>
           <div class="reader-paragraphs" id="readerParagraphsContainer">
-            <p>İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
-            <p>Bazen en küçük bir iyilik, bir insanın tüm hayatını değiştirebilir. Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</p>
-            <p>İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
+            <p class="reader-paragraph reader-narrative">İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.</p>
+            <p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">Bazen en küçük bir iyilik bile, dedi bilge adam, bir insanın tüm hayatını değiştirebilir.</span></p>
+            <p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.</span></p>
+            <p class="reader-paragraph reader-narrative">İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır.</p>
           </div>
         </article>
       </div>
@@ -985,6 +1005,22 @@
             </div>
             <label class="ios-switch">
               <input type="checkbox" id="toggleNightMode" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Row 4: Kitap & Diyalog Düzeni Switch -->
+          <div class="settings-toggle-row">
+            <div class="toggle-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="moon-icon">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="toggle-text">Diyalog & Kitap Düzeni</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="toggleBookDialogueFormat" checked>
               <span class="switch-slider"></span>
             </label>
           </div>

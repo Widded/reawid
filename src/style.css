@@ -1202,10 +1202,104 @@ textarea,
   margin-bottom: 24px;
 }
 
-.reader-paragraphs p {
-  margin-bottom: 22px;
+.reader-paragraphs {
+  display: flex;
+  flex-direction: column;
+}
+
+.reader-paragraphs p,
+.reader-paragraph {
+  margin-bottom: 20px;
+  line-height: 1.82;
+  letter-spacing: -0.05px;
+  word-break: break-word;
+}
+
+/* 1. Anlatı Paragrafları (Narrative Prose with Book First-Line Indent) */
+.reader-paragraphs .reader-narrative {
+  text-indent: 1.5em;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+.reader-paragraphs > .reader-narrative:first-of-type {
+  text-indent: 0;
+}
+
+/* 2. Diyalog ve Konuşma Paragrafları (Authentic Book Hanging Indent) */
+.reader-paragraphs .reader-dialogue {
+  position: relative;
+  text-indent: -1.35em;
+  padding-left: 1.35em;
+  margin-bottom: 14px;
   text-align: left;
-  letter-spacing: -0.15px;
+}
+
+/* Uzun Konuşma Çizgisi (Em-Dash) */
+.dialogue-dash {
+  font-family: ui-monospace, SFMono-Regular, "Times New Roman", serif;
+  font-weight: 700;
+  display: inline-block;
+  margin-right: 6px;
+  color: #64d2ff;
+  user-select: none;
+}
+
+.dialogue-text {
+  color: inherit;
+}
+
+/* Tırnak İçinde Başlayan Konuşmalar */
+.reader-quote-speech {
+  padding-left: 0.8em;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 16px;
+}
+
+/* Cümle İçi Alıntılar ve Konuşmalar (Inline Quotes) */
+.reader-inline-quote {
+  font-style: italic;
+  font-weight: 500;
+  padding: 1px 3px;
+  border-radius: 4px;
+}
+
+/* THEME SPECIFIC DIALOGUE ACCENTS */
+
+/* Koyu (OLED) Tema */
+.theme-koyu .dialogue-dash {
+  color: #64d2ff;
+  text-shadow: 0 0 10px rgba(100, 210, 255, 0.35);
+}
+.theme-koyu .reader-inline-quote {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Açık (Light) Tema */
+.theme-acik .dialogue-dash {
+  color: #0071e3;
+}
+.theme-acik .reader-quote-speech {
+  border-left-color: rgba(0, 0, 0, 0.18);
+}
+.theme-acik .reader-inline-quote {
+  color: #1d1d1f;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Sepya (Kitap Kağıdı) Tema */
+.theme-sepya .dialogue-dash {
+  color: #8c4a1e;
+  font-weight: 800;
+}
+.theme-sepya .reader-quote-speech {
+  border-left-color: rgba(140, 74, 30, 0.25);
+}
+.theme-sepya .reader-inline-quote {
+  color: #4a2810;
+  background: rgba(140, 74, 30, 0.08);
 }
 
 /* Scrubber Bar */

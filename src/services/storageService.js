@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS = {
   autoPrefetch: true, // Background next-page preloading
   mergeHyphenatedWords: true, // Matbaa tirelerini birleştir
   ignorePageNumbers: true, // Sayfa numaralarını ve başlıkları gizle
+  smartDialogueFormatting: true, // Konuşma ve diyalogları kitaptaki gibi biçimlendir
   ttsSpeed: 1.0, // 0.8, 1.0, 1.25, 1.5
   offlineCache: true, // Çevrimdışı sayfa önbelleği
   renderDpi: 2.0, // PDF render scale for ultra sharpness
