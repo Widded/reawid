@@ -45,8 +45,13 @@ import {
   normalizeHyphensAndText,
   fixSpacedOutLetters,
   mergeAccidentalParagraphSplits,
-  formatOcrErrorMessage
+  formatOcrErrorMessage,
+  getOcrAuditTrail
 } from './services/aiService.js';
+
+if (typeof window !== 'undefined') {
+  window.getOcrAuditTrail = getOcrAuditTrail;
+}
 
 import {
   loadImage,
@@ -2318,7 +2323,7 @@ function hideReaderBgOcrStatus() {
   }
 }
 
-async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
+async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
   try {
     // 1. Önce anlık gömülü metin katmanını dene (10-20ms)
     const fastText = await extractPdfPageText(pdfDoc, pageNum);
@@ -2329,6 +2334,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
     // 2. Gömülü metin yoksa (taranmış sayfa), Vision AI ile dinamik ve yedeklemeli OCR yap
     const provider = appSettings.activeProvider || 'auto';
     const model = provider === 'groq' ? appSettings.groqModel : (appSettings.openrouterModel || 'auto');
+    const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
     // Maksimum Türkçe karakter doğruluğu: 2.0x DPI & 0.96 yüksek JPEG kalitesi
     // Harf noktaları, çengeller (ç, ğ, ı, ö, ş, ü) ve şapkalı harfler DCT sıkıştırma gürültüsünde kaybolmaz
@@ -2342,6 +2348,8 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
       groqApiKey: appSettings.groqApiKey,
       openrouterApiKey: appSettings.openrouterApiKey,
       model,
+      documentId,
+      pageNumber: pageNum,
       options: {
         strictTurkish: appSettings.strictTurkish !== false,
         mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
@@ -2351,17 +2359,24 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
       },
       signal,
       onModelFallback: ({ from, to, reason }) => {
-        console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason})`);
+        console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason}) | Belge: ${documentId} | Sayfa: ${pageNum}`);
         updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
       }
     });
 
-    const paragraphs = pageText
+    // Dönen yanıtın bu belgeye ve sayfaya ait olduğunu doğrula
+    if (pageText?.pageNumber && Number(pageText.pageNumber) !== Number(pageNum)) {
+      console.error(`[AI OCR Mismatch] İstenen sayfa (${pageNum}) ile dönen yanıt sayfası (${pageText.pageNumber}) eşleşmiyor! Yanıt reddedildi.`);
+      return null;
+    }
+
+    const rawText = String(pageText);
+    const paragraphs = rawText
       .split('\n\n')
       .map(p => p.trim())
       .filter(p => p && !p.startsWith('#') && !p.startsWith('*'));
 
-    return paragraphs.length > 0 ? paragraphs : [pageText];
+    return paragraphs.length > 0 ? paragraphs : [rawText];
   } catch (err) {
     if (err.name === 'AbortError') {
       throw err;
@@ -2470,15 +2485,21 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
       );
 
       try {
-        const paragraphs = await analyzeSinglePdfPage(pdfDoc, targetPage, controller.signal);
+        const paragraphs = await analyzeSinglePdfPage(pdfDoc, targetPage, controller.signal, book.id);
+
+        if (controller.signal.aborted) {
+          continue;
+        }
 
         if (paragraphs && paragraphs.length > 0) {
-          book.pageParagraphs[targetPage] = paragraphs;
-          updateBookPageParagraphs(book.id, targetPage, paragraphs);
+          if (book && book.pageParagraphs) {
+            book.pageParagraphs[targetPage] = paragraphs;
+            updateBookPageParagraphs(book.id, targetPage, paragraphs);
 
-          // Eğer kullanıcı o an bu sayfaya bakıyorsa ekranı anında güncelle!
-          if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
-            renderReaderPage(targetPage);
+            // Eğer kullanıcı o an bu sayfaya bakıyorsa ekranı anında güncelle!
+            if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
+              renderReaderPage(targetPage);
+            }
           }
         }
       } catch (pageErr) {
@@ -2828,6 +2849,8 @@ async function startOcrProcess() {
       groqApiKey: appSettings.groqApiKey,
       openrouterApiKey: appSettings.openrouterApiKey,
       model,
+      documentId: 'single_image_doc',
+      pageNumber: 1,
       options: {
         strictTurkish: appSettings.strictTurkish !== false,
         mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
@@ -2914,12 +2937,15 @@ async function startPdfBatchOcr() {
       await setPreviewImage(pageDataUrl);
 
       // Perform Vision AI OCR with Dynamic Fallback
+      const batchDocId = currentPdfDoc?.fingerprint || 'batch_pdf_doc';
       const pageText = await performOcr({
         imageBase64: pageDataUrl,
         provider,
         groqApiKey: appSettings.groqApiKey,
         openrouterApiKey: appSettings.openrouterApiKey,
         model,
+        documentId: batchDocId,
+        pageNumber: i,
         options: {
           strictTurkish: appSettings.strictTurkish !== false,
           mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
@@ -2935,14 +2961,21 @@ async function startPdfBatchOcr() {
         }
       });
 
+      // Sayfa doğrulaması: Yanıtın bu sayfaya ait olduğunu teyit et
+      if (pageText?.pageNumber && Number(pageText.pageNumber) !== Number(i)) {
+        console.error(`[AI Batch OCR Mismatch] Sayfa ${i} için dönen yanıt sayfa ${pageText.pageNumber} ile uyuşmuyor!`);
+        continue;
+      }
+
       // Split into clean paragraphs
-      const paragraphs = pageText
+      const rawText = String(pageText);
+      const paragraphs = rawText
         .split('\n\n')
         .map(p => p.trim())
         .filter(p => p && !p.startsWith('#') && !p.startsWith('*'));
 
-      currentPdfPagesMap[i] = paragraphs.length > 0 ? paragraphs : [pageText];
-      combinedText += (combinedText ? '\n\n---\n\n' : '') + `## Sayfa ${i}\n\n` + pageText;
+      currentPdfPagesMap[i] = paragraphs.length > 0 ? paragraphs : [rawText];
+      combinedText += (combinedText ? '\n\n---\n\n' : '') + `## Sayfa ${i}\n\n` + rawText;
       processedCount++;
     }
 

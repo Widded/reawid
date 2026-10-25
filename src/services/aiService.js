@@ -18,17 +18,9 @@ export const VISION_CANDIDATE_POOLS = {
   openrouter: [
     {
       provider: 'openrouter',
-      model: 'qwen/qwen3.8-27b:free',
-      name: 'OpenRouter (Qwen 3.8 27B :free)',
-      tier: 'primary_free',
-      freeTier: true,
-      supportsVision: true
-    },
-    {
-      provider: 'openrouter',
       model: 'nvidia/nemotron-3.5-super-vl:free',
       name: 'OpenRouter (Nemotron 3.5 Super VL :free)',
-      tier: 'vision_free',
+      tier: 'primary_free',
       freeTier: true,
       supportsVision: true
     },
@@ -36,6 +28,22 @@ export const VISION_CANDIDATE_POOLS = {
       provider: 'openrouter',
       model: 'google/gemma-4-26b-a4b-it:free',
       name: 'OpenRouter (Gemma 4 26B :free)',
+      tier: 'vision_free',
+      freeTier: true,
+      supportsVision: true
+    },
+    {
+      provider: 'openrouter',
+      model: 'dots-studio/dots-3-note-preview:free',
+      name: 'OpenRouter (Dots3 Note Preview :free)',
+      tier: 'vision_free',
+      freeTier: true,
+      supportsVision: true
+    },
+    {
+      provider: 'openrouter',
+      model: 'google/gemma-4-31b-it:free',
+      name: 'OpenRouter (Gemma 4 31B :free)',
       tier: 'vision_free',
       freeTier: true,
       supportsVision: true
@@ -109,6 +117,54 @@ export function getCongestionMap() {
 export function clearCongestionMap() {
   congestedModels.clear();
 }
+
+// Circular in-memory audit log for OCR requests (retains last 200 requests)
+const ocrAuditTrail = [];
+
+export function recordOcrAudit({
+  documentId = 'single_doc',
+  pageNumber = 1,
+  provider = 'unknown',
+  model = 'unknown',
+  durationMs = 0,
+  status = 'success', // 'success' | 'failover' | 'error'
+  error = null,
+  charCount = 0
+}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    documentId: String(documentId || 'single_doc'),
+    pageNumber: Number(pageNumber) || 1,
+    provider: String(provider || 'unknown'),
+    model: String(model || 'unknown'),
+    durationMs: Math.round(durationMs),
+    status,
+    error: error ? String(error).slice(0, 160) : null,
+    charCount: Number(charCount) || 0
+  };
+
+  ocrAuditTrail.push(entry);
+  if (ocrAuditTrail.length > 200) {
+    ocrAuditTrail.shift();
+  }
+
+  // Safe console logging without API keys, prompts, or image payloads
+  const icon = status === 'success' ? '✅' : (status === 'failover' ? '⚠️' : '❌');
+  console.info(
+    `[AI OCR Audit] ${icon} Belge: [${entry.documentId}] | Sayfa: [${entry.pageNumber}] | Sağlayıcı: ${entry.provider} | Model: ${entry.model} | Süre: ${entry.durationMs}ms | Durum: ${entry.status}${entry.error ? ` (${entry.error})` : ` (${entry.charCount} kr)`}`
+  );
+
+  return entry;
+}
+
+export function getOcrAuditTrail() {
+  return [...ocrAuditTrail];
+}
+
+export function clearOcrAuditTrail() {
+  ocrAuditTrail.length = 0;
+}
+
 
 /**
  * Builds candidate list based on user settings, API key availability, and current congestion state.
@@ -705,6 +761,8 @@ export async function performOcr({
   groqApiKey,
   openrouterApiKey,
   model = 'auto',
+  documentId = 'single_doc',
+  pageNumber = 1,
   options = {},
   signal,
   onModelFallback,
@@ -747,8 +805,10 @@ export async function performOcr({
       throw new DOMException('OCR işlemi kullanıcı tarafından durduruldu', 'AbortError');
     }
 
+    const candStartTime = Date.now();
+
     try {
-      console.info(`[AI Router] Deneniyor: ${candidate.name} (Ücretsiz Model)...`);
+      console.info(`[AI Router] Deneniyor: ${candidate.name} (Ücretsiz Model) | Belge: ${documentId} | Sayfa: ${pageNumber}...`);
       let resultText = '';
 
       if (candidate.provider === 'groq') {
@@ -777,14 +837,30 @@ export async function performOcr({
         throw new Error('Modelden boş metin yanıtı döndü');
       }
 
+      const elapsedMs = Date.now() - candStartTime;
+
       // Success! Clear cooldown for this candidate
       congestedModels.delete(candidateKey);
+
+      // Record successful OCR audit log
+      recordOcrAudit({
+        documentId,
+        pageNumber,
+        provider: candidate.provider,
+        model: candidate.model,
+        durationMs: elapsedMs,
+        status: 'success',
+        charCount: resultText.length
+      });
 
       if (onModelSuccess) {
         onModelSuccess({
           model: candidate.model,
           provider: candidate.provider,
-          name: candidate.name
+          name: candidate.name,
+          documentId,
+          pageNumber,
+          durationMs: elapsedMs
         });
       }
 
@@ -833,13 +909,23 @@ export async function performOcr({
         mergeHyphens: options.mergeHyphenatedWords !== false
       });
 
-      return resultText;
+      // Attach verification metadata to returned string instance for application-side validation
+      const verifiableResult = new String(resultText);
+      verifiableResult.text = resultText;
+      verifiableResult.documentId = String(documentId || 'single_doc');
+      verifiableResult.pageNumber = Number(pageNumber) || 1;
+      verifiableResult.provider = candidate.provider;
+      verifiableResult.model = candidate.model;
+      verifiableResult.durationMs = elapsedMs;
+
+      return verifiableResult;
     } catch (err) {
       if (err.name === 'AbortError' || signal?.aborted) {
         throw err;
       }
 
       lastError = err;
+      const elapsedMs = Date.now() - candStartTime;
       const isRateLimitOrOverload = 
         err.message?.includes('429') ||
         err.message?.includes('rate limit') ||
@@ -850,6 +936,19 @@ export async function performOcr({
         err.message?.includes('capacity') ||
         err.message?.includes('No provider');
 
+      const nextCandidate = candidates[i + 1];
+
+      // Record audit for failed/failover attempt
+      recordOcrAudit({
+        documentId,
+        pageNumber,
+        provider: candidate.provider,
+        model: candidate.model,
+        durationMs: elapsedMs,
+        status: nextCandidate ? 'failover' : 'error',
+        error: err.message
+      });
+
       // Put model in temporary circuit breaker cooldown
       markModelCongested(
         candidateKey,
@@ -857,15 +956,16 @@ export async function performOcr({
         isRateLimitOrOverload ? '429 Rate Limit / Sunucu Yoğunluğu' : err.message
       );
 
-      const nextCandidate = candidates[i + 1];
       if (nextCandidate) {
-        console.warn(`[AI Router] [Uyarı] ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki ücretsiz model ${nextCandidate.name} deneniyor...`);
+        console.warn(`[AI Router] [Uyarı] ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki ücretsiz model ${nextCandidate.name} deneniyor... (Belge: ${documentId}, Sayfa: ${pageNumber})`);
         if (onModelFallback) {
           onModelFallback({
             from: candidate.name,
             to: nextCandidate.name,
             reason: isRateLimitOrOverload ? 'Sunucu yoğun' : 'Hata oluştu',
-            error: err.message
+            error: err.message,
+            documentId,
+            pageNumber
           });
         }
       }
@@ -975,6 +1075,7 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
     ],
     temperature: temperature,
     max_tokens: 2048,
+    include_reasoning: false,
     // OpenRouter safeguard: Do NOT allow automatic fallbacks to paid upstream models!
     provider: {
       allow_fallbacks: false
@@ -1015,7 +1116,12 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
   }
 
   const data = await response.json();
-  const text = data?.choices?.[0]?.message?.content || '';
+  const choiceMsg = data?.choices?.[0]?.message;
+  let text = choiceMsg?.content || '';
+  // Fallback if model placed output in reasoning field
+  if (!text && choiceMsg?.reasoning) {
+    text = choiceMsg.reasoning;
+  }
   return text.trim();
 }
 
