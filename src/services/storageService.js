@@ -12,6 +12,7 @@ import {
   subscribeAuth,
   getCurrentUser
 } from './supabaseService.js';
+import { fixSpacedOutLetters } from './aiService.js';
 
 const SETTINGS_KEY = 'reawid_settings_v1';
 const HISTORY_KEY = 'reawid_history_v1';
@@ -440,7 +441,47 @@ export function getBooks() {
     if (!raw) return [];
     const books = JSON.parse(raw);
     if (!Array.isArray(books)) return [];
-    return books.filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title));
+    let cacheUpdated = false;
+    const cleanBooks = books
+      .filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title))
+      .map(b => {
+        // Auto-heal any legacy cached page paragraphs with spaced-out letters
+        if (b.pageParagraphs && typeof b.pageParagraphs === 'object') {
+          let bookModified = false;
+          const healedPages = {};
+          for (const [pNum, paras] of Object.entries(b.pageParagraphs)) {
+            if (Array.isArray(paras)) {
+              healedPages[pNum] = paras.map(p => {
+                if (typeof p === 'string') {
+                  const cleaned = fixSpacedOutLetters(p);
+                  if (cleaned !== p) bookModified = true;
+                  return cleaned;
+                }
+                return p;
+              });
+            } else if (typeof paras === 'string') {
+              const cleaned = fixSpacedOutLetters(paras);
+              if (cleaned !== paras) bookModified = true;
+              healedPages[pNum] = cleaned;
+            } else {
+              healedPages[pNum] = paras;
+            }
+          }
+          if (bookModified) {
+            b.pageParagraphs = healedPages;
+            cacheUpdated = true;
+          }
+        }
+        return b;
+      });
+
+    if (cacheUpdated) {
+      try {
+        localStorage.setItem(BOOKS_KEY, JSON.stringify(cleanBooks));
+      } catch (_) {}
+    }
+
+    return cleanBooks;
   } catch (err) {
     console.error('Kitaplar okunurken hata:', err);
     return [];
@@ -561,9 +602,13 @@ export function updateBookPageParagraphs(bookId, pageNum, paragraphs) {
   try {
     const books = getBooks();
     let updatedBook = null;
+    const cleanedParagraphs = Array.isArray(paragraphs)
+      ? paragraphs.map(p => (typeof p === 'string' ? fixSpacedOutLetters(p) : p))
+      : paragraphs;
+
     const updated = books.map(b => {
       if (b.id === bookId) {
-        const pageParagraphs = { ...(b.pageParagraphs || {}), [pageNum]: paragraphs };
+        const pageParagraphs = { ...(b.pageParagraphs || {}), [pageNum]: cleanedParagraphs };
         updatedBook = {
           ...b,
           pageParagraphs

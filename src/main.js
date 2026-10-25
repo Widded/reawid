@@ -42,7 +42,8 @@ import {
 import {
   performOcr,
   testApiConnection,
-  normalizeHyphensAndText
+  normalizeHyphensAndText,
+  fixSpacedOutLetters
 } from './services/aiService.js';
 
 import {
@@ -867,15 +868,13 @@ function formatBookHtml(paragraphsOrText, options = {}) {
     return '';
   }
 
-  // Pre-process: merge end-of-line hyphens across blocks
-  if (shouldMergeHyphens) {
-    rawList = rawList.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p) : p));
-  }
+  // Pre-process: ALWAYS heal spaced letters and normalize hyphens across blocks
+  rawList = rawList.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p, { mergeHyphens: shouldMergeHyphens }) : p));
 
   // If disabled, render plain paragraphs without novel styling
   if (!isEnabled) {
     return rawList
-      .map(p => (typeof p === 'string' ? p.trim() : ''))
+      .map(p => (typeof p === 'string' ? fixSpacedOutLetters(p).trim() : ''))
       .filter(Boolean)
       .map(p => `<p class="reader-paragraph">${escapeBookHtml(p)}</p>`)
       .join('');
@@ -955,7 +954,8 @@ function formatBookHtml(paragraphsOrText, options = {}) {
   }
 
   // 3. Render each segment with authentic typography
-  return finalSegments.map(p => {
+  return finalSegments.map(rawP => {
+    const p = fixSpacedOutLetters(rawP);
     const isDashDialogue = isDialogueTurn(p) && (/^[—–―]/.test(p) || /^-\s+/.test(p));
     const isQuoteDialogue = isDialogueTurn(p) && /^[“"«]/.test(p);
 

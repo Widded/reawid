@@ -150,56 +150,131 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
  */
 export function fixSpacedOutLetters(text) {
   if (!text || typeof text !== 'string') return '';
-  const fixed = text.replace(
-    /(?:^|(?<=[\s"“«(—–]))([a-zçğıöşüA-ZÇĞİÖŞÜ](?: [a-zçğıöşüA-ZÇĞİÖŞÜ]){2,})(?=[\s"”»).,!?;:—–]|$)/giu,
-    (m) => (/^[IVXLCDM\s]+$/.test(m) ? m : m.replace(/ /g, ''))
+
+  // 1. Normalize all Unicode whitespace variations (NBSP, thin space, zero-width, em/en space) to standard space
+  let s = text
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+    .replace(/[\u00AD\u200B\uFEFF]/g, '');
+
+  // 2. Fix spaces around Turkish apostrophes (e.g. "Ahmet ' in" -> "Ahmet'in", "Türkiye ' deki" -> "Türkiye'deki")
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s+(['’])\s*([a-zçğıöşüA-ZÇĞİÖŞÜ])/gu, "$1'$3");
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*(['’])\s+([a-zçğıöşüA-ZÇĞİÖŞÜ])/gu, "$1'$3");
+
+  // 3. Multi-space word separation healing:
+  // In PDF/OCR spaced-out text, words are separated by 2 or more spaces (or tabs),
+  // while individual letters within a word are separated by a single space.
+  // e.g. "b u   b i r   k i t a p t ı r" -> "bu bir kitaptır"
+  // e.g. "BÖLÜM 1: B A Ş L A N G I Ç" -> "BÖLÜM 1: BAŞLANGIÇ"
+  const multiSpaceRegex = /( {2,}|\t+)/;
+  if (multiSpaceRegex.test(s)) {
+    const tokens = s.split(multiSpaceRegex);
+    const healedTokens = tokens.map(token => {
+      if (multiSpaceRegex.test(token)) return ' ';
+      const trimmed = token.trim();
+      if (!trimmed) return token;
+
+      const parts = trimmed.split(/ +/);
+      if (parts.length >= 2) {
+        const singleCharParts = parts.filter(p => p.length === 1 && /^[a-zçğıöşüA-ZÇĞİÖŞÜ0-9.,!?;:'"()—–-]$/i.test(p));
+        const ratio = singleCharParts.length / parts.length;
+        if (ratio >= 0.7 && parts.every(p => p.length <= 2)) {
+          const combined = parts.join('');
+          if (/^[IVXLCDM]+$/i.test(combined)) return trimmed;
+          return parts.reduce((acc, curr) => {
+            if (!acc) return curr;
+            if (/^[.,!?;:)”’"»]/.test(curr)) return acc + curr;
+            if (/^[“‘(«]/.test(acc.slice(-1))) return acc + curr;
+            return acc + curr;
+          }, '');
+        }
+      }
+      return token;
+    });
+    s = healedTokens.join('');
+  }
+
+  // 4. In-sentence healing for letter-by-letter spaced sequences:
+  // Matches sequences of single letters separated by space:
+  // e.g. "b u", "v e", "d e", "d a", "m i", "k i", "k e l i m e", "b a ş l a d ı"
+  // Safe exclusion: Standalone Roman numerals (e.g. "I V", "X I", "I I I")
+  s = s.replace(
+    /(?:^|(?<=[\s"“«(—–]))([a-zçğıöşüA-ZÇĞİÖŞÜ](?: [a-zçğıöşüA-ZÇĞİÖŞÜ])+)(?=[\s"”»).,!?;:—–]|$)/giu,
+    (match) => {
+      const stripped = match.replace(/ /g, '');
+      if (/^[IVXLCDM]+$/.test(stripped)) {
+        return match;
+      }
+      return stripped;
+    }
   );
-  return fixed.replace(/ {2,}/g, ' ');
+
+  // 5. Clean up any leftover duplicate spaces while preserving intentional newlines
+  s = s.replace(/[ \t]{2,}/g, ' ').replace(/ (?=\n)/g, '').replace(/(?<=\n) /g, '');
+
+  return s;
 }
 
-export function normalizeHyphensAndText(text) {
+export function normalizeHyphensAndText(text, options = {}) {
   if (!text || typeof text !== 'string') return '';
+  const mergeHyphens = options.mergeHyphens !== false;
 
   let cleaned = text
     .replace(/[\u00AD\u200B\uFEFF]/g, '')
     .replace(/\r\n/g, '\n');
 
-  // 1. Standart satır sonu hece bölme tireleri:
-  // "kelime-\nhece" veya "kelime–\nhece" -> "kelimehece"
-  // "Ahmet'-\nte" -> "Ahmet'te"
-  cleaned = cleaned.replace(
-    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]\s*\n+\s*[-–—]?\s*([a-zçğıöşü])/gu,
-    (match, word, apostrophe, nextLetter) => {
-      return `${word}${apostrophe || ''}${nextLetter}`;
-    }
-  );
+  if (mergeHyphens) {
+    // 1. Satır sonu hece bölme tireleri: "kelime-\nhece" -> "kelimehece"
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]\s*\n+\s*[-–—]?\s*([a-zçğıöşü])/gu,
+      (match, word, apostrophe, nextLetter) => `${word}${apostrophe || ''}${nextLetter}`
+    );
 
-  // 2. Özel isim kesme işareti ile satır sonu:
-  // "Ahmet'-\nte" veya "Ankara'-\nda" -> "Ahmet'te", "Ankara'da"
-  cleaned = cleaned.replace(
-    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)['’][-–—]\s*\n+\s*([a-zçğıöşü])/gu,
-    "$1'$2"
-  );
-  cleaned = cleaned.replace(
-    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*['’][-–—]?\s*([a-zçğıöşü])/gu,
-    "$1'$2"
-  );
+    // 2. Özel isim kesme işareti ile satır sonu: "Ahmet'-\nte" -> "Ahmet'te"
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)['’][-–—]\s*\n+\s*([a-zçğıöşü])/gu,
+      "$1'$2"
+    );
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*['’][-–—]?\s*([a-zçğıöşü])/gu,
+      "$1'$2"
+    );
 
-  // 3. OCR / PDF'te tirenin alt satırın başına kaldığı durumlar:
-  // "kapı\n-sından" -> "kapısından"
-  cleaned = cleaned.replace(
-    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*[-–—]([a-zçğıöşü]+)/gu,
-    '$1$2'
-  );
+    // 3. OCR / PDF'te tire alt satırın başına kaymışsa: "kapı\n-sından" -> "kapısından"
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s*\n+\s*[-–—]([a-zçğıöşü]+)/gu,
+      '$1$2'
+    );
 
-  // 4. İki kelime arasında satır sonuna denk gelen gerçek bileşik kelimeler (örn: "Ankara-\nİstanbul")
-  // Tireyi koruyarak tek satıra topla: "Ankara-İstanbul"
-  cleaned = cleaned.replace(
-    /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)[-–—]\s*\n+\s*([A-ZÇĞİÖŞÜ0-9][a-zçğıöşüA-ZÇĞİÖŞÜ0-9]*)/gu,
-    '$1-$2'
-  );
+    // 4. Aynı satırda OCR hece bölünmesi (örn: "pencere- sinden" veya "kapı -sından")
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)(['’]?)[-–—]\s+([a-zçğıöşü]{2,})/gu,
+      (match, word, apostrophe, suffix) => {
+        const lower = suffix.toLowerCase();
+        if (['ve', 'de', 'da', 'ile', 'ama', 'fakat', 'ancak'].includes(lower)) {
+          return match;
+        }
+        return `${word}${apostrophe || ''}${suffix}`;
+      }
+    );
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)\s+[-–—]([a-zçğıöşü]{2,})/gu,
+      (match, word, suffix) => {
+        const lower = suffix.toLowerCase();
+        if (['ve', 'de', 'da', 'ile', 'ama', 'fakat', 'ancak'].includes(lower)) {
+          return match;
+        }
+        return `${word}${suffix}`;
+      }
+    );
 
-  // 5. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir ("k e l i m e" -> "kelime")
+    // 5. Satır sonundaki gerçek bileşik kelimeler (örn: "Ankara-\nİstanbul" -> "Ankara-İstanbul")
+    cleaned = cleaned.replace(
+      /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)[-–—]\s*\n+\s*([A-ZÇĞİÖŞÜ0-9][a-zçğıöşüA-ZÇĞİÖŞÜ0-9]*)/gu,
+      '$1-$2'
+    );
+  }
+
+  // 6. Harf harf ayrılmış kelimelerdeki yapay boşlukları her zaman birleştir
   cleaned = fixSpacedOutLetters(cleaned);
 
   return cleaned;
@@ -323,9 +398,10 @@ export async function performOcr({
         });
       }
 
-      if (options.mergeHyphenatedWords !== false) {
-        resultText = normalizeHyphensAndText(resultText);
-      }
+      // Metin temizleme: Harf boşluklarını ve tireleri normalize et
+      resultText = normalizeHyphensAndText(resultText, {
+        mergeHyphens: options.mergeHyphenatedWords !== false
+      });
 
       return resultText;
     } catch (err) {

@@ -1211,8 +1211,12 @@ textarea,
 .reader-paragraph {
   margin-bottom: 20px;
   line-height: 1.82;
-  letter-spacing: normal;
-  word-spacing: normal;
+  letter-spacing: 0px !important;
+  word-spacing: normal !important;
+  text-align: left !important;
+  text-justify: none !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+  font-kerning: normal;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   /* Sığmayan kelimeler: Kelime satıra sığmıyorsa alt satıra kaydırılır veya tire ile hecelenir */
@@ -1228,9 +1232,11 @@ textarea,
 /* 1. Anlatı Paragrafları (Narrative Prose with Book First-Line Indent) */
 .reader-paragraphs .reader-narrative {
   text-indent: 1.5em;
-  text-align: left; /* Harfler veya kelimeler arasında yapay boşluk oluşmasını önler */
-  text-justify: none;
-  text-align-last: left;
+  text-align: left !important; /* Harfler veya kelimeler arasında yapay boşluk oluşmasını önler */
+  text-justify: none !important;
+  text-align-last: left !important;
+  letter-spacing: 0px !important;
+  word-spacing: normal !important;
   hyphens: auto;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
@@ -1246,7 +1252,11 @@ textarea,
   text-indent: -1.35em;
   padding-left: 1.35em;
   margin-bottom: 14px;
-  text-align: left;
+  text-align: left !important;
+  text-justify: none !important;
+  text-align-last: left !important;
+  letter-spacing: 0px !important;
+  word-spacing: normal !important;
   hyphens: auto;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
@@ -2372,12 +2382,15 @@ input:checked + .switch-slider:before {
 .digital-page-content p {
   margin-bottom: 16px;
   line-height: 1.8;
-  letter-spacing: normal;
-  word-spacing: normal;
+  letter-spacing: 0px !important;
+  word-spacing: normal !important;
+  text-align: left !important;
+  text-justify: none !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+  font-kerning: normal;
   text-rendering: optimizeLegibility;
   overflow-wrap: break-word;
   word-break: normal;
-  text-align: left;
   hyphens: auto;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;

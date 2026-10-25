@@ -105,9 +105,16 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
         } else if (lastX !== null && currentX !== null) {
           // Aynı satır: Öğeler arasındaki yatay mesafeyi hesapla
           const gap = currentX - (lastX + lastWidth);
-          // Yalnızca kelimeler arasındaki gerçek boşluklarda (gap > 2.2) boşluk ekle.
-          // Harf parçaları bitişikse (gap <= 2.2) harflerin arasına boşluk koyma!
-          if (gap > 2.2 && !text.endsWith(' ') && !item.str.startsWith(' ')) {
+          const fontSize = Math.max(9, Math.abs(item.height || (item.transform ? item.transform[3] : 12)));
+          const avgCharWidth = itemWidth > 0 ? (itemWidth / Math.max(1, item.str.length)) : (fontSize * 0.45);
+
+          // İki bitişik öğe tek harf ise (ayrık glif dizilimi), kelime boşluğu için fontun en az %42'si kadar net aralık gerekir
+          const isSingleCharTransition = (item.str.trim().length === 1 && text.trim().slice(-1).length === 1);
+          const minWordGap = isSingleCharTransition
+            ? Math.max(4.8, fontSize * 0.42)
+            : Math.max(3.6, Math.min(fontSize * 0.30, avgCharWidth * 0.52));
+
+          if (gap >= minWordGap && !text.endsWith(' ') && !item.str.startsWith(' ')) {
             text += ' ';
           }
         }
