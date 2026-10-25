@@ -1362,7 +1362,7 @@ function applyCompareZoom() {
   const target = !el.realBookPageCanvas.classList.contains('hidden') ? el.realBookPageCanvas : el.realBookPageImg;
   if (target) {
     target.style.transform = `scale(${currentCompareZoom})`;
-    target.style.transformOrigin = 'top center';
+    target.style.transformOrigin = 'center center';
     target.style.transition = 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)';
   }
   if (el.btnZoomOriginalReset) {
