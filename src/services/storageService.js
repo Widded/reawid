@@ -17,7 +17,7 @@ const HISTORY_KEY = 'reawid_history_v1';
 const NOTES_KEY = 'reawid_notes_v2';
 const BOOKS_KEY = 'reawid_books_v2';
 const CURRENT_BOOK_KEY = 'reawid_current_book_id';
-const MOCK_CLEANUP_KEY = 'reawid_mock_cleaned_v2';
+const PURGE_CACHE_KEY = 'reawid_purge_cache_v25';
 
 // Read environment variables (supports both VITE_ and EXPO_PUBLIC_ prefixes)
 const ENV_ACTIVE_PROVIDER = (import.meta.env.VITE_OCR_PROVIDER || import.meta.env.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
@@ -117,10 +117,10 @@ export const AVAILABLE_MODELS = {
 const DEPRECATED_GROQ_MODELS = ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
 const DEPRECATED_OR_MODELS = ['google/gemini-2.0-flash-001', 'google/gemini-flash-1.5', 'meta-llama/llama-3.2-11b-vision-instruct', 'mistralai/pixtral-12b'];
 
-// One-time cleanup of legacy mock data stored in client localStorage
+// Comprehensive purge of legacy mock data and stale caches stored in client devices
 function cleanLegacyMockDataOnce() {
   try {
-    if (!localStorage.getItem(MOCK_CLEANUP_KEY)) {
+    if (!localStorage.getItem(PURGE_CACHE_KEY)) {
       const mockBookIds = new Set([
         'book_insan_ne_ile_yasar',
         'book_sefiller',
@@ -148,7 +148,24 @@ function cleanLegacyMockDataOnce() {
         }
       }
 
-      localStorage.setItem(MOCK_CLEANUP_KEY, 'true');
+      // Purge temporary session & history storage
+      sessionStorage.clear();
+      localStorage.removeItem(HISTORY_KEY);
+      localStorage.removeItem('reawid_mock_cleaned_v1');
+      localStorage.removeItem('reawid_mock_cleaned_v2');
+
+      // Purge old HTTP / PWA cache storage
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => {
+            if (key !== 'reawid-cloud-v25') {
+              caches.delete(key);
+            }
+          });
+        }).catch(() => {});
+      }
+
+      localStorage.setItem(PURGE_CACHE_KEY, 'true');
     }
   } catch (err) {
     console.warn('Mock cleanup error:', err);
@@ -481,6 +498,11 @@ export function importAllData(jsonString) {
 export function clearAppCache() {
   try {
     sessionStorage.clear();
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((key) => caches.delete(key));
+      }).catch(() => {});
+    }
     return true;
   } catch (_) {
     return false;

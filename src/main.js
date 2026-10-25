@@ -2762,10 +2762,23 @@ function setupSettingsScreenEvents() {
 
   // Clear cache
   if (el.btnClearCache) {
-    el.btnClearCache.addEventListener('click', () => {
-      if (confirm('Geçici oturum ve OCR önbelleği temizlensin mi? (Kayıtlı kitap ve notlarınız silinmez)')) {
+    el.btnClearCache.addEventListener('click', async () => {
+      if (confirm('Tüm cihaz önbelleği, geçici OCR verileri ve servis önbelleği temizlensin mi? (Kayıtlı kitap ve notlarınız silinmez)')) {
         clearAppCache();
-        showToast('Geçici önbellek temizlendi.', 'success');
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let reg of regs) {
+            await reg.update();
+          }
+        }
+        showToast('Tüm önbellek başarıyla temizlendi!', 'success');
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
     });
   }
@@ -2775,7 +2788,7 @@ function setupSettingsScreenEvents() {
    PWA & System File Integration
    ========================================================================== */
 function setupPwa() {
-  const CURRENT_CACHE = 'reawid-apple-v23';
+  const CURRENT_CACHE = 'reawid-cloud-v25';
   if ('caches' in window) {
     caches.keys().then((keys) => {
       keys.forEach((key) => {

@@ -1,20 +1,12 @@
 // Reawid Service Worker - Apple Minimalist PWA
 // Network-First strategy to ensure latest updates are immediately reflected
-const CACHE_NAME = 'reawid-apple-v23';
+const CACHE_NAME = 'reawid-cloud-v25';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/reawid-logo.svg',
   '/favicon.svg',
-  '/manifest.webmanifest',
-  '/cover-1.jpg',
-  '/cover-2.svg',
-  '/cover-3.svg',
-  '/cover-4.svg',
-  '/cover-5.svg',
-  '/cover-6.svg',
-  '/real-page-insan-ne-ile-yasar.svg',
-  '/sample-book.jpg'
+  '/manifest.webmanifest'
 ];
 
 self.addEventListener('install', (event) => {
@@ -24,7 +16,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      // Purge all old caches (including reawid-ocr-v2)
+      // Purge all old caches on all devices
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
