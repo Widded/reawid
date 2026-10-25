@@ -543,23 +543,23 @@ function renderHomeScreen() {
   const usedMb = totalItems === 0 ? 0 : Number((rawMb + (allBooks.length * 0.25) + (allNotes.length * 0.04)).toFixed(1));
 
   if (user) {
-    // Authenticated: Actually synced to Supabase Cloud
+    // Authenticated: Actually synced to Cloud
     const quotaMb = 500;
     const percent = Math.min(100, Math.max(usedMb > 0 ? 1 : 0, (usedMb / quotaMb) * 100));
     if (el.storageUsageText) {
-      el.storageUsageText.textContent = `${usedMb} MB / ${quotaMb} MB (Supabase Bulut)`;
+      el.storageUsageText.textContent = `${usedMb} MB / ${quotaMb} MB (Bulut Alanı)`;
     }
     if (el.storageUsageProgressFill) {
       el.storageUsageProgressFill.style.width = `${percent.toFixed(1)}%`;
       el.storageUsageProgressFill.style.background = 'linear-gradient(90deg, #0a84ff, #5e5ce6)';
     }
   } else {
-    // Not logged in: 100% Local Device Storage (NOT in Supabase)
+    // Not logged in: 100% Local Device Storage
     if (el.storageUsageText) {
       if (allBooks.length === 0) {
-        el.storageUsageText.textContent = '0 MB · Cihaz Hafızası (Giriş Yapılmadı)';
+        el.storageUsageText.textContent = '0 MB · Yalnızca Bu Cihazda';
       } else {
-        el.storageUsageText.textContent = `${usedMb} MB (Yalnızca Bu Cihazda) · Buluta Eşitle`;
+        el.storageUsageText.textContent = `${usedMb} MB (Yalnızca Bu Cihazda) · Eşitlemek İçin Giriş Yapın`;
       }
     }
     if (el.storageUsageProgressFill) {
@@ -2995,14 +2995,14 @@ function renderAccountUI() {
   if (el.settingsAccountName) {
     if (user) {
       el.settingsAccountName.textContent = user.email || 'Giriş Yapıldı';
-      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = '🟢 Supabase Bulut Eşitlemesi Aktif';
+      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = '🟢 Bulut Eşitlemesi Aktif';
       if (el.settingsAccountAvatar) {
         const initial = (user.email || 'R')[0].toUpperCase();
         el.settingsAccountAvatar.innerHTML = `<span>${initial}</span>`;
       }
     } else {
-      el.settingsAccountName.textContent = 'Supabase Bulut Senkronizasyonu';
-      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = 'Giriş yap veya kayıt ol';
+      el.settingsAccountName.textContent = 'Hesap & Senkronizasyon';
+      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = 'Kaldığınız yerden devam etmek için giriş yapın';
       if (el.settingsAccountAvatar) {
         el.settingsAccountAvatar.innerHTML = `
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -3129,7 +3129,7 @@ function setupAccountController() {
       try {
         const res = await syncLocalWithCloudDb();
         if (res.synced) {
-          showToast('Tüm kitap ve notlar Supabase ile senkronize edildi!', 'success');
+          showToast('Tüm kitap ve notlarınız bulutla senkronize edildi!', 'success');
           renderHomeScreen();
           renderLibraryScreen();
           renderNotesScreen();

@@ -65,7 +65,7 @@ export function getCurrentUser() {
    ========================================================================== */
 
 export async function signUpWithEmail(email, password) {
-  if (!supabase) return { error: { message: 'Supabase yapılandırılmamış.' } };
+  if (!supabase) return { error: { message: 'Bulut servisi yapılandırılmamış.' } };
   try {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -80,7 +80,7 @@ export async function signUpWithEmail(email, password) {
 }
 
 export async function signInWithEmail(email, password) {
-  if (!supabase) return { error: { message: 'Supabase yapılandırılmamış.' } };
+  if (!supabase) return { error: { message: 'Bulut servisi yapılandırılmamış.' } };
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
