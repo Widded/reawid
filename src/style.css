@@ -4958,10 +4958,16 @@ input:checked + .switch-slider:before {
 
 /* Account Modal Drawer */
 #accountModal {
+  position: fixed;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  z-index: 190;
+  z-index: 195;
+  box-sizing: border-box;
+  padding-bottom: var(--keyboard-height, 0px);
+  transition: padding-bottom 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 #accountModal .account-drawer-panel {
@@ -4969,7 +4975,6 @@ input:checked + .switch-slider:before {
   max-width: 440px;
   margin: 0 auto;
   height: auto;
-  max-height: calc(88vh - env(safe-area-inset-top, 0px));
   max-height: calc(88dvh - env(safe-area-inset-top, 0px));
   border-radius: 24px 24px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
@@ -4981,6 +4986,62 @@ input:checked + .switch-slider:before {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  transition: max-height 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              padding-bottom 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* KLAVYE AÇILDIĞINDA: İçerik doğrudan klavye yüksekliğinde tutulur ve ekran sınırlarına sığdırılır */
+html.keyboard-open #accountModal,
+#accountModal.keyboard-active {
+  padding-bottom: var(--keyboard-height, 0px) !important;
+}
+
+html.keyboard-open #accountModal .account-drawer-panel,
+#accountModal.keyboard-active .account-drawer-panel {
+  /* Klavyenin üzerinde kalan net alana göre sınırla, üst çentik altına yerleştir */
+  max-height: calc(var(--visual-viewport-height, 100dvh) - max(16px, env(safe-area-inset-top, 0px)) - 10px) !important;
+  border-radius: 22px 22px 0 0;
+  padding-bottom: 12px;
+}
+
+html.keyboard-open #accountModal .account-drawer-body,
+#accountModal.keyboard-active .account-drawer-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-top: 8px;
+  padding-bottom: 20px;
+}
+
+/* Klavye açıkken dikey alanı korumak için kompakt stil */
+html.keyboard-open #accountModal .account-header-subtitle,
+#accountModal.keyboard-active .account-header-subtitle {
+  display: none;
+}
+
+html.keyboard-open #accountModal .drawer-header,
+#accountModal.keyboard-active .drawer-header {
+  padding-top: 14px;
+  padding-bottom: 10px;
+}
+
+html.keyboard-open #accountModal .account-tabs-pill,
+#accountModal.keyboard-active .account-tabs-pill {
+  margin-bottom: 8px;
+}
+
+html.keyboard-open #accountModal .account-auth-form,
+#accountModal.keyboard-active .account-auth-form {
+  gap: 10px;
+}
+
+html.keyboard-open #accountModal .auth-notice-text,
+#accountModal.keyboard-active .auth-notice-text {
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 2px;
 }
 
 .account-header-subtitle {

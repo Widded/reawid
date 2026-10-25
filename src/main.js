@@ -3649,16 +3649,61 @@ function showToast(message, type = 'info') {
    ========================================================================== */
 let currentAuthMode = 'signin'; // 'signin' | 'signup'
 
+/* Dynamic Virtual Keyboard & Viewport Tracking (iOS Safari & Android Chrome) */
+function updateKeyboardViewport() {
+  const vv = window.visualViewport;
+  const layoutHeight = window.innerHeight;
+  const visualHeight = vv ? vv.height : layoutHeight;
+  const visualOffsetTop = vv ? (vv.offsetTop || 0) : 0;
+
+  // Alt kısımdan klavyenin kapladığı net piksel yüksekliğini hesapla
+  const rawKeyboard = Math.max(0, layoutHeight - (visualHeight + visualOffsetTop));
+  const isKeyboardOpen = rawKeyboard > 60;
+  const keyboardHeight = isKeyboardOpen ? Math.round(rawKeyboard) : 0;
+
+  document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+  document.documentElement.style.setProperty('--visual-viewport-height', `${Math.round(visualHeight)}px`);
+  document.documentElement.classList.toggle('keyboard-open', isKeyboardOpen);
+
+  if (el.accountModal) {
+    el.accountModal.classList.toggle('keyboard-active', isKeyboardOpen);
+  }
+
+  // Aktif giriş alanını klavyenin üzerinde görünür tut
+  if (isKeyboardOpen && el.accountModal && !el.accountModal.classList.contains('hidden')) {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.id === 'authInputEmail' || activeEl.id === 'authInputPassword')) {
+      setTimeout(() => {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  }
+}
+
+function resetKeyboardViewport() {
+  document.documentElement.style.setProperty('--keyboard-height', '0px');
+  document.documentElement.style.setProperty('--visual-viewport-height', `${window.innerHeight}px`);
+  document.documentElement.classList.remove('keyboard-open');
+  if (el.accountModal) {
+    el.accountModal.classList.remove('keyboard-active');
+  }
+}
+
 function openAccountModal() {
   if (!el.accountModal) return;
   renderAccountUI();
   el.accountModal.classList.remove('hidden');
+  updateKeyboardViewport();
 }
 
 function closeAccountModal() {
   if (!el.accountModal) return;
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   el.accountModal.classList.add('hidden');
   if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+  resetKeyboardViewport();
 }
 
 function renderAccountUI() {
@@ -3705,6 +3750,41 @@ function renderAccountUI() {
 }
 
 function setupAccountController() {
+  // Virtual Keyboard Viewport Handler (iOS Safari & Android Chrome)
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateKeyboardViewport);
+    window.visualViewport.addEventListener('scroll', updateKeyboardViewport);
+  }
+
+  // Email input focus & Enter key listener
+  if (el.authInputEmail) {
+    el.authInputEmail.addEventListener('focus', () => {
+      setTimeout(updateKeyboardViewport, 50);
+      setTimeout(updateKeyboardViewport, 200);
+    });
+    el.authInputEmail.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (el.authInputPassword) el.authInputPassword.focus();
+      }
+    });
+  }
+
+  // Password input focus listener
+  if (el.authInputPassword) {
+    el.authInputPassword.addEventListener('focus', () => {
+      setTimeout(updateKeyboardViewport, 50);
+      setTimeout(updateKeyboardViewport, 200);
+    });
+  }
+
+  // Focus out listener
+  document.addEventListener('focusout', (e) => {
+    if (e.target && (e.target.id === 'authInputEmail' || e.target.id === 'authInputPassword')) {
+      setTimeout(updateKeyboardViewport, 120);
+    }
+  });
+
   // Open / Close modal
   if (el.btnProfile) {
     el.btnProfile.addEventListener('click', openAccountModal);
@@ -3732,6 +3812,7 @@ function setupAccountController() {
         span.textContent = 'Giriş Yap';
       }
       if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+      updateKeyboardViewport();
     });
 
     el.tabSignUp.addEventListener('click', () => {
@@ -3743,6 +3824,7 @@ function setupAccountController() {
         span.textContent = 'Kayıt Ol';
       }
       if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+      updateKeyboardViewport();
     });
   }
 
