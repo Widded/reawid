@@ -3176,16 +3176,23 @@ function setupAccountController() {
 let currentResetSecurityCode = '';
 
 function generateRandomResetCode() {
-  // Generate a 4-digit security code (1000 - 9999)
-  currentResetSecurityCode = String(Math.floor(1000 + Math.random() * 9000));
+  // Generate random lowercase letters between 15 and 20 characters (average 17-18)
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz'; // clean lowercase letters (avoiding ambiguous l/i/o)
+  const length = 15 + Math.floor(Math.random() * 6); // 15, 16, 17, 18, 19, or 20 characters
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  currentResetSecurityCode = code;
+
   if (el.resetChallengeCode) {
-    el.resetChallengeCode.textContent = currentResetSecurityCode.split('').join(' ');
+    el.resetChallengeCode.textContent = currentResetSecurityCode;
   }
   if (el.inputResetCodeConfirm) {
     el.inputResetCodeConfirm.value = '';
   }
   if (el.resetCodeHint) {
-    el.resetCodeHint.textContent = 'Kod eşleştiğinde silme butonu aktifleşir.';
+    el.resetCodeHint.textContent = `Kod eşleştiğinde silme butonu aktifleşir (${currentResetSecurityCode.length} harf).`;
     el.resetCodeHint.classList.remove('valid');
   }
   if (el.btnConfirmResetSubmit) {
@@ -3247,7 +3254,7 @@ function setupResetDataController() {
 
   if (el.inputResetCodeConfirm) {
     el.inputResetCodeConfirm.addEventListener('input', () => {
-      const inputVal = el.inputResetCodeConfirm.value.trim();
+      const inputVal = el.inputResetCodeConfirm.value.trim().toLowerCase();
       if (inputVal === currentResetSecurityCode) {
         if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = false;
         if (el.resetCodeHint) {
@@ -3260,8 +3267,11 @@ function setupResetDataController() {
           if (inputVal.length >= currentResetSecurityCode.length) {
             el.resetCodeHint.textContent = '✕ Hatalı kod girdiniz. Lütfen tekrar kontrol edin.';
             el.resetCodeHint.classList.remove('valid');
+          } else if (inputVal.length > 0) {
+            el.resetCodeHint.textContent = `Yazılan: ${inputVal.length} / ${currentResetSecurityCode.length} harf`;
+            el.resetCodeHint.classList.remove('valid');
           } else {
-            el.resetCodeHint.textContent = 'Kod eşleştiğinde silme butonu aktifleşir.';
+            el.resetCodeHint.textContent = `Kod eşleştiğinde silme butonu aktifleşir (${currentResetSecurityCode.length} harf).`;
             el.resetCodeHint.classList.remove('valid');
           }
         }
@@ -3280,9 +3290,9 @@ function setupResetDataController() {
 
   if (el.btnConfirmResetSubmit) {
     el.btnConfirmResetSubmit.addEventListener('click', async () => {
-      const inputVal = el.inputResetCodeConfirm ? el.inputResetCodeConfirm.value.trim() : '';
+      const inputVal = el.inputResetCodeConfirm ? el.inputResetCodeConfirm.value.trim().toLowerCase() : '';
       if (inputVal !== currentResetSecurityCode) {
-        showToast('Lütfen ekrandaki 4 haneli güvenlik kodunu doğru girin', 'error');
+        showToast('Lütfen ekrandaki güvenlik kodunu doğru girin', 'error');
         return;
       }
 

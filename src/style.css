@@ -4827,9 +4827,9 @@ input:checked + .switch-slider:before {
 .challenge-code-container {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 14px;
+  padding: 12px 14px;
   background: #141416;
   border: 1px dashed rgba(255, 255, 255, 0.2);
   border-radius: 12px;
@@ -4837,11 +4837,15 @@ input:checked + .switch-slider:before {
 
 .challenge-code-display {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 26px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 8px;
+  letter-spacing: 1.5px;
   color: #ffffff;
   user-select: all;
+  word-break: break-all;
+  line-height: 1.45;
+  text-align: center;
+  flex: 1;
 }
 
 .btn-refresh-code {
@@ -4855,6 +4859,7 @@ input:checked + .switch-slider:before {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 140ms ease;
 }
 
@@ -4874,18 +4879,19 @@ input:checked + .switch-slider:before {
 
 .reset-code-input {
   width: 100%;
-  padding: 14px;
+  padding: 13px 14px;
   background: #141416;
   border: 1.5px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   color: #ffffff;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  letter-spacing: 4px;
+  letter-spacing: 1.5px;
   text-align: center;
   outline: none;
   box-sizing: border-box;
+  text-transform: lowercase;
   transition: border-color 140ms ease;
 }
 
@@ -4895,7 +4901,7 @@ input:checked + .switch-slider:before {
 }
 
 .reset-code-input::placeholder {
-  font-size: 13.5px;
+  font-size: 13px;
   letter-spacing: normal;
   font-family: var(--font-system);
   color: var(--text-tertiary);
