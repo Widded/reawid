@@ -300,9 +300,86 @@ const el = {
 };
 
 /* ==========================================================================
+   PWA Native Zoom Lock (Prevent Double-Tap & Pinch Zooming)
+   ========================================================================== */
+function preventPwaZooming() {
+  // 1. Prevent multi-finger touchstart (2+ fingers) before pinch gesture begins
+  const blockMultiTouch = (e) => {
+    if (e.touches && e.touches.length > 1) {
+      e.preventDefault();
+    }
+  };
+  window.addEventListener('touchstart', blockMultiTouch, { passive: false, capture: true });
+  document.addEventListener('touchstart', blockMultiTouch, { passive: false, capture: true });
+  window.addEventListener('touchmove', blockMultiTouch, { passive: false, capture: true });
+  document.addEventListener('touchmove', blockMultiTouch, { passive: false, capture: true });
+
+  // 2. Prevent Safari iOS gesture zoom events (pinch-to-zoom)
+  const blockGesture = (e) => e.preventDefault();
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
+    window.addEventListener(name, blockGesture, { passive: false, capture: true });
+    document.addEventListener(name, blockGesture, { passive: false, capture: true });
+  });
+
+  // 3. Prevent Trackpad & Mouse Ctrl/Cmd + Wheel pinch-to-zoom
+  const blockWheelZoom = (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+    }
+  };
+  window.addEventListener('wheel', blockWheelZoom, { passive: false, capture: true });
+  document.addEventListener('wheel', blockWheelZoom, { passive: false, capture: true });
+
+  // 4. Prevent Ctrl/Cmd + Plus/Minus/Zero keyboard zoom shortcuts
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+      e.preventDefault();
+    }
+  });
+
+  // 5. Prevent mobile double-tap to zoom while preserving instant clicks on buttons/inputs
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      const target = e.target;
+      const isInput = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+      if (!isInput) {
+        e.preventDefault();
+        const clickable = (target && typeof target.closest === 'function')
+          ? (target.closest('button, a, [role="button"], label, .apple-card, .nav-tab, .filter-pill, .btn-step, .theme-swatch-item') || target)
+          : target;
+        if (clickable && typeof clickable.click === 'function') {
+          clickable.click();
+        }
+      }
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // 6. Prevent desktop/trackpad double-click zooming
+  document.addEventListener('dblclick', (e) => {
+    const target = e.target;
+    const isInput = target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    );
+    if (!isInput) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
+/* ==========================================================================
    Initialization
    ========================================================================== */
 function init() {
+  preventPwaZooming();
   setupPwa();
   renderHomeScreen();
   renderLibraryScreen();

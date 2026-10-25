@@ -59,6 +59,9 @@ html {
   overflow-x: hidden;
   max-width: 100vw;
   width: 100%;
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -70,6 +73,24 @@ body {
   width: 100%;
   display: flex;
   justify-content: center;
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent double-tap and pinch zoom on all interactive components */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.apple-card,
+.nav-tab,
+.view-screen,
+.reader-screen,
+.comparison-screen {
+  touch-action: pan-x pan-y;
 }
 
 /* ==========================================================================
@@ -88,6 +109,7 @@ body {
   padding-bottom: 96px; /* Space for bottom tab bar */
   overflow-x: hidden;
   box-sizing: border-box;
+  touch-action: pan-x pan-y;
 }
 
 @media (min-width: 481px) {
@@ -1091,7 +1113,7 @@ body {
   color: #ffffff;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 16px; /* 16px prevents iOS Safari auto-zoom on focus */
   outline: none;
 }
 
@@ -1109,6 +1131,7 @@ body {
   overflow-y: auto;
   scroll-behavior: smooth;
   box-sizing: border-box;
+  touch-action: pan-y;
 }
 
 .reader-article {
@@ -2719,7 +2742,7 @@ input:checked + .switch-slider:before {
   border: none;
   outline: none;
   color: #ffffff;
-  font-size: 13.5px;
+  font-size: 16px; /* 16px prevents iOS Safari auto-zoom on focus */
   font-family: var(--font-system);
 }
 
@@ -2823,6 +2846,7 @@ input:checked + .switch-slider:before {
   padding: 0 16px 96px;
   scroll-behavior: smooth;
   box-sizing: border-box;
+  touch-action: pan-y;
 }
 
 .library-books-stack {
@@ -3311,4 +3335,16 @@ input:checked + .switch-slider:before {
 /* Utilities */
 .hidden { display: none !important; }
 .hidden-input { display: none; }
+
+/* Prevent iOS Safari from zooming in on input focus on mobile devices */
+@media screen and (max-width: 480px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 
