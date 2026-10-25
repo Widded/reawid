@@ -20,6 +20,8 @@ import {
   updateBookPageParagraphs,
   getBookById,
   deleteBook,
+  getHistory,
+  saveHistoryItem,
   AVAILABLE_MODELS
 } from './services/storageService.js';
 
@@ -329,32 +331,25 @@ const el = {
    PWA Native Zoom Lock (Prevent Double-Tap & Pinch Zooming)
    ========================================================================== */
 function preventPwaZooming() {
-  // 1. Prevent multi-finger touchstart (2+ fingers) before pinch gesture begins
-  const blockMultiTouch = (e) => {
+  // 1. Prevent Safari iOS gesture zoom events (pinch-to-zoom)
+  const blockGesture = (e) => e.preventDefault();
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
+    document.addEventListener(name, blockGesture, { passive: false });
+  });
+
+  // 2. Prevent multi-finger pinch zoom on touchscreens
+  document.addEventListener('touchmove', (e) => {
     if (e.touches && e.touches.length > 1) {
       e.preventDefault();
     }
-  };
-  window.addEventListener('touchstart', blockMultiTouch, { passive: false, capture: true });
-  document.addEventListener('touchstart', blockMultiTouch, { passive: false, capture: true });
-  window.addEventListener('touchmove', blockMultiTouch, { passive: false, capture: true });
-  document.addEventListener('touchmove', blockMultiTouch, { passive: false, capture: true });
-
-  // 2. Prevent Safari iOS gesture zoom events (pinch-to-zoom)
-  const blockGesture = (e) => e.preventDefault();
-  ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
-    window.addEventListener(name, blockGesture, { passive: false, capture: true });
-    document.addEventListener(name, blockGesture, { passive: false, capture: true });
-  });
+  }, { passive: false });
 
   // 3. Prevent Trackpad & Mouse Ctrl/Cmd + Wheel pinch-to-zoom
-  const blockWheelZoom = (e) => {
+  document.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
     }
-  };
-  window.addEventListener('wheel', blockWheelZoom, { passive: false, capture: true });
-  document.addEventListener('wheel', blockWheelZoom, { passive: false, capture: true });
+  }, { passive: false });
 
   // 4. Prevent Ctrl/Cmd + Plus/Minus/Zero keyboard zoom shortcuts
   window.addEventListener('keydown', (e) => {
@@ -363,31 +358,7 @@ function preventPwaZooming() {
     }
   });
 
-  // 5. Prevent mobile double-tap to zoom while preserving instant clicks on buttons/inputs
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
-      const target = e.target;
-      const isInput = target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      );
-      if (!isInput) {
-        e.preventDefault();
-        const clickable = (target && typeof target.closest === 'function')
-          ? (target.closest('button, a, [role="button"], label, .apple-card, .nav-tab, .filter-pill, .btn-step, .theme-swatch-item') || target)
-          : target;
-        if (clickable && typeof clickable.click === 'function') {
-          clickable.click();
-        }
-      }
-    }
-    lastTouchEnd = now;
-  }, { passive: false });
-
-  // 6. Prevent desktop/trackpad double-click zooming
+  // 5. Prevent double-click zooming without blocking button clicks
   document.addEventListener('dblclick', (e) => {
     const target = e.target;
     const isInput = target && (
@@ -405,13 +376,13 @@ function preventPwaZooming() {
    Initialization
    ========================================================================== */
 function init() {
-  preventPwaZooming();
-  setupPwa();
-  renderHomeScreen();
-  renderLibraryScreen();
-  populateModelSelect();
-  setupEventListeners();
-  setupFileHandlingLaunchQueue();
+  try { preventPwaZooming(); } catch (e) { console.warn('PWA zoom lock error:', e); }
+  try { setupPwa(); } catch (e) { console.warn('PWA setup error:', e); }
+  try { renderHomeScreen(); } catch (e) { console.error('renderHomeScreen error:', e); }
+  try { renderLibraryScreen(); } catch (e) { console.error('renderLibraryScreen error:', e); }
+  try { populateModelSelect(); } catch (e) { console.warn('populateModelSelect error:', e); }
+  try { setupEventListeners(); } catch (e) { console.error('setupEventListeners error:', e); }
+  try { setupFileHandlingLaunchQueue(); } catch (e) { console.warn('File queue error:', e); }
 
   // Handle global paste (Ctrl+V)
   window.addEventListener('paste', handleGlobalPaste);
@@ -470,10 +441,12 @@ function renderHomeScreen() {
     }
   });
 
-  // Calculate simulated storage based on books & history
-  const history = getHistory();
-  const approxMb = (allBooks.length * 0.4 + history.length * 0.2 + 2.1).toFixed(1);
-  el.storageUsageText.textContent = `${approxMb} GB / 10 GB`;
+  // Calculate simulated storage based on books & notes
+  const allNotes = getNotes ? getNotes() : [];
+  const approxMb = (allBooks.length * 0.4 + allNotes.length * 0.05 + 2.1).toFixed(1);
+  if (el.storageUsageText) {
+    el.storageUsageText.textContent = `${approxMb} GB / 10 GB`;
+  }
 }
 
 /* ==========================================================================
@@ -2575,7 +2548,7 @@ function setupSettingsScreenEvents() {
         appSettings.defaultFont = font;
         currentReaderFont = font;
         saveSettings(appSettings);
-        applyReaderFont(font);
+        applyReaderTypography();
         renderSettingsScreen();
         showToast(`Yazı tipi: ${btn.textContent}`, 'success');
       });
@@ -2712,11 +2685,11 @@ function setupSettingsScreenEvents() {
    PWA & System File Integration
    ========================================================================== */
 function setupPwa() {
-  // Proactively clean legacy caches from previous versions
+  const CURRENT_CACHE = 'reawid-apple-v21';
   if ('caches' in window) {
     caches.keys().then((keys) => {
       keys.forEach((key) => {
-        if (key !== 'reawid-apple-v6') {
+        if (key !== CURRENT_CACHE) {
           caches.delete(key);
         }
       });

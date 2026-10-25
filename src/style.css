@@ -3364,9 +3364,9 @@ input:checked + .switch-slider:before {
    ========================================================================== */
 .notes-container {
   width: 100%;
-  max-width: 720px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 18px 16px 110px 16px;
+  padding: max(20px, calc(env(safe-area-inset-top, 0px) + 14px)) 16px 110px 16px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -3703,9 +3703,9 @@ input:checked + .switch-slider:before {
    ========================================================================== */
 .settings-page-container {
   width: 100%;
-  max-width: 720px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 18px 16px 110px 16px;
+  padding: max(20px, calc(env(safe-area-inset-top, 0px) + 14px)) 16px 110px 16px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
