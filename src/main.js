@@ -83,6 +83,8 @@ let currentReaderLineHeight = 'standard'; // 'tight' | 'standard' | 'wide'
 let currentReaderFont = 'serif'; // 'serif' | 'sans' | 'mono'
 let currentReaderMargin = 'standard'; // 'narrow' | 'standard' | 'wide'
 let currentCompareZoom = 1.0;
+let comparePanX = 0;
+let comparePanY = 0;
 let isCompareSpeaking = false;
 let isBookmarked = false;
 
@@ -393,21 +395,26 @@ const el = {
    PWA Native Zoom Lock (Prevent Double-Tap & Pinch Zooming)
    ========================================================================== */
 function preventPwaZooming() {
-  // 1. Prevent Safari iOS gesture zoom events (pinch-to-zoom)
-  const blockGesture = (e) => e.preventDefault();
+  // 1. Prevent Safari iOS gesture zoom events (pinch-to-zoom) except on book comparison viewport
+  const blockGesture = (e) => {
+    if (e.target && e.target.closest && e.target.closest('#originalPageViewport')) return;
+    e.preventDefault();
+  };
   ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
     document.addEventListener(name, blockGesture, { passive: false });
   });
 
-  // 2. Prevent multi-finger pinch zoom on touchscreens
+  // 2. Prevent multi-finger pinch zoom on touchscreens (except on book viewport)
   document.addEventListener('touchmove', (e) => {
+    if (e.target && e.target.closest && e.target.closest('#originalPageViewport')) return;
     if (e.touches && e.touches.length > 1) {
       e.preventDefault();
     }
   }, { passive: false });
 
-  // 3. Prevent Trackpad & Mouse Ctrl/Cmd + Wheel pinch-to-zoom
+  // 3. Prevent Trackpad & Mouse Ctrl/Cmd + Wheel pinch-to-zoom (except on book viewport)
   document.addEventListener('wheel', (e) => {
+    if (e.target && e.target.closest && e.target.closest('#originalPageViewport')) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
     }
@@ -420,8 +427,9 @@ function preventPwaZooming() {
     }
   });
 
-  // 5. Prevent double-click zooming without blocking button clicks
+  // 5. Prevent double-click zooming without blocking button clicks or book zoom
   document.addEventListener('dblclick', (e) => {
+    if (e.target && e.target.closest && e.target.closest('#originalPageViewport')) return;
     const target = e.target;
     const isInput = target && (
       target.tagName === 'INPUT' ||
@@ -1200,6 +1208,9 @@ function setComparisonMode(mode) {
   if (el.btnModeOriginal) el.btnModeOriginal.classList.remove('active');
   if (el.btnModeDigital) el.btnModeDigital.classList.remove('active');
 
+  const paneOriginal = document.getElementById('paneOriginal');
+  const paneDigital = document.getElementById('paneDigital');
+
   if (el.comparisonWorkspace) {
     el.comparisonWorkspace.classList.remove('mode-split', 'mode-original', 'mode-digital');
   }
@@ -1208,9 +1219,13 @@ function setComparisonMode(mode) {
     if (el.btnModeSplit) el.btnModeSplit.classList.add('active');
     if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-split');
   } else if (mode === 'original') {
+    if (paneOriginal) paneOriginal.style.flex = '';
+    if (paneDigital) paneDigital.style.flex = '';
     if (el.btnModeOriginal) el.btnModeOriginal.classList.add('active');
     if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-original');
   } else if (mode === 'digital') {
+    if (paneOriginal) paneOriginal.style.flex = '';
+    if (paneDigital) paneDigital.style.flex = '';
     if (el.btnModeDigital) el.btnModeDigital.classList.add('active');
     if (el.comparisonWorkspace) el.comparisonWorkspace.classList.add('mode-digital');
   }
@@ -1340,11 +1355,16 @@ async function updateComparisonPage(pageNum) {
     }
   }
 
-  // Reset zoom & scroll position
+  // Reset zoom & pan position
   currentCompareZoom = 1.0;
-  applyCompareZoom();
+  comparePanX = 0;
+  comparePanY = 0;
+  applyCompareZoom(false);
   const originalViewport = document.getElementById('originalPageViewport');
-  if (originalViewport) originalViewport.scrollTop = 0;
+  if (originalViewport) {
+    originalViewport.scrollTop = 0;
+    originalViewport.scrollLeft = 0;
+  }
   const digitalViewport = document.getElementById('digitalTextViewport');
   if (digitalViewport) digitalViewport.scrollTop = 0;
 }
@@ -1352,19 +1372,41 @@ async function updateComparisonPage(pageNum) {
 function zoomOriginal(delta) {
   if (delta === 0) {
     currentCompareZoom = 1.0;
+    comparePanX = 0;
+    comparePanY = 0;
   } else {
-    currentCompareZoom = Math.max(0.5, Math.min(3.5, Math.round((currentCompareZoom + delta) * 100) / 100));
+    currentCompareZoom = Math.max(0.5, Math.min(4.0, Math.round((currentCompareZoom + delta) * 100) / 100));
   }
-  applyCompareZoom();
+  applyCompareZoom(true);
 }
 
-function applyCompareZoom() {
-  const target = !el.realBookPageCanvas.classList.contains('hidden') ? el.realBookPageCanvas : el.realBookPageImg;
-  if (target) {
-    target.style.transform = `scale(${currentCompareZoom})`;
-    target.style.transformOrigin = 'center center';
-    target.style.transition = 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)';
+function applyCompareZoom(animated = false) {
+  const canvas = el.realBookPageCanvas;
+  const img = el.realBookPageImg;
+  const viewport = document.getElementById('originalPageViewport');
+
+  if (currentCompareZoom <= 1.0) {
+    comparePanX = 0;
+    comparePanY = 0;
+  } else if (viewport) {
+    const maxPanX = Math.max(0, (viewport.clientWidth * (currentCompareZoom - 0.9)) / 2 + 120);
+    const maxPanY = Math.max(0, (viewport.clientHeight * (currentCompareZoom - 0.9)) / 2 + 120);
+    comparePanX = Math.max(-maxPanX, Math.min(maxPanX, comparePanX));
+    comparePanY = Math.max(-maxPanY, Math.min(maxPanY, comparePanY));
   }
+
+  [canvas, img].forEach(target => {
+    if (target) {
+      target.style.transition = animated ? 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)' : 'none';
+      target.style.transform = `translate3d(${comparePanX}px, ${comparePanY}px, 0px) scale(${currentCompareZoom})`;
+      target.style.transformOrigin = 'center center';
+    }
+  });
+
+  if (viewport) {
+    viewport.style.cursor = currentCompareZoom > 1.05 ? 'grab' : 'default';
+  }
+
   if (el.btnZoomOriginalReset) {
     el.btnZoomOriginalReset.textContent = `${Math.round(currentCompareZoom * 100)}%`;
   }
@@ -1403,6 +1445,197 @@ function toggleCompareSpeech() {
     showToast(err.message || 'Sesli okuma başlatılamadı', 'error');
     if (el.compareSpeakLabel) el.compareSpeakLabel.textContent = 'Sesli Dinle';
     if (el.btnSpeakCompareText) el.btnSpeakCompareText.classList.remove('speaking');
+  }
+}
+
+/* ==========================================================================
+   Comparison Studio Interactions (Split Resizing, Book Pan & Zoom)
+   ========================================================================== */
+function setupComparisonStudioInteractions() {
+  const handle = el.comparisonSplitHandle;
+  const workspace = el.comparisonWorkspace;
+  const paneOriginal = document.getElementById('paneOriginal');
+  const paneDigital = document.getElementById('paneDigital');
+  const viewport = document.getElementById('originalPageViewport');
+
+  // 1. Resizable Split Panes (Mouse & Touch Dragging)
+  if (handle && workspace && paneOriginal && paneDigital) {
+    let isDraggingSplit = false;
+
+    const startSplitDrag = (e) => {
+      if (!workspace.classList.contains('mode-split')) return;
+      isDraggingSplit = true;
+      const isHorizontal = window.innerWidth >= 768;
+      handle.classList.add('is-dragging');
+      document.body.style.cursor = isHorizontal ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const onSplitDrag = (e) => {
+      if (!isDraggingSplit) return;
+      const isHorizontal = window.innerWidth >= 768;
+      const rect = workspace.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      if (isHorizontal) {
+        if (!rect.width) return;
+        const offset = clientX - rect.left;
+        let percent = (offset / rect.width) * 100;
+        percent = Math.max(15, Math.min(85, percent));
+        paneOriginal.style.flex = `0 0 ${percent}%`;
+        paneOriginal.style.maxWidth = 'none';
+        paneDigital.style.flex = `0 0 ${100 - percent}%`;
+        paneDigital.style.maxWidth = 'none';
+      } else {
+        if (!rect.height) return;
+        const offset = clientY - rect.top;
+        let percent = (offset / rect.height) * 100;
+        percent = Math.max(15, Math.min(85, percent));
+        paneOriginal.style.flex = `0 0 ${percent}%`;
+        paneOriginal.style.maxHeight = 'none';
+        paneDigital.style.flex = `0 0 ${100 - percent}%`;
+        paneDigital.style.maxHeight = 'none';
+      }
+    };
+
+    const endSplitDrag = () => {
+      if (!isDraggingSplit) return;
+      isDraggingSplit = false;
+      handle.classList.remove('is-dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    };
+
+    handle.addEventListener('mousedown', startSplitDrag);
+    handle.addEventListener('touchstart', startSplitDrag, { passive: false });
+    window.addEventListener('mousemove', onSplitDrag);
+    window.addEventListener('touchmove', onSplitDrag, { passive: false });
+    window.addEventListener('mouseup', endSplitDrag);
+    window.addEventListener('touchend', endSplitDrag);
+    window.addEventListener('touchcancel', endSplitDrag);
+
+    // Double click to reset split panes to 50% / 50%
+    handle.addEventListener('dblclick', () => {
+      paneOriginal.style.flex = '';
+      paneDigital.style.flex = '';
+      paneOriginal.style.maxWidth = '';
+      paneDigital.style.maxWidth = '';
+      paneOriginal.style.maxHeight = '';
+      paneDigital.style.maxHeight = '';
+      showToast('Bölme görünümü varsayılana sıfırlandı (%50 / %50)', 'info');
+    });
+  }
+
+  // 2. Original Book Viewport Zoom & Pan
+  if (viewport) {
+    // A. Wheel Zoom (Mouse & Trackpad)
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY < 0 ? 0.2 : -0.2;
+      zoomOriginal(delta);
+    }, { passive: false });
+
+    // B. Double-click to Toggle Zoom (1.0x <-> 2.2x)
+    viewport.addEventListener('dblclick', (e) => {
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (currentCompareZoom > 1.15) {
+        zoomOriginal(0);
+      } else {
+        currentCompareZoom = 2.2;
+        applyCompareZoom(true);
+      }
+    });
+
+    // C. Mouse Drag-to-Pan (when zoomed in)
+    let isMousePanning = false;
+    let startMouseX = 0;
+    let startMouseY = 0;
+    let startPanX = 0;
+    let startPanY = 0;
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (currentCompareZoom <= 1.05) return;
+      if (e.button !== 0) return;
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+
+      isMousePanning = true;
+      startMouseX = e.clientX;
+      startMouseY = e.clientY;
+      startPanX = comparePanX;
+      startPanY = comparePanY;
+      viewport.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isMousePanning) return;
+      const dx = e.clientX - startMouseX;
+      const dy = e.clientY - startMouseY;
+      comparePanX = startPanX + dx;
+      comparePanY = startPanY + dy;
+      applyCompareZoom(false);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isMousePanning) {
+        isMousePanning = false;
+        viewport.style.cursor = currentCompareZoom > 1.05 ? 'grab' : 'default';
+      }
+    });
+
+    // D. Touch Gestures: 2-finger Pinch Zoom & 1-finger Pan
+    let touchPinchDist = 0;
+    let touchPinchBaseZoom = 1.0;
+    let isTouchPanning = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartPanX = 0;
+    let touchStartPanY = 0;
+
+    const calcTouchDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        isTouchPanning = false;
+        touchPinchDist = calcTouchDist(e.touches[0], e.touches[1]);
+        touchPinchBaseZoom = currentCompareZoom;
+      } else if (e.touches.length === 1 && currentCompareZoom > 1.05) {
+        isTouchPanning = true;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartPanX = comparePanX;
+        touchStartPanY = comparePanY;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && touchPinchDist > 0) {
+        if (e.cancelable) e.preventDefault();
+        const currentDist = calcTouchDist(e.touches[0], e.touches[1]);
+        const scaleFactor = currentDist / touchPinchDist;
+        currentCompareZoom = Math.max(0.5, Math.min(4.0, Math.round(touchPinchBaseZoom * scaleFactor * 100) / 100));
+        applyCompareZoom(false);
+      } else if (e.touches.length === 1 && isTouchPanning && currentCompareZoom > 1.05) {
+        if (e.cancelable) e.preventDefault();
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        comparePanX = touchStartPanX + dx;
+        comparePanY = touchStartPanY + dy;
+        applyCompareZoom(false);
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) touchPinchDist = 0;
+      if (e.touches.length === 0) isTouchPanning = false;
+    }, { passive: true });
   }
 }
 
@@ -1618,7 +1851,10 @@ function setupEventListeners() {
   if (el.btnZoomOriginalIn) el.btnZoomOriginalIn.addEventListener('click', () => zoomOriginal(0.25));
   if (el.btnZoomOriginalReset) el.btnZoomOriginalReset.addEventListener('click', () => zoomOriginal(0));
   if (el.btnZoomOriginalOut) el.btnZoomOriginalOut.addEventListener('click', () => zoomOriginal(-0.25));
-  if (el.btnFitOriginal) el.btnFitOriginal.addEventListener('click', () => { currentCompareZoom = 1.0; applyCompareZoom(); });
+  if (el.btnFitOriginal) el.btnFitOriginal.addEventListener('click', () => zoomOriginal(0));
+
+  // Initialize interactive split handle dragging, book wheel/pinch zoom, and pan
+  setupComparisonStudioInteractions();
 
   if (el.btnSpeakCompareText) el.btnSpeakCompareText.addEventListener('click', toggleCompareSpeech);
 
