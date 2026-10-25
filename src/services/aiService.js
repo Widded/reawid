@@ -144,6 +144,19 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
  * Normalizes text and cleanly merges words split by end-of-line hyphens (matbaa heceleme çizgisi).
  * Preserves true dialogue dashes (—) and proper hyphenated compounds (Türk-İslam, 1923-1938).
  */
+/**
+ * Heals OCR or PDF extraction artifacts where words were split letter-by-letter with spaces
+ * e.g. "k e l i m e" -> "kelime", "k i t a p l a r" -> "kitaplar"
+ */
+export function fixSpacedOutLetters(text) {
+  if (!text || typeof text !== 'string') return '';
+  const fixed = text.replace(
+    /(?:^|(?<=[\s"“«(—–]))([a-zçğıöşüA-ZÇĞİÖŞÜ](?: [a-zçğıöşüA-ZÇĞİÖŞÜ]){2,})(?=[\s"”»).,!?;:—–]|$)/giu,
+    (m) => (/^[IVXLCDM\s]+$/.test(m) ? m : m.replace(/ /g, ''))
+  );
+  return fixed.replace(/ {2,}/g, ' ');
+}
+
 export function normalizeHyphensAndText(text) {
   if (!text || typeof text !== 'string') return '';
 
@@ -185,6 +198,9 @@ export function normalizeHyphensAndText(text) {
     /([a-zçğıöşüA-ZÇĞİÖŞÜ0-9]+)[-–—]\s*\n+\s*([A-ZÇĞİÖŞÜ0-9][a-zçğıöşüA-ZÇĞİÖŞÜ0-9]*)/gu,
     '$1-$2'
   );
+
+  // 5. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir ("k e l i m e" -> "kelime")
+  cleaned = fixSpacedOutLetters(cleaned);
 
   return cleaned;
 }

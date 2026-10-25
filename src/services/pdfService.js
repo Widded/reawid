@@ -84,20 +84,39 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
     const page = await pdfDoc.getPage(pageNumber);
     const textContent = await page.getTextContent();
     let lastY = null;
+    let lastX = null;
+    let lastWidth = 0;
     let text = '';
 
     for (const item of textContent.items) {
       if (!item.str) continue;
-      if (lastY !== null) {
-        const deltaY = Math.abs(item.transform[5] - lastY);
-        if (deltaY > 18) {
-          text += '\n\n';
-        } else if (deltaY > 5) {
-          text += '\n';
+      const currentX = item.transform ? item.transform[4] : null;
+      const currentY = item.transform ? item.transform[5] : null;
+      const itemWidth = item.width || 0;
+
+      if (lastY !== null && currentY !== null) {
+        const deltaY = Math.abs(currentY - lastY);
+        if (deltaY > 16) {
+          // Yeni paragraf
+          if (!text.endsWith('\n\n')) text += '\n\n';
+        } else if (deltaY > 4) {
+          // Yeni satır
+          if (!text.endsWith('\n')) text += '\n';
+        } else if (lastX !== null && currentX !== null) {
+          // Aynı satır: Öğeler arasındaki yatay mesafeyi hesapla
+          const gap = currentX - (lastX + lastWidth);
+          // Yalnızca kelimeler arasındaki gerçek boşluklarda (gap > 2.2) boşluk ekle.
+          // Harf parçaları bitişikse (gap <= 2.2) harflerin arasına boşluk koyma!
+          if (gap > 2.2 && !text.endsWith(' ') && !item.str.startsWith(' ')) {
+            text += ' ';
+          }
         }
       }
-      text += item.str + ' ';
-      lastY = item.transform[5];
+
+      text += item.str;
+      lastX = currentX;
+      lastY = currentY;
+      lastWidth = itemWidth;
     }
 
     let clean = text.trim();

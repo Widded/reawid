@@ -1211,16 +1211,29 @@ textarea,
 .reader-paragraph {
   margin-bottom: 20px;
   line-height: 1.82;
-  letter-spacing: -0.05px;
-  word-break: break-word;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  /* Sığmayan kelimeler: Kelime satıra sığmıyorsa alt satıra kaydırılır veya tire ile hecelenir */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  hyphenate-limit-chars: 5 2 2;
+  hyphenate-limit-lines: 2;
 }
 
 /* 1. Anlatı Paragrafları (Narrative Prose with Book First-Line Indent) */
 .reader-paragraphs .reader-narrative {
   text-indent: 1.5em;
-  text-align: justify;
-  text-justify: inter-word;
+  text-align: left; /* Harfler veya kelimeler arasında yapay boşluk oluşmasını önler */
+  text-justify: none;
+  text-align-last: left;
   hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
 }
 
 .reader-paragraphs > .reader-narrative:first-of-type {
@@ -1234,6 +1247,9 @@ textarea,
   padding-left: 1.35em;
   margin-bottom: 14px;
   text-align: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
 }
 
 /* Uzun Konuşma Çizgisi (Em-Dash) */
@@ -2348,6 +2364,22 @@ input:checked + .switch-slider:before {
   font-size: 16.5px;
   line-height: 1.8;
   color: #e5e5ea;
+  text-align: left;
+}
+
+.digital-page-content p {
+  margin-bottom: 16px;
+  line-height: 1.8;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-rendering: optimizeLegibility;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-align: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  hyphenate-limit-chars: 5 2 2;
 }
 
 .compare-chapter-tag {
