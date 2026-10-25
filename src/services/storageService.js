@@ -197,67 +197,71 @@ export const AVAILABLE_MODELS = {
   auto: [
     {
       id: 'auto',
-      name: 'Akıllı Dinamik Yönlendirme (Önerilen)',
+      name: 'Akıllı Dinamik Yönlendirme (Yalnızca Ücretsiz Modeller)',
       badge: 'Otomatik Geçiş',
-      desc: 'En güçlü ve en hızlı free/aktif modeli seçer. Model yoğunsa veya limit aşılırsa otomatik diğerine geçer.'
+      desc: 'Yalnızca doğrulanmış ücretsiz vision modellerini kullanır. Kota aşımında veya yoğunlukta diğer ücretsiz modele geçer, asla ücretli modele aktarmaz.'
     }
   ],
   groq: [
     {
       id: 'auto',
-      name: 'Groq Akıllı Otomatik (Hızlı + Yedekli)',
+      name: 'Groq Akıllı Otomatik (Ücretsiz LPU)',
       badge: 'Otomatik',
-      desc: 'Groq LPU modelleri arasında dinamik seçim yapar, yoğunlukta yedek modele veya OpenRouter\'a aktarır.'
+      desc: 'Groq LPU vision modelleri arasında dinamik seçim yapar, yoğunlukta OpenRouter ücretsiz havuzuna aktarır.'
     },
     {
       id: 'qwen/qwen3.8-27b',
       name: 'Qwen 3.8 27B Vision (Groq LPU)',
-      badge: 'Tavsiye Edilen',
-      desc: 'Groq LPU üzerinde çalışan en güncel çok modlu vision modeli. Yıldırım hızında Türkçe OCR.'
+      badge: 'Ücretsiz LPU',
+      desc: 'Groq LPU üzerinde çalışan çok modlu vision modeli. Yıldırım hızında Türkçe OCR.'
     }
   ],
   openrouter: [
     {
       id: 'auto',
-      name: 'OpenRouter Akıllı Yönlendirme (Otomatik Yedekleme)',
+      name: 'OpenRouter Ücretsiz Dinamik Yönlendirme',
       badge: 'Otomatik',
-      desc: 'En kaliteli modeller arasında (Gemini 2.5 Flash, Flash Lite, Qwen 2.5 VL) sunucu durumuna göre dinamik geçiş yapar.'
+      desc: 'Yalnızca doğrulanmış ücretsiz (:free) modeller arasında geçiş yapar. Ücretli modellere asla geçmez.'
     },
     {
-      id: 'google/gemini-2.5-flash',
-      name: 'Gemini 2.5 Flash (Google)',
-      badge: 'Tavsiye Edilen',
-      desc: 'Yeni nesil Google Vision AI, harika Türkçe karakter hassasiyeti ve hızlı analiz.'
+      id: 'qwen/qwen3.8-27b:free',
+      name: 'Qwen 3.8 27B Vision (OpenRouter :free)',
+      badge: 'İlk Tercih',
+      desc: 'OpenRouter ücretsiz Qwen 3.8 vision modeli. Türkçe karakter ve diyalog hassasiyeti yüksek.'
     },
     {
-      id: 'google/gemini-2.5-flash-lite',
-      name: 'Gemini 2.5 Flash Lite (Google)',
-      badge: 'Ekonomik & Hızlı',
-      desc: 'Çok sayfalı kitap taramaları için süper hızlı ve maliyet dostu akıllı OCR.'
+      id: 'nvidia/nemotron-3.5-super-vl:free',
+      name: 'Nemotron 3.5 Super VL (:free)',
+      badge: 'Ücretsiz Vision',
+      desc: 'NVIDIA 1M context çok modlu ücretsiz görme ve doküman okuma modeli.'
     },
     {
-      id: 'google/gemini-3.1-flash-lite',
-      name: 'Gemini 3.1 Flash Lite (Google)',
-      badge: 'Yeni Nesil',
-      desc: 'Google\'ın en güncel optimize görme ve doküman okuma mimarisi.'
+      id: 'google/gemma-4-26b-a4b-it:free',
+      name: 'Google Gemma 4 26B (:free)',
+      badge: 'Ücretsiz Vision',
+      desc: 'Google çok modlu görsel girdi destekleyen ücretsiz model.'
     },
     {
-      id: 'qwen/qwen2.5-vl-72b-instruct',
-      name: 'Qwen 2.5 VL 72B Instruct',
-      badge: 'Ağır Siklet',
-      desc: 'Görsel doküman okumada ve yıpranmış kitap sayfalarında dünyanın en yetenekli açık modellerinden.'
-    },
-    {
-      id: 'qwen/qwen3-vl-30b-a3b-instruct',
-      name: 'Qwen 3 VL 30B Instruct',
-      badge: 'Qwen 3',
-      desc: 'Gelişmiş görsel okuma, tablo çözümleme ve çok dilli analiz yeteneği.'
+      id: 'openrouter/free',
+      name: 'OpenRouter Free Models Router',
+      badge: 'Ücretsiz Havuz',
+      desc: 'OpenRouter çoklu ücretsiz model yönlendiricisi.'
     }
   ]
 };
 
 const DEPRECATED_GROQ_MODELS = ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
-const DEPRECATED_OR_MODELS = ['google/gemini-2.0-flash-001', 'google/gemini-flash-1.5', 'meta-llama/llama-3.2-11b-vision-instruct', 'mistralai/pixtral-12b'];
+const DEPRECATED_OR_MODELS = [
+  'google/gemini-2.0-flash-001',
+  'google/gemini-flash-1.5',
+  'meta-llama/llama-3.2-11b-vision-instruct',
+  'mistralai/pixtral-12b',
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+  'google/gemini-3.1-flash-lite',
+  'qwen/qwen2.5-vl-72b-instruct',
+  'qwen/qwen3-vl-30b-a3b-instruct'
+];
 
 // Comprehensive purge of legacy mock data and stale caches stored in client devices
 function cleanLegacyMockDataOnce() {
@@ -324,8 +328,8 @@ export function getSettings() {
     }
 
     let openrouterModel = parsed.openrouterModel || DEFAULT_SETTINGS.openrouterModel;
-    if (DEPRECATED_OR_MODELS.includes(openrouterModel)) {
-      openrouterModel = 'google/gemini-2.5-flash';
+    if (DEPRECATED_OR_MODELS.includes(openrouterModel) || !openrouterModel.endsWith(':free') && openrouterModel !== 'openrouter/free' && openrouterModel !== 'auto') {
+      openrouterModel = 'qwen/qwen3.8-27b:free';
     }
 
     const updatedSettings = {

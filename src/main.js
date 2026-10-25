@@ -44,7 +44,8 @@ import {
   testApiConnection,
   normalizeHyphensAndText,
   fixSpacedOutLetters,
-  mergeAccidentalParagraphSplits
+  mergeAccidentalParagraphSplits,
+  formatOcrErrorMessage
 } from './services/aiService.js';
 
 import {
@@ -2856,7 +2857,7 @@ async function startOcrProcess() {
     if (err.name === 'AbortError') {
       showToast('İşlem iptal edildi.', 'info');
     } else {
-      showToast(`Hata: ${err.message}`, 'error');
+      showToast(formatOcrErrorMessage(err), 'error');
     }
   } finally {
     isOcrRunning = false;
@@ -2971,7 +2972,7 @@ async function startPdfBatchOcr() {
         showToast('İşlem iptal edildi.', 'info');
       }
     } else {
-      showToast('Hata: ' + err.message, 'error');
+      showToast(formatOcrErrorMessage(err), 'error');
     }
   } finally {
     isOcrRunning = false;

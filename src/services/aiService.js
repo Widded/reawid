@@ -1,49 +1,79 @@
 // AI Vision Service for ReaWid OCR
 // Direct integration with Groq and OpenRouter APIs for Vision-to-Text OCR
-// Includes Dynamic Server Balancing and Intelligent Auto-Failover
+// Strictly operates within verified FREE models and tiers.
+// Includes Dynamic Server Balancing, Intelligent Auto-Failover, and Two-Stage Proofreading.
 
-// Active vision model pools ranked by quality and speed
+// Active vision model pools ranked by quality, speed, and 100% free accessibility
 export const VISION_CANDIDATE_POOLS = {
   groq: [
     {
       provider: 'groq',
       model: 'qwen/qwen3.8-27b',
-      name: 'Groq (Qwen 3.8 27B Vision)',
+      name: 'Groq (Qwen 3.8 27B Vision LPU)',
       tier: 'ultra_fast',
-      freeTier: true
+      freeTier: true,
+      supportsVision: true
     }
   ],
   openrouter: [
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash',
-      name: 'OpenRouter (Gemini 2.5 Flash)',
-      tier: 'smart_flagship',
-      freeTier: true
+      model: 'qwen/qwen3.8-27b:free',
+      name: 'OpenRouter (Qwen 3.8 27B :free)',
+      tier: 'primary_free',
+      freeTier: true,
+      supportsVision: true
     },
     {
       provider: 'openrouter',
-      model: 'google/gemini-2.5-flash-lite',
-      name: 'OpenRouter (Gemini 2.5 Flash Lite)',
-      tier: 'ultra_fast',
-      freeTier: true
+      model: 'nvidia/nemotron-3.5-super-vl:free',
+      name: 'OpenRouter (Nemotron 3.5 Super VL :free)',
+      tier: 'vision_free',
+      freeTier: true,
+      supportsVision: true
     },
     {
       provider: 'openrouter',
-      model: 'qwen/qwen2.5-vl-72b-instruct',
-      name: 'OpenRouter (Qwen 2.5 VL 72B)',
-      tier: 'heavyweight',
-      freeTier: true
+      model: 'google/gemma-4-26b-a4b-it:free',
+      name: 'OpenRouter (Gemma 4 26B :free)',
+      tier: 'vision_free',
+      freeTier: true,
+      supportsVision: true
     },
     {
       provider: 'openrouter',
-      model: 'google/gemini-3.1-flash-lite',
-      name: 'OpenRouter (Gemini 3.1 Flash Lite)',
-      tier: 'next_gen',
-      freeTier: true
+      model: 'openrouter/free',
+      name: 'OpenRouter (Free Router)',
+      tier: 'pool_free',
+      freeTier: true,
+      supportsVision: true
     }
   ]
 };
+
+// Mask API key for secure logging
+export function maskApiKey(key) {
+  if (!key || typeof key !== 'string') return '';
+  const trimmed = key.trim();
+  if (trimmed.length <= 8) return '****';
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+}
+
+// Strictly verify that a model is in the free tier
+export function isModelStrictlyFree(provider, model) {
+  if (!model || model === 'auto') return true;
+  const p = (provider || '').toLowerCase();
+  const m = model.toLowerCase();
+
+  if (p === 'openrouter') {
+    return m.endsWith(':free') || m === 'openrouter/free';
+  }
+  if (p === 'groq') {
+    // Groq's developer tier runs on-demand without paid commitments
+    return m === 'qwen/qwen3.8-27b';
+  }
+  return true;
+}
 
 // Circuit Breaker for overloaded/rate-limited models (key -> { expiresAt, reason })
 const congestedModels = new Map();
@@ -81,7 +111,8 @@ export function clearCongestionMap() {
 }
 
 /**
- * Builds candidate list based on user settings, API key availability, and current congestion state
+ * Builds candidate list based on user settings, API key availability, and current congestion state.
+ * Strictly guarantees that ONLY verified free models are ever included.
  */
 export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiKey = '', openrouterApiKey = '' }) {
   const candidates = [];
@@ -92,7 +123,7 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
   const normalizedModel = (model || 'auto').toLowerCase();
 
   if (normalizedProvider === 'auto' || normalizedProvider === 'hybrid') {
-    // HYBRID AUTO: Best of both worlds
+    // HYBRID AUTO: Fast Groq LPU first, then OpenRouter free vision pool
     if (hasGroq) {
       candidates.push(...VISION_CANDIDATE_POOLS.groq);
     }
@@ -109,21 +140,36 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
         if (!candidates.some(existing => existing.model === c.model)) candidates.push(c);
       });
     }
-    // Cross-provider backup if Groq is out of capacity
+    // Cross-provider backup to OpenRouter FREE tier if Groq is out of capacity
     if (hasOR) {
       candidates.push(...VISION_CANDIDATE_POOLS.openrouter);
     }
   } else if (normalizedProvider === 'openrouter') {
     if (hasOR) {
       if (normalizedModel !== 'auto') {
-        const found = VISION_CANDIDATE_POOLS.openrouter.find(c => c.model === model);
-        if (found) candidates.push(found);
+        // Enforce :free requirement
+        const safeModel = normalizedModel.endsWith(':free') || normalizedModel === 'openrouter/free'
+          ? model
+          : `${model}:free`;
+        const found = VISION_CANDIDATE_POOLS.openrouter.find(c => c.model === safeModel || c.model === model);
+        if (found) {
+          candidates.push(found);
+        } else if (safeModel.endsWith(':free')) {
+          candidates.push({
+            provider: 'openrouter',
+            model: safeModel,
+            name: `OpenRouter (${safeModel})`,
+            tier: 'custom_free',
+            freeTier: true,
+            supportsVision: true
+          });
+        }
       }
       VISION_CANDIDATE_POOLS.openrouter.forEach(c => {
         if (!candidates.some(existing => existing.model === c.model)) candidates.push(c);
       });
     }
-    // Cross-provider backup if OpenRouter is exhausted
+    // Cross-provider backup to Groq FREE LPU if OpenRouter is exhausted
     if (hasGroq) {
       candidates.push(...VISION_CANDIDATE_POOLS.groq);
     }
@@ -141,12 +187,80 @@ export function buildCandidateList({ provider = 'auto', model = 'auto', groqApiK
 }
 
 /**
- * Normalizes text and cleanly merges words split by end-of-line hyphens (matbaa heceleme çizgisi).
- * Preserves true dialogue dashes (—) and proper hyphenated compounds (Türk-İslam, 1923-1938).
+ * Common Turkish lexicon for dictionary-assisted word segmentation
  */
+const TURKISH_LEXICON = new Set([
+  'insan', 'insanlar', 'insanın', 'insana', 'insanda', 'insandan',
+  'yol', 'yola', 'yolun', 'yolda', 'yoldan', 'yollar', 'yollarda',
+  'yürüyor', 'yürüyordu', 'yürüdü', 'yürümek', 'yürüdüm', 'yürüdük',
+  'kitap', 'kitaplar', 'kitapta', 'kitaptan', 'kitabı', 'kitabın',
+  'okumak', 'okuyor', 'okuyordu', 'okudu', 'okudum',
+  'güzel', 'güzeldir', 'güzellik',
+  'bir', 'bu', 've', 'için', 'ile', 'de', 'da', 'ne', 'gibi', 'çok', 'daha', 'kadar', 'en',
+  'ben', 'sen', 'o', 'biz', 'siz', 'onlar', 'bana', 'bunu', 'buna', 'onu', 'ona', 'tüm',
+  'baktı', 'baktım', 'dedi', 'sordu', 'sordum', 'gitti', 'geldi', 'gördü', 'gördüm',
+  'ev', 'evde', 'eve', 'evden', 'evler', 'kapı', 'kapıda', 'kapıyı', 'kapıdan',
+  'çocuk', 'çocuklar', 'kadın', 'adam', 'yaşlı', 'genç', 'küçük', 'büyük',
+  'gün', 'gece', 'zaman', 'sabah', 'akşam', 'artık', 'şimdi', 'sonra', 'önce',
+  'çünkü', 'fakat', 'ancak', 'belki', 'doğru', 'yanlış', 'nasıl', 'neden', 'niçin',
+  'bekledin', 'bekledi', 'beklemek', 'bekliyor', 'bekliyordu', 'mi', 'mı', 'mu', 'mü',
+  'diye', 'öyle', 'şöyle', 'böyle', 'orada', 'burada', 'başlangıç', 'bölüm',
+  'başladı', 'bitirdi', 'anladı', 'anlattı', 'durdu', 'oturdu', 'kalktı', 'biliyordu', 'bilmiyordu'
+]);
+
+function isKnownTurkishWord(word) {
+  if (!word) return false;
+  const w = word.toLocaleLowerCase('tr-TR').replace(/i̇/g, 'i');
+  if (TURKISH_LEXICON.has(w)) return true;
+  if (w.length < 2) return ['o', 'e', 'a'].includes(w);
+
+  const suffixes = [
+    'lardan', 'lerden', 'larında', 'lerinde',
+    'lar', 'ler', 'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te',
+    'yordu', 'yordun', 'yordular', 'yor', 'dı', 'di', 'du', 'dü', 'tı', 'ti', 'tu', 'tü',
+    'mış', 'miş', 'muş', 'müş', 'sa', 'se', 'ca', 'ce',
+    'ım', 'im', 'um', 'üm', 'ın', 'in', 'un', 'ün', 'ı', 'i', 'u', 'ü', 'a', 'e'
+  ];
+  for (const suf of suffixes) {
+    if (w.length > suf.length + 1 && w.endsWith(suf)) {
+      const stem = w.slice(0, -suf.length);
+      if (TURKISH_LEXICON.has(stem)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * DP word segmentation for continuous letter sequences without spaces
+ */
+function segmentCompoundLetters(str) {
+  if (!str) return null;
+  const n = str.length;
+  const dp = Array(n + 1).fill(null);
+  dp[0] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (dp[i] === null) continue;
+    for (let j = i + 1; j <= n; j++) {
+      const sub = str.slice(i, j);
+      if (isKnownTurkishWord(sub)) {
+        if (dp[j] === null || dp[i].length + 1 < dp[j].length) {
+          dp[j] = [...dp[i], sub];
+        }
+      }
+    }
+  }
+
+  if (dp[n] && dp[n].length > 0) {
+    return dp[n].join(' ');
+  }
+  return null;
+}
+
 /**
  * Heals OCR or PDF extraction artifacts where words were split letter-by-letter with spaces
- * e.g. "k e l i m e" -> "kelime", "k i t a p l a r" -> "kitaplar"
+ * e.g. "İ n s a n l a r y o l d a y ü r ü y o r d u." -> "İnsanlar yolda yürüyordu."
+ * e.g. "— Beni bekledin mi? diye sordu." -> "— Beni bekledin mi? diye sordu."
  */
 export function fixSpacedOutLetters(text) {
   if (!text || typeof text !== 'string') return '';
@@ -164,7 +278,6 @@ export function fixSpacedOutLetters(text) {
   // In PDF/OCR spaced-out text, words are separated by 2 or more spaces (or tabs),
   // while individual letters within a word are separated by a single space.
   // e.g. "b u   b i r   k i t a p t ı r" -> "bu bir kitaptır"
-  // e.g. "BÖLÜM 1: B A Ş L A N G I Ç" -> "BÖLÜM 1: BAŞLANGIÇ"
   const multiSpaceRegex = /( {2,}|\t+)/;
   if (multiSpaceRegex.test(s)) {
     const tokens = s.split(multiSpaceRegex);
@@ -194,15 +307,18 @@ export function fixSpacedOutLetters(text) {
   }
 
   // 4. In-sentence healing for letter-by-letter spaced sequences:
-  // Matches sequences of single letters separated by space:
-  // e.g. "b u", "v e", "d e", "d a", "m i", "k i", "k e l i m e", "b a ş l a d ı"
-  // Safe exclusion: Standalone Roman numerals (e.g. "I V", "X I", "I I I")
+  // e.g. "İ n s a n l a r y o l d a y ü r ü y o r d u"
   s = s.replace(
     /(?:^|(?<=[\s"“«(—–]))([a-zçğıöşüA-ZÇĞİÖŞÜ](?: [a-zçğıöşüA-ZÇĞİÖŞÜ])+)(?=[\s"”»).,!?;:—–]|$)/giu,
     (match) => {
       const stripped = match.replace(/ /g, '');
       if (/^[IVXLCDM]+$/.test(stripped)) {
         return match;
+      }
+      // If sequence contains 4 or more single letters, check Turkish dictionary segmentation first!
+      if (match.split(' ').length >= 4) {
+        const segmented = segmentCompoundLetters(stripped);
+        if (segmented) return segmented;
       }
       return stripped;
     }
@@ -214,6 +330,10 @@ export function fixSpacedOutLetters(text) {
   return s;
 }
 
+/**
+ * Normalizes text and cleanly merges words split by end-of-line hyphens (matbaa heceleme çizgisi).
+ * Preserves true dialogue dashes (—) and proper hyphenated compounds (Türk-İslam, 1923-1938).
+ */
 export function normalizeHyphensAndText(text, options = {}) {
   if (!text || typeof text !== 'string') return '';
   const mergeHyphens = options.mergeHyphens !== false;
@@ -274,7 +394,7 @@ export function normalizeHyphensAndText(text, options = {}) {
     );
   }
 
-  // 6. Harf harf ayrılmış kelimelerdeki yapay boşlukları her zaman birleştir
+  // 6. Harf harf ayrılmış kelimelerdeki yapay boşlukları birleştir
   cleaned = fixSpacedOutLetters(cleaned);
 
   return cleaned;
@@ -283,8 +403,6 @@ export function normalizeHyphensAndText(text, options = {}) {
 /**
  * Merges paragraphs and lines that were accidentally split mid-sentence or mid-word
  * due to PDF extraction leading thresholds or line-wrap hyphens.
- * e.g. "Pencere-" + "sinden" -> "Penceresinden"
- * e.g. "Bu sabah erkenden" + "dışarıya baktım." -> "Bu sabah erkenden dışarıya baktım."
  */
 export function mergeAccidentalParagraphSplits(blocks) {
   if (!blocks || !blocks.length) return [];
@@ -317,10 +435,6 @@ export function mergeAccidentalParagraphSplits(blocks) {
     const currIsDialogue = isDialogueTurn(curr);
     const currStartsLower = /^[a-zçğıöşü]/u.test(curr);
 
-    // Merge conditions:
-    // 1. Previous ended with line-break hyphen
-    // 2. Or previous didn't end a sentence AND current is not dialogue
-    // 3. Or current starts with lowercase letter (never a new paragraph in Turkish)
     const shouldMerge = prevEndsWithHyphen || (!prevEndsWithSentencePunct && !currIsDialogue) || currStartsLower;
 
     if (shouldMerge) {
@@ -347,33 +461,128 @@ export function mergeAccidentalParagraphSplits(blocks) {
   return merged;
 }
 
-export function buildSystemPrompt(options = {}) {
-  const strictTurkish = options.strictTurkish !== false;
-  const mergeHyphens = options.mergeHyphenatedWords !== false;
-  const ignorePageNumbers = options.ignorePageNumbers !== false;
-  const preserveFormatting = options.preserveFormatting !== false;
+/**
+ * Professional Book OCR System Prompt
+ * Strictly enforces book structure, dialogue dashes, punctuation, and Turkish characters.
+ */
+export const BOOK_OCR_SYSTEM_PROMPT = `You are a professional book OCR and transcription system.
 
-  return `Sen üst düzey bir Türkçe OCR ve Belge Okuma Uzmanısın.
-Görseldeki tüm Türkçe yazıları eksiksiz ve sıfır hata ile dijital metne dök.
+Transcribe the text in the provided book page image as accurately as possible. The source may be a printed book, a scanned page, or a photograph of a page.
 
-KURALLAR:
-${strictTurkish ? `1. TÜRKÇE KARAKTERLER (ç, ğ, ı, ö, ş, ü, Ç, Ğ, I, İ, Ö, Ş, Ü) HAYATİ ÖNEMDEDİR:
-   - Kesinlikle hiçbir Türkçe karakteri İngilizce benzerleriyle (c, g, i, o, s, u) değiştirme veya atlama.
-   - Noktalı 'i' ve noktasız 'ı' ayrımına azami dikkat göster (örn: "ışık" kelimesini "isik" yapma; "bilir" kelimesini "bılır" yapma).
-   - "değil, çünkü, için, hiçbir, yağmur, doğru, olduğu, büyük, küçük, çocuk, şey, başka, nasıl" gibi Türkçe sözcükleri kusursuz Türkçe imlasıyla yaz.` : ''}
-${mergeHyphens ? `2. SATIR SONU HECE BÖLME TİRELERİNİ BİRLEŞTİR:
-   - Matbaada satır sonuna sığmayıp tire ile bölünen kelimeleri birleştir (örn: "pencere-" + "sinden" -> "penceresinden"; "yapıl-" + "mıştı" -> "yapılmıştı").
-   - Satır sonundaki heceleme tirelerini ASLA konuşma çizgisiyle (diyalog) KARIŞTIRMA! Hece bölünmelerinde tireyi silip kelimeyi birleştir.` : ''}
-${ignorePageNumbers ? '3. Tek başına duran sayfa numaralarını veya tekrarlayan başlıkları metne dahil etme.' : ''}
-${preserveFormatting ? `4. KİTAP FORMATI VE DİYALOG YAPISI:
-   - Paragrafları çift satır boşluğu (\\n\\n) ile ayır.
-   - Yalnızca gerçek konuşma cümlelerini (uzun konuşma çizgisi '—' veya tırnak ile başlayıp büyük harfle devam eden kısımları) ayrı bir satır olarak yaz.
-   - Satır sonu veya cümle içi hece tirelerini diyalog satırına dönüştürme.` : ''}
-5. Selamlama, önsöz veya açıklama yazma. Yalnızca ve doğrudan belgeden okunan metni çıktı ver.`;
+STRICT RULES:
+
+1. Preserve the exact words, spelling, punctuation, capitalization, and original language.
+2. Never insert spaces between individual letters of a word. For example, 'k i t a p' must be 'kitap' when the image clearly shows that word.
+3. Preserve correct word boundaries. Do not merge separate words or split one word into multiple words.
+4. Preserve the original paragraph boundaries and reading order.
+5. Preserve dialogue formatting. Keep dialogue dashes such as '—' or '–' when they appear in the source. Do not replace them with hyphens or remove them.
+6. Start a new paragraph when a new speaker begins, if the source formatting indicates a new paragraph.
+7. Preserve quotation marks, apostrophes, ellipses, commas, periods, question marks, exclamation marks, and other visible punctuation.
+8. Preserve all language-specific characters, including Turkish letters: ç, ğ, ı, İ, ö, ş, ü.
+9. Do not translate, paraphrase, summarize, rewrite, modernize, or stylistically improve the text.
+10. Do not invent missing words or infer text that cannot be read confidently.
+11. If a word or passage is genuinely unreadable, mark only that part as [OKUNAMADI].
+12. Do not include explanations, headings, introductions, Markdown formatting, or comments that are not present in the source.
+13. Do not add page numbers unless they are part of the actual page text.
+14. Do not remove repeated words or unusual grammatical constructions merely because they seem incorrect.
+15. Handle line breaks carefully. A line ending caused by page layout is not automatically a paragraph break. Rejoin words split by a printed line-end hyphen only when the original word can be determined confidently.
+16. Preserve chapter headings, section headings, indents where representable, and other meaningful book structure.
+17. Output only the transcribed text.
+
+ACCURACY PRIORITY:
+Correct word recognition and faithful reproduction of the original text are more important than producing elegant or fluent prose.`;
+
+/**
+ * Second-stage Book OCR Proofreading Prompt
+ */
+export const BOOK_OCR_PROOFREADER_SYSTEM_PROMPT = `You are a meticulous book OCR proofreader.
+
+Compare the original page image with the OCR transcription. Correct only errors that are demonstrably supported by the image.
+
+Focus on:
+- Incorrect spaces between letters inside words.
+- Incorrectly split or merged words.
+- Missing or misplaced dialogue dashes.
+- Incorrect paragraph boundaries.
+- Misrecognized Turkish characters.
+- Missing or duplicated punctuation.
+- Incorrect reading order.
+- Words incorrectly split at line endings.
+
+Do not paraphrase or rewrite the author's text. Do not improve grammar or style. Do not guess unreadable words. Preserve all correctly transcribed text.
+
+Return only the corrected transcription.`;
+
+/**
+ * Checks if OCR output has suspicious quality markers that justify a targeted 2nd pass proofreading
+ */
+export function isSuspiciousOcrText(text) {
+  if (!text || typeof text !== 'string') return false;
+  // 1. Unreadable markers
+  if (text.includes('[OKUNAMADI]')) return true;
+  // 2. Contains sequences of single letters separated by space
+  if (/(?:^|\s)[a-zçğıöşüA-ZÇĞİÖŞÜ]\s[a-zçğıöşüA-ZÇĞİÖŞÜ]\s[a-zçğıöşüA-ZÇĞİÖŞÜ]/iu.test(text)) return true;
+  // 3. Repeated unknown glyphs
+  if (/\?{3,}|\[\?+\]/u.test(text)) return true;
+  return false;
 }
 
 /**
- * Perform OCR with dynamic model routing and intelligent auto-failover
+ * User-friendly Turkish error message formatter for all OCR failure modes
+ */
+export function formatOcrErrorMessage(err) {
+  const msg = err?.message || String(err || '');
+
+  if (err?.name === 'AbortError' || msg.includes('durduruldu') || msg.includes('iptal')) {
+    return 'İşlem durduruldu.';
+  }
+
+  // 1. Paid model / billing attempt block
+  if (msg.includes('402') || msg.includes('Payment Required') || msg.includes('unavailable for free') || msg.includes('paid version') || msg.includes('ücretli')) {
+    return 'Seçilen model ücretsiz kullanım sınırında değil veya ücret gerektiriyor. ReaWid güvenlik politikası gereği ücretli modele izinsiz geçiş engellendi. Lütfen Ayarlar\'dan ücretsiz bir model seçin.';
+  }
+
+  // 2. Free quota / Rate limit
+  if (msg.includes('429') || msg.includes('rate limit') || msg.includes('quota') || msg.includes('ResourceExhausted')) {
+    return 'Ücretsiz API kotası veya anlık hız sınırı doldu. Bir süre bekleyip tekrar deneyin veya Ayarlar\'dan diğer ücretsiz sağlayıcıyı seçin.';
+  }
+
+  // 3. Invalid API key / Auth
+  if (msg.includes('401') || msg.includes('invalid_api_key') || msg.includes('Unauthorized') || msg.includes('User not found')) {
+    return 'API anahtarı geçersiz veya eksik. Lütfen Ayarlar bölümünden geçerli bir API anahtarı girin.';
+  }
+
+  // 4. Model not found or unavailable
+  if (msg.includes('404') || msg.includes('model_not_found') || msg.includes('does not exist')) {
+    return 'Belirtilen ücretsiz model şu anda sağlayıcı üzerinde erişilemiyor. Lütfen Ayarlar\'dan alternatif bir model seçin.';
+  }
+
+  // 5. Vision / Image not supported
+  if (msg.includes('not supported') && (msg.includes('image') || msg.includes('vision') || msg.includes('modality'))) {
+    return 'Seçilen model görsel girdi (Vision) desteklemiyor. Lütfen görsel girdi destekleyen bir model seçin.';
+  }
+
+  // 6. Timeout
+  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('Zaman aşımı')) {
+    return 'İstek zaman aşımına uğradı. Sunucu yanıt vermedi, lütfen bağlantınızı kontrol edip tekrar deneyin.';
+  }
+
+  // 7. Network / Offline
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Ağ bağlantı') || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    return 'İnternet bağlantısı kesildi. Lütfen ağ bağlantınızı kontrol edin.';
+  }
+
+  // 8. Empty OCR
+  if (msg.includes('boş metin') || msg.includes('empty')) {
+    return 'Görselden okunabilir bir metin çıkarılamadı. Sayfa boş veya taranan görsel çok karanlık/bulanık olabilir.';
+  }
+
+  return `OCR Hatası: ${msg}`;
+}
+
+/**
+ * Perform OCR with dynamic model routing, intelligent auto-failover, and targeted proofreading.
+ * Strictly operates on FREE models.
  */
 export async function performOcr({
   imageBase64, // 'data:image/jpeg;base64,...'
@@ -401,7 +610,7 @@ export async function performOcr({
     throw new Error('Kullanılabilir bir AI API anahtarı bulunamadı. Lütfen Ayarlar bölümünden Groq veya OpenRouter anahtarınızı girin.');
   }
 
-  const systemPrompt = buildSystemPrompt(options);
+  const systemPrompt = BOOK_OCR_SYSTEM_PROMPT;
 
   // Normalize base64 data URL
   let imageUrl = imageBase64;
@@ -409,7 +618,7 @@ export async function performOcr({
     imageUrl = `data:image/jpeg;base64,${imageUrl}`;
   }
 
-  const userPrompt = "Bu görseldeki Türkçe metni hiçbir Türkçe karakteri (ç, ğ, ı, ö, ş, ü, Ç, Ğ, İ, Ö, Ş, Ü) atlamadan, kelimesi kelimesine ve eksiksiz olarak metne dök.";
+  const userPrompt = "Transcribe the text in the provided book page image strictly following all the rules. Output only the transcribed text.";
 
   let lastError = null;
 
@@ -425,7 +634,7 @@ export async function performOcr({
     }
 
     try {
-      console.info(`[AI Router] Deneniyor: ${candidate.name}...`);
+      console.info(`[AI Router] Deneniyor: ${candidate.name} (Ücretsiz Model)...`);
       let resultText = '';
 
       if (candidate.provider === 'groq') {
@@ -435,7 +644,7 @@ export async function performOcr({
           systemPrompt,
           userPrompt,
           imageUrl,
-          temperature: options.temperature ?? 0.1,
+          temperature: options.temperature ?? 0.05,
           signal
         });
       } else {
@@ -445,7 +654,7 @@ export async function performOcr({
           systemPrompt,
           userPrompt,
           imageUrl,
-          temperature: options.temperature ?? 0.1,
+          temperature: options.temperature ?? 0.05,
           signal
         });
       }
@@ -454,7 +663,7 @@ export async function performOcr({
         throw new Error('Modelden boş metin yanıtı döndü');
       }
 
-      // Success! Clear any cooldown for this candidate
+      // Success! Clear cooldown for this candidate
       congestedModels.delete(candidateKey);
 
       if (onModelSuccess) {
@@ -463,6 +672,46 @@ export async function performOcr({
           provider: candidate.provider,
           name: candidate.name
         });
+      }
+
+      // Targeted Stage 2: Proofreading if suspicious artifacts are detected
+      const shouldProofread = options.enableProofreading === true ||
+        (options.autoProofread !== false && isSuspiciousOcrText(resultText));
+
+      if (shouldProofread && !signal?.aborted) {
+        try {
+          console.info(`[AI Proofreader] Şüpheli sayfa yapısı tespit edildi, 2. aşama kontrolü yapılıyor (${candidate.name})...`);
+          const proofreadUserPrompt = `ORIGINAL OCR TRANSCRIPTION:\n${resultText}\n\nINSTRUCTION: Compare the original book page image with this transcription. Correct any OCR mistakes according to the rules. Return only the final corrected transcription.`;
+
+          let corrected = '';
+          if (candidate.provider === 'groq') {
+            corrected = await callGroqVision({
+              apiKey: candApiKey,
+              model: candidate.model,
+              systemPrompt: BOOK_OCR_PROOFREADER_SYSTEM_PROMPT,
+              userPrompt: proofreadUserPrompt,
+              imageUrl,
+              temperature: 0.05,
+              signal
+            });
+          } else {
+            corrected = await callOpenRouterVision({
+              apiKey: candApiKey,
+              model: candidate.model,
+              systemPrompt: BOOK_OCR_PROOFREADER_SYSTEM_PROMPT,
+              userPrompt: proofreadUserPrompt,
+              imageUrl,
+              temperature: 0.05,
+              signal
+            });
+          }
+
+          if (corrected && corrected.trim().length > 0) {
+            resultText = corrected.trim();
+          }
+        } catch (proofErr) {
+          console.warn('[AI Proofreader] İkinci aşama kontrolü atlandı (hata koruması):', proofErr.message);
+        }
       }
 
       // Metin temizleme: Harf boşluklarını ve tireleri normalize et
@@ -496,7 +745,7 @@ export async function performOcr({
 
       const nextCandidate = candidates[i + 1];
       if (nextCandidate) {
-        console.warn(`[AI Router] [Uyarı] ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki model ${nextCandidate.name} devreye alınıyor...`);
+        console.warn(`[AI Router] [Uyarı] ${candidate.name} yoğun veya hata verdi (${err.message}). Sıradaki ücretsiz model ${nextCandidate.name} deneniyor...`);
         if (onModelFallback) {
           onModelFallback({
             from: candidate.name,
@@ -509,7 +758,7 @@ export async function performOcr({
     }
   }
 
-  throw new Error(`Tüm AI modelleri denendi fakat yanıt alınamadı. Son hata: ${lastError?.message || 'Bilinmeyen hata'}`);
+  throw new Error(formatOcrErrorMessage(lastError));
 }
 
 /**
@@ -566,7 +815,9 @@ async function callGroqVision({ apiKey, model, systemPrompt, userPrompt, imageUr
       const errText = await response.text();
       if (errText) errMsg += `: ${errText}`;
     }
-    throw new Error(errMsg);
+    const err = new Error(errMsg);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -575,10 +826,15 @@ async function callGroqVision({ apiKey, model, systemPrompt, userPrompt, imageUr
 }
 
 /**
- * Call OpenRouter Vision API
+ * Call OpenRouter Vision API with strict free-model guarantee
  */
 async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, imageUrl, temperature, signal }) {
   const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+
+  // Strict safeguard: Reject any non-free model from being queried
+  if (!isModelStrictlyFree('openrouter', model)) {
+    throw new Error(`Ücretli model ("${model}") kullanımı güvenlik politikası gereği engellendi. Yalnızca ücretsiz (:free) modeller kullanılır.`);
+  }
 
   const payload = {
     model: model,
@@ -605,8 +861,9 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
     ],
     temperature: temperature,
     max_tokens: 2048,
+    // OpenRouter safeguard: Do NOT allow automatic fallbacks to paid upstream models!
     provider: {
-      allow_fallbacks: true
+      allow_fallbacks: false
     }
   };
 
@@ -615,7 +872,7 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey.trim()}`,
-      'HTTP-Referer': window.location.origin || 'https://reawid.app',
+      'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
       'X-Title': 'ReaWid OCR PWA'
     },
     body: JSON.stringify(payload),
@@ -627,18 +884,76 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
     try {
       const errData = await response.json();
       if (errData?.error?.message) {
-        errMsg += `: ${errData.error.message}`;
+        const rawMsg = errData.error.message;
+        if (response.status === 402 || rawMsg.includes('paid version') || rawMsg.includes('unavailable for free')) {
+          errMsg = 'Seçilen model ücretsiz olarak kullanılamıyor. Güvenlik politikası gereği ücretli modele izinsiz geçiş engellendi.';
+        } else {
+          errMsg += `: ${rawMsg}`;
+        }
       }
     } catch (_) {
       const errText = await response.text();
       if (errText) errMsg += `: ${errText}`;
     }
-    throw new Error(errMsg);
+    const err = new Error(errMsg);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
   const text = data?.choices?.[0]?.message?.content || '';
   return text.trim();
+}
+
+/**
+ * Levenshtein distance metric calculation for Character Error Rate (CER) and Word Error Rate (WER)
+ */
+export function calculateLevenshteinDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(
+          dp[i - 1][j],
+          dp[i][j - 1],
+          dp[i - 1][j - 1]
+        );
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Calculate Character Error Rate (CER)
+ */
+export function calculateCer(reference, hypothesis) {
+  if (!reference && !hypothesis) return 0;
+  if (!reference) return 1;
+  const refChars = Array.from(reference);
+  const hypChars = Array.from(hypothesis);
+  const dist = calculateLevenshteinDistance(refChars, hypChars);
+  return dist / Math.max(1, refChars.length);
+}
+
+/**
+ * Calculate Word Error Rate (WER)
+ */
+export function calculateWer(reference, hypothesis) {
+  if (!reference && !hypothesis) return 0;
+  if (!reference) return 1;
+  const refWords = reference.trim().split(/\s+/).filter(Boolean);
+  const hypWords = hypothesis.trim().split(/\s+/).filter(Boolean);
+  const dist = calculateLevenshteinDistance(refWords, hypWords);
+  return dist / Math.max(1, refWords.length);
 }
 
 /**
@@ -657,7 +972,7 @@ export async function testApiConnection(provider, apiKey, model, extraKeys = {})
       results.push(`Groq: ${gRes.success ? 'Aktif' : 'Hata: ' + gRes.message}`);
     }
     if (orKey) {
-      const orRes = await testApiConnection('openrouter', orKey, 'google/gemini-2.5-flash');
+      const orRes = await testApiConnection('openrouter', orKey, 'qwen/qwen3.8-27b:free');
       results.push(`OpenRouter: ${orRes.success ? 'Aktif' : 'Hata: ' + orRes.message}`);
     }
 
@@ -694,19 +1009,20 @@ export async function testApiConnection(provider, apiKey, model, extraKeys = {})
       const err = await res.json().catch(() => ({}));
       return { success: false, message: err?.error?.message || `Bağlantı hatası: HTTP ${res.status}` };
     } else if (normProvider === 'openrouter') {
-      const testModel = (model && model !== 'auto') ? model : 'google/gemini-2.5-flash';
+      const testModel = (model && model !== 'auto') ? model : 'qwen/qwen3.8-27b:free';
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey.trim()}`,
-          'HTTP-Referer': window.location.origin || 'https://reawid.app',
+          'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
           'X-Title': 'ReaWid OCR PWA'
         },
         body: JSON.stringify({
           model: testModel,
           messages: [{ role: 'user', content: 'Ping' }],
-          max_tokens: 5
+          max_tokens: 5,
+          provider: { allow_fallbacks: false }
         })
       });
       if (res.ok) {
@@ -742,7 +1058,7 @@ Görevin:
       { role: 'system', content: systemPrompt },
       { role: 'user', content: text }
     ],
-    temperature: 0.1
+    temperature: 0.05
   };
 
   const endpoint = provider === 'groq'
@@ -754,7 +1070,7 @@ Görevin:
     'Authorization': `Bearer ${apiKey.trim()}`
   };
   if (provider === 'openrouter') {
-    headers['HTTP-Referer'] = window.location.origin || 'https://reawid.app';
+    headers['HTTP-Referer'] = typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app';
     headers['X-Title'] = 'ReaWid OCR PWA';
   }
 
@@ -789,7 +1105,7 @@ Output ONLY the translated text without introductory or concluding remarks.`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: text }
     ],
-    temperature: 0.2
+    temperature: 0.1
   };
 
   const endpoint = provider === 'groq'
@@ -801,7 +1117,7 @@ Output ONLY the translated text without introductory or concluding remarks.`;
     'Authorization': `Bearer ${apiKey.trim()}`
   };
   if (provider === 'openrouter') {
-    headers['HTTP-Referer'] = window.location.origin || 'https://reawid.app';
+    headers['HTTP-Referer'] = typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app';
     headers['X-Title'] = 'ReaWid OCR PWA';
   }
 

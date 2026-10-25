@@ -20,6 +20,7 @@ dist-ssr
 # Archives & Temp
 *.zip
 *.tar.gz
+scratch/
 
 # Editor directories and files
 .vscode/*
