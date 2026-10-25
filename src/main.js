@@ -127,6 +127,7 @@ let isBackgroundOcrActive = false;
 let priorityPageQueue = []; // Array of page numbers requested with top priority
 const activeAnalyzingPages = new Set(); // Pages currently in-flight across parallel workers
 const activeWorkerControllers = new Map(); // workerId -> { controller, pageNum }
+const failedPageAttempts = new Map(); // pageNum -> failure count to prevent infinite analysis loops
 let currentComparisonRenderHandle = null; // Active PDF.js render task for comparison studio
 const pdfDocLoadingPromises = new Map(); // bookId -> Promise<{ numPages, pdfDoc }>
 let isSyncingComparison = false; // Prevents recursive loop between reader and comparison studio
@@ -301,6 +302,8 @@ const el = {
   popoverCopyText: document.getElementById('popoverCopyText'),
   popoverShareText: document.getElementById('popoverShareText'),
   popoverOpenPdf: document.getElementById('popoverOpenPdf'),
+  popoverRescanPage: document.getElementById('popoverRescanPage'),
+  popoverResetBookOcr: document.getElementById('popoverResetBookOcr'),
   readerSearchBar: document.getElementById('readerSearchBar'),
   readerSearchInput: document.getElementById('readerSearchInput'),
   btnCloseReaderSearch: document.getElementById('btnCloseReaderSearch'),
@@ -1108,6 +1111,57 @@ function formatBookHtml(paragraphsOrText, options = {}) {
   }).join('');
 }
 
+function renderPageAnalysisError(pageNum, reason = '') {
+  if (currentReaderPage !== pageNum) return;
+  el.readerChapterBadge.textContent = `SAYFA ${pageNum}`;
+  el.readerArticleTitle.textContent = currentActiveBook?.title || '';
+  el.readerParagraphsContainer.innerHTML = `
+    <div class="reader-page-error-card" style="text-align: center; padding: 36px 20px; max-width: 480px; margin: 32px auto; background: var(--bg-secondary, rgba(255,255,255,0.03)); border: 1px solid var(--border-color, rgba(255,255,255,0.08)); border-radius: 16px;">
+      <div style="font-size: 2.2rem; margin-bottom: 12px;">⚠️</div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;">Sayfa ${pageNum} Analiz Edilemedi</h3>
+      <p style="color: var(--text-secondary, #8e8e93); font-size: 0.92rem; line-height: 1.5; margin-bottom: 20px;">
+        ${reason || 'Yapay zeka veya OCR motorundan yanıt alınamadı. İnternet bağlantınızı kontrol edin veya Ayarlar menüsünden motoru değiştirin.'}
+      </p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button type="button" id="btnRetryPageOcr" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 980px; background: #0071e3; color: #fff; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Bu Sayfayı Tekrar Dene
+        </button>
+        <button type="button" id="btnSwitchEngineFromError" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 980px; background: var(--bg-tertiary, #2c2c2e); color: var(--text-primary, #fff); font-size: 0.9rem; font-weight: 500; border: 1px solid var(--border-color, rgba(255,255,255,0.12)); cursor: pointer;">
+          ⚡ Motoru Değiştir (${appSettings.ocrEngine === 'tesseract' ? 'Vision AI' : 'Tesseract'})
+        </button>
+      </div>
+    </div>
+  `;
+
+  const btnRetry = document.getElementById('btnRetryPageOcr');
+  if (btnRetry) {
+    btnRetry.addEventListener('click', () => {
+      failedPageAttempts.delete(pageNum);
+      renderReaderPage(pageNum);
+      prioritizePageAnalysis(pageNum);
+      showToast(`Sayfa ${pageNum} tekrar deneniyor...`, 'info');
+    });
+  }
+
+  const btnSwitch = document.getElementById('btnSwitchEngineFromError');
+  if (btnSwitch) {
+    btnSwitch.addEventListener('click', () => {
+      const nextEngine = appSettings.ocrEngine === 'tesseract' ? 'vision_ai' : 'tesseract';
+      appSettings.ocrEngine = nextEngine;
+      saveSettings(appSettings);
+      failedPageAttempts.delete(pageNum);
+      showToast(`OCR Motoru: ${nextEngine === 'tesseract' ? 'Tesseract (Yerel)' : 'Vision AI (Bulut)'} yapıldı.`, 'info');
+      renderReaderPage(pageNum);
+      prioritizePageAnalysis(pageNum);
+    });
+  }
+}
+
 function renderReaderPage(pageNum) {
   const metricKey = `page_turn_p${pageNum}`;
   perfMonitor.start(metricKey);
@@ -1139,25 +1193,30 @@ function renderReaderPage(pageNum) {
       enabled: appSettings.smartDialogueFormatting !== false
     });
   } else if (currentActiveBook.isPdf) {
-    // PDF Kitabı: Sayfa henüz analiz edilmediyse bekleme kartı göster (ASLA başka sayfanın metnini gösterme!)
-    el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
-    el.readerArticleTitle.textContent = currentActiveBook.title;
-    el.readerParagraphsContainer.innerHTML = `
-      <div class="reader-page-analyzing-card">
-        <div class="spinner-ring-apple"></div>
-        <h4>Sayfa ${currentReaderPage} Analiz Ediliyor...</h4>
-        <p>Yapay zeka bu sayfayı öncelikli olarak metne döküyor. Lütfen birkaç saniye bekleyin.</p>
-      </div>
-    `;
-
-    if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
-      prioritizePageAnalysis(currentReaderPage);
+    // If page has failed multiple times, show error/retry card instead of infinite spinner
+    if ((failedPageAttempts.get(currentReaderPage) || 0) >= 2) {
+      renderPageAnalysisError(currentReaderPage, 'Sayfa analiz edilirken yapay zeka veya OCR motorundan yanıt alınamadı.');
     } else {
-      getOrLoadPdfDocument(currentActiveBook.id).then((loaded) => {
-        if (loaded && currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
-          prioritizePageAnalysis(currentReaderPage);
-        }
-      }).catch(() => {});
+      // PDF Kitabı: Sayfa henüz analiz edilmediyse bekleme kartı göster (ASLA başka sayfanın metnini gösterme!)
+      el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
+      el.readerArticleTitle.textContent = currentActiveBook.title;
+      el.readerParagraphsContainer.innerHTML = `
+        <div class="reader-page-analyzing-card">
+          <div class="spinner-ring-apple"></div>
+          <h4>Sayfa ${currentReaderPage} Analiz Ediliyor...</h4>
+          <p>Yapay zeka bu sayfayı öncelikli olarak metne döküyor. Lütfen birkaç saniye bekleyin.</p>
+        </div>
+      `;
+
+      if (currentPdfDoc && currentPdfDocBookId === currentActiveBook.id) {
+        prioritizePageAnalysis(currentReaderPage);
+      } else {
+        getOrLoadPdfDocument(currentActiveBook.id).then((loaded) => {
+          if (loaded && currentActiveBook && currentActiveBook.id === currentActiveBook.id) {
+            prioritizePageAnalysis(currentReaderPage);
+          }
+        }).catch(() => {});
+      }
     }
   } else if (currentActiveBook.content) {
     // Sadece doğrudan düz metin/e-kitap olarak eklenmiş belgeler için
@@ -1957,6 +2016,40 @@ function setupEventListeners() {
     openComparisonView();
   });
 
+  if (el.popoverRescanPage) {
+    el.popoverRescanPage.addEventListener('click', () => {
+      closeMoreMenu();
+      if (!currentActiveBook) return;
+      if (currentActiveBook.pageParagraphs) {
+        delete currentActiveBook.pageParagraphs[currentReaderPage];
+      }
+      failedPageAttempts.delete(currentReaderPage);
+      saveBook(currentActiveBook);
+      renderReaderPage(currentReaderPage);
+      prioritizePageAnalysis(currentReaderPage);
+      showToast(`Sayfa ${currentReaderPage} yeniden taranıyor...`, 'info');
+    });
+  }
+
+  if (el.popoverResetBookOcr) {
+    el.popoverResetBookOcr.addEventListener('click', () => {
+      closeMoreMenu();
+      if (!currentActiveBook) return;
+      if (confirm(`"${currentActiveBook.title}" kitabının taranmış tüm sayfaları silinecek ve baştan analiz edilecek.\n\nEmin misiniz?`)) {
+        currentActiveBook.pageParagraphs = {};
+        currentActiveBook.currentPage = 1;
+        currentActiveBook.progress = 0;
+        failedPageAttempts.clear();
+        saveBook(currentActiveBook);
+        renderReaderPage(1);
+        if (currentPdfDoc) {
+          startBackgroundPdfAnalysis(currentActiveBook, currentPdfDoc);
+        }
+        showToast('Tüm sayfaların OCR önbelleği sıfırlandı, yeniden taranıyor...', 'success');
+      }
+    });
+  }
+
   // Scrubber Controls & Settings Toggle
   if (el.btnToggleSettings) {
     el.btnToggleSettings.addEventListener('click', (e) => {
@@ -2667,7 +2760,9 @@ function getNextTargetPage(totalPages, pageParagraphs) {
 
   // 2. Kullanıcının şu an okuduğu görünür sayfa (en yüksek öncelik)
   if (currentReaderPage && !pageParagraphs[currentReaderPage] && !activeAnalyzingPages.has(currentReaderPage)) {
-    return currentReaderPage;
+    if ((failedPageAttempts.get(currentReaderPage) || 0) < 2) {
+      return currentReaderPage;
+    }
   }
 
   // 3. Sınırlı önceden yükleme penceresi: Kullanıcının hemen önündeki 2 sayfa (akıcı okuma için)
@@ -2675,14 +2770,18 @@ function getNextTargetPage(totalPages, pageParagraphs) {
     for (let offset = 1; offset <= 2; offset++) {
       const nextP = currentReaderPage + offset;
       if (nextP <= totalPages && !pageParagraphs[nextP] && !activeAnalyzingPages.has(nextP)) {
-        return nextP;
+        if ((failedPageAttempts.get(nextP) || 0) < 2) {
+          return nextP;
+        }
       }
     }
 
     // Kullanıcının hemen gerisindeki 1 sayfa (hızlı geri dönüş için)
     const prevP = currentReaderPage - 1;
     if (prevP >= 1 && !pageParagraphs[prevP] && !activeAnalyzingPages.has(prevP)) {
-      return prevP;
+      if ((failedPageAttempts.get(prevP) || 0) < 2) {
+        return prevP;
+      }
     }
   }
 
@@ -2778,6 +2877,7 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
         }
 
         if (paragraphs && paragraphs.length > 0) {
+          failedPageAttempts.delete(targetPage);
           if (book && book.pageParagraphs) {
             book.pageParagraphs[targetPage] = paragraphs;
             const rawText = paragraphs.rawText || (Array.isArray(paragraphs) ? paragraphs.join('\n\n') : String(paragraphs));
@@ -2788,10 +2888,24 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
               renderReaderPage(targetPage);
             }
           }
+        } else {
+          // Sayfa analizi yanıt vermedi / başarısız oldu
+          const fails = (failedPageAttempts.get(targetPage) || 0) + 1;
+          failedPageAttempts.set(targetPage, fails);
+          if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
+            renderPageAnalysisError(targetPage, 'Yapay zeka veya OCR motorundan yanıt alınamadı. Lütfen tekrar deneyin.');
+          }
         }
       } catch (pageErr) {
         if (pageErr.name === 'AbortError') {
           // Öncelik değişti, döngü yeni sayfayı alacak
+        } else {
+          console.warn(`[OCR Queue Error] Sayfa ${targetPage} hatası:`, pageErr);
+          const fails = (failedPageAttempts.get(targetPage) || 0) + 1;
+          failedPageAttempts.set(targetPage, fails);
+          if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
+            renderPageAnalysisError(targetPage, pageErr.message || 'OCR işlemi sırasında bir hata oluştu.');
+          }
         }
       } finally {
         activeAnalyzingPages.delete(targetPage);
@@ -2874,6 +2988,26 @@ async function handlePdfFiles(files) {
 
       setCurrentBook(existingBook.id);
 
+      // Check if user wants to reset OCR or continue
+      const hasCachedPages = Boolean(existingBook.pageParagraphs && Object.keys(existingBook.pageParagraphs).length > 0);
+      let isResetting = false;
+      if (hasCachedPages) {
+        const resetOcr = confirm(
+          `"${docName}" daha önce açılmış (${Object.keys(existingBook.pageParagraphs).length} sayfa kayıtlı).\n\n` +
+          `• Sayfaları güncel OCR / Yapay Zeka ile BAŞTAN taratmak için [TAMAM]'a basın.\n` +
+          `• Kaldığınız yerden devam etmek için [İPTAL]'e basın.`
+        );
+        if (resetOcr) {
+          isResetting = true;
+          existingBook.pageParagraphs = {};
+          existingBook.currentPage = 1;
+          existingBook.progress = 0;
+          saveBook(existingBook);
+          failedPageAttempts.clear();
+          showToast('Kitabın OCR önbelleği sıfırlandı, sayfalar baştan taranıyor...', 'info');
+        }
+      }
+
       // IndexedDB yazımını arka planda asenkron çalıştır (açılışı bekletme!)
       savePdfToIdb(existingBook.id, file).catch(e => console.warn('IDB refresh warning:', e));
 
@@ -2893,9 +3027,11 @@ async function handlePdfFiles(files) {
         renderLibraryScreen();
       }, 100);
 
-      const progress = existingBook.progress || 0;
-      const page = existingBook.currentPage || 1;
-      showToast(`Kaldığınız yerden (%${progress}, Sayfa ${page}) devam ediliyor.`, 'success');
+      if (!isResetting) {
+        const progress = existingBook.progress || 0;
+        const page = existingBook.currentPage || 1;
+        showToast(`Kaldığınız yerden (%${progress}, Sayfa ${page}) devam ediliyor.`, 'success');
+      }
       return;
     }
 

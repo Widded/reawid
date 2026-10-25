@@ -43,7 +43,7 @@ export async function getOrInitTesseractWorker(onProgress = null) {
       // Dynamic import to keep main bundle size light and fast
       const { createWorker } = await import('tesseract.js');
 
-      const worker = await createWorker('tur', 1, {
+      const workerPromise = createWorker('tur', 1, {
         logger: (m) => {
           if (onProgress && typeof onProgress === 'function') {
             try {
@@ -55,6 +55,12 @@ export async function getOrInitTesseractWorker(onProgress = null) {
           }
         }
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Tesseract Türkçe modeli yüklenirken zaman aşımına uğradı (15s).')), 15000)
+      );
+
+      const worker = await Promise.race([workerPromise, timeoutPromise]);
 
       tesseractWorker = worker;
       const elapsed = Math.round(performance.now() - t0);
@@ -112,12 +118,15 @@ export async function performTesseractOcr({
   perfMonitor.start(metricKey);
 
   // Simple serial queue lock to prevent unconstrained parallel OCR workers
+  let waitLoops = 0;
   while (isProcessingQueue) {
-    if (signal?.aborted) {
+    if (signal?.aborted || waitLoops > 200) {
+      if (waitLoops > 200) isProcessingQueue = false; // release stuck queue lock!
       perfMonitor.trackOcrEnd();
       perfMonitor.end(metricKey);
-      throw new Error('İşlem kullanıcı tarafından durduruldu.');
+      throw new Error(signal?.aborted ? 'İşlem kullanıcı tarafından durduruldu.' : 'OCR kuyruğu zaman aşımı.');
     }
+    waitLoops++;
     await new Promise((r) => setTimeout(r, 50));
   }
 
@@ -134,7 +143,11 @@ export async function performTesseractOcr({
       throw new Error('İşlem kullanıcı tarafından durduruldu.');
     }
 
-    const recognizeRes = await worker.recognize(imageSource);
+    const recognizePromise = worker.recognize(imageSource);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tesseract sayfa tanıma zaman aşımına uğradı (25s).')), 25000)
+    );
+    const recognizeRes = await Promise.race([recognizePromise, timeoutPromise]);
     const durationMs = Math.round(performance.now() - startTime);
 
     const rawText = (recognizeRes?.data?.text || '').trim();

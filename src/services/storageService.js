@@ -12,7 +12,12 @@ import {
   subscribeAuth,
   getCurrentUser
 } from './supabaseService.js';
-import { fixSpacedOutLetters, mergeAccidentalParagraphSplits } from './aiService.js';
+import {
+  fixSpacedOutLetters,
+  mergeAccidentalParagraphSplits,
+  healTurkishOcrArtifacts,
+  normalizeHyphensAndText
+} from './aiService.js';
 
 const SETTINGS_KEY = 'reawid_settings_v1';
 const HISTORY_KEY = 'reawid_history_v1';
@@ -452,18 +457,18 @@ export function getBooks() {
     const cleanBooks = books
       .filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title))
       .map(b => {
-        // Auto-heal legacy cached page paragraphs: fix spaced letters and merge accidental line splits
+        // Auto-heal legacy cached page paragraphs: fix spaced letters, restore hyphens, and heal Turkish OCR artifacts
         if (b.pageParagraphs && typeof b.pageParagraphs === 'object') {
           let bookModified = false;
           const healedPages = {};
           for (const [pNum, paras] of Object.entries(b.pageParagraphs)) {
             if (Array.isArray(paras)) {
-              const cleanedList = paras.map(p => (typeof p === 'string' ? fixSpacedOutLetters(p) : p));
+              const cleanedList = paras.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p) : p));
               const merged = mergeAccidentalParagraphSplits(cleanedList);
               healedPages[pNum] = merged;
               bookModified = true;
             } else if (typeof paras === 'string') {
-              const cleaned = fixSpacedOutLetters(paras);
+              const cleaned = normalizeHyphensAndText(paras);
               const split = cleaned.split(/\r?\n\n+/);
               const merged = mergeAccidentalParagraphSplits(split);
               healedPages[pNum] = merged;
@@ -735,6 +740,27 @@ export async function resetAllAppData() {
   } catch (err) {
     console.error('Reset all data error:', err);
     return { success: false, error: err };
+  }
+}
+
+export function clearBookOcrCache(bookId) {
+  try {
+    const raw = localStorage.getItem(BOOKS_KEY);
+    if (!raw) return false;
+    const books = JSON.parse(raw);
+    if (!Array.isArray(books)) return false;
+    const target = books.find(b => b.id === bookId);
+    if (target) {
+      target.pageParagraphs = {};
+      target.currentPage = 1;
+      target.progress = 0;
+      localStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('clearBookOcrCache error:', err);
+    return false;
   }
 }
 
