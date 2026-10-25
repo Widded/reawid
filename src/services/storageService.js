@@ -1,8 +1,23 @@
 // Storage Service for ReaWid OCR
 // Handles API keys, settings, and scan history in localStorage & IndexedDB
+// Seamlessly syncs books, reading progress, and notes with Supabase Cloud DB
+
+import {
+  syncBookToCloud,
+  deleteBookFromCloud,
+  syncNoteToCloud,
+  deleteNoteFromCloud,
+  syncAllWithCloud,
+  subscribeAuth,
+  getCurrentUser
+} from './supabaseService.js';
 
 const SETTINGS_KEY = 'reawid_settings_v1';
 const HISTORY_KEY = 'reawid_history_v1';
+const NOTES_KEY = 'reawid_notes_v2';
+const BOOKS_KEY = 'reawid_books_v2';
+const CURRENT_BOOK_KEY = 'reawid_current_book_id';
+const MOCK_CLEANUP_KEY = 'reawid_mock_cleaned_v2';
 
 // Read environment variables (supports both VITE_ and EXPO_PUBLIC_ prefixes)
 const ENV_ACTIVE_PROVIDER = (import.meta.env.VITE_OCR_PROVIDER || import.meta.env.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
@@ -102,13 +117,51 @@ export const AVAILABLE_MODELS = {
 const DEPRECATED_GROQ_MODELS = ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
 const DEPRECATED_OR_MODELS = ['google/gemini-2.0-flash-001', 'google/gemini-flash-1.5', 'meta-llama/llama-3.2-11b-vision-instruct', 'mistralai/pixtral-12b'];
 
+// One-time cleanup of legacy mock data stored in client localStorage
+function cleanLegacyMockDataOnce() {
+  try {
+    if (!localStorage.getItem(MOCK_CLEANUP_KEY)) {
+      const mockBookIds = new Set([
+        'book_insan_ne_ile_yasar',
+        'book_sefiller',
+        'book_suc_ve_ceza',
+        'book_donusum',
+        'book_kurk_mantolu_madonna',
+        'book_tutunamayanlar'
+      ]);
+      const rawBooks = localStorage.getItem(BOOKS_KEY);
+      if (rawBooks) {
+        const parsed = JSON.parse(rawBooks);
+        if (Array.isArray(parsed)) {
+          const cleanBooks = parsed.filter(b => !mockBookIds.has(b.id));
+          localStorage.setItem(BOOKS_KEY, JSON.stringify(cleanBooks));
+        }
+      }
+
+      const mockNoteIds = new Set(['note_1', 'note_2', 'note_3']);
+      const rawNotes = localStorage.getItem(NOTES_KEY);
+      if (rawNotes) {
+        const parsed = JSON.parse(rawNotes);
+        if (Array.isArray(parsed)) {
+          const cleanNotes = parsed.filter(n => !mockNoteIds.has(n.id));
+          localStorage.setItem(NOTES_KEY, JSON.stringify(cleanNotes));
+        }
+      }
+
+      localStorage.setItem(MOCK_CLEANUP_KEY, 'true');
+    }
+  } catch (err) {
+    console.warn('Mock cleanup error:', err);
+  }
+}
+cleanLegacyMockDataOnce();
+
 export function getSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw);
 
-    // Auto-migrate old decommissioned models stored in localStorage
     let groqModel = parsed.groqModel || DEFAULT_SETTINGS.groqModel;
     if (DEPRECATED_GROQ_MODELS.includes(groqModel)) {
       groqModel = 'qwen/qwen3.8-27b';
@@ -129,7 +182,6 @@ export function getSettings() {
       openrouterModel
     };
 
-    // If migration happened, persist updated settings
     if (parsed.groqModel !== groqModel || parsed.openrouterModel !== openrouterModel) {
       saveSettings(updatedSettings);
     }
@@ -154,60 +206,18 @@ export function saveSettings(settings) {
 /* ==========================================================================
    Notes, Bookmarks & Highlights Service (Notlarım & Alıntılar)
    ========================================================================== */
-const NOTES_KEY = 'reawid_notes_v2';
-
-export const INITIAL_NOTES = [
-  {
-    id: 'note_1',
-    bookId: 'book_insan_ne_ile_yasar',
-    bookTitle: 'İnsan Ne ile Yaşar?',
-    bookAuthor: 'Lev Tolstoy',
-    pageNumber: 3,
-    type: 'quote', // 'quote' | 'note' | 'bookmark'
-    text: 'İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.',
-    userNote: 'Kitabın kalbi: Sevgi nerede ise hayat oradadır.',
-    createdAt: Date.now() - 86400000 * 2,
-    dateFormatted: '23 Ekim 2025'
-  },
-  {
-    id: 'note_2',
-    bookId: 'book_insan_ne_ile_yasar',
-    bookTitle: 'İnsan Ne ile Yaşar?',
-    bookAuthor: 'Lev Tolstoy',
-    pageNumber: 142,
-    type: 'bookmark',
-    text: 'Simon kunduracı kulübesine doğru ağır adımlarla yürürken, içindeki ses ona merhametin kapılarını açmasını söylüyordu.',
-    userNote: 'Son okunan yer imi',
-    createdAt: Date.now() - 86400000,
-    dateFormatted: '24 Ekim 2025'
-  },
-  {
-    id: 'note_3',
-    bookId: 'book_donusum',
-    bookTitle: 'Dönüşüm',
-    bookAuthor: 'Franz Kafka',
-    pageNumber: 68,
-    type: 'quote',
-    text: 'Gregor Samsa bir sabah huzursuz düşlerden uyandığında, kendini yatağında devasa bir böceğe dönüşmüş olarak buldu.',
-    userNote: 'Modern edebiyatın en çarpıcı giriş cümlesi.',
-    createdAt: Date.now() - 86400000 * 4,
-    dateFormatted: '21 Ekim 2025'
-  }
-];
+export const INITIAL_NOTES = []; // Zero mock data
 
 export function getNotes() {
   try {
     const raw = localStorage.getItem(NOTES_KEY);
-    if (!raw) {
-      localStorage.setItem(NOTES_KEY, JSON.stringify(INITIAL_NOTES));
-      return INITIAL_NOTES;
-    }
+    if (!raw) return [];
     const notes = JSON.parse(raw);
-    if (!Array.isArray(notes)) return INITIAL_NOTES;
+    if (!Array.isArray(notes)) return [];
     return notes;
   } catch (err) {
     console.error('Notlar okunurken hata:', err);
-    return INITIAL_NOTES;
+    return [];
   }
 }
 
@@ -228,6 +238,10 @@ export function saveNote(note) {
     };
     const updated = [newNote, ...notes.filter(n => n.id !== newNote.id)];
     localStorage.setItem(NOTES_KEY, JSON.stringify(updated));
+
+    // Background cloud sync
+    syncNoteToCloud(newNote).catch(() => {});
+
     return newNote;
   } catch (err) {
     console.error('Not kaydedilirken hata:', err);
@@ -240,6 +254,10 @@ export function deleteNote(id) {
     const notes = getNotes();
     const filtered = notes.filter((x) => x.id !== id);
     localStorage.setItem(NOTES_KEY, JSON.stringify(filtered));
+
+    // Background cloud sync
+    deleteNoteFromCloud(id).catch(() => {});
+
     return filtered;
   } catch (err) {
     console.error('Not silinirken hata:', err);
@@ -256,206 +274,21 @@ export function clearNotes() {
   }
 }
 
-// Data Export & Import (Yedekleme ve Geri Yükleme)
-export function exportAllData() {
-  return JSON.stringify({
-    version: 'reawid_v2',
-    timestamp: Date.now(),
-    books: getBooks(),
-    notes: getNotes(),
-    settings: getSettings()
-  }, null, 2);
-}
-
-export function importAllData(jsonString) {
-  try {
-    const parsed = JSON.parse(jsonString);
-    if (parsed.books && Array.isArray(parsed.books)) {
-      localStorage.setItem('reawid_books_v2', JSON.stringify(parsed.books));
-    }
-    if (parsed.notes && Array.isArray(parsed.notes)) {
-      localStorage.setItem(NOTES_KEY, JSON.stringify(parsed.notes));
-    }
-    if (parsed.settings && typeof parsed.settings === 'object') {
-      saveSettings(parsed.settings);
-    }
-    return { success: true, message: 'Yedek başarıyla içe aktarıldı!' };
-  } catch (err) {
-    return { success: false, message: 'Geçersiz yedek dosyası formatı.' };
-  }
-}
-
-export function clearAppCache() {
-  try {
-    sessionStorage.clear();
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-// Backward-compatibility stubs
-export const getHistory = () => [];
-export const saveHistoryItem = () => null;
-export const deleteHistoryItem = () => [];
-export const clearHistory = () => true;
-
 /* ==========================================================================
    Book Library & Reading Progress Service
    ========================================================================== */
-const BOOKS_KEY = 'reawid_books_v2';
-const CURRENT_BOOK_KEY = 'reawid_current_book_id';
-
-export const INITIAL_BOOKS = [
-  {
-    id: 'book_insan_ne_ile_yasar',
-    title: 'İnsan Ne ile Yaşar?',
-    author: 'Lev Tolstoy',
-    cover: '/cover-1.jpg',
-    totalPages: 218,
-    currentPage: 142,
-    progress: 42,
-    date: '15 Ekim 2025',
-    isCurrent: true,
-    chapter: '3. Bölüm',
-    status: 'okunanlar',
-    chapterSubtitle: '3. Bölüm · 142 / 218 sayfa',
-    realPageImage: '/real-page-insan-ne-ile-yasar.svg',
-    pageParagraphs: {
-      3: [
-        "İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.",
-        "Bazen en küçük bir iyilik, bir insanın tüm hayatını değiştirebilir. Çünkü insan, ancak başkaları için bir şeyler yaptığında gerçek anlamda var olur.",
-        "İyilik, farkında olmadan da olsa bir ışık gibi yayılır ve bir gün mutlaka karşılık bulur. Bu yüzden, insan yalnızca kendisi için değil, çevresindeki herkes için de yaşamalıdır."
-      ],
-      142: [
-        "Simon kunduracı kulübesine doğru ağır adımlarla yürürken, içindeki ses ona merhametin kapılarını ardına kadar açmasını söylüyordu. Soğuk rüzgâr dalları savururken, insanın içindeki ateş hiç sönmeyecekti.",
-        "Sevgi nerede ise Tanrı da oradadır. İnsanoğlu hayatı boyunca neyin peşinden koşarsa koşsun, hakiki huzuru yalnızca başkalarına faydalı olduğunda bulur."
-      ]
-    },
-    content: `BÖLÜM 1
-
-# İnsan Ne ile Yaşar?
-
-İnsan, yalnızca ekmekle değil, aynı zamanda sevgi, umut ve anlamla da yaşar. Hayatın gerçek değeri, insanın kalbinde taşıdığı iyiliktedir.`
-  },
-  {
-    id: 'book_sefiller',
-    title: 'Sefiller',
-    author: 'Victor Hugo',
-    cover: '/cover-3.svg',
-    totalPages: 286,
-    currentPage: 52,
-    progress: 18,
-    date: '10 Ekim 2025',
-    isCurrent: false,
-    chapter: '1. Bölüm',
-    status: 'okunanlar',
-    chapterSubtitle: '1. Bölüm · 52 / 286 sayfa',
-    content: `# Sefiller
-*Victor Hugo*
-
-## Bölüm 1: Jean Valjean ve Piskopos
-
-1815 yılında Charles-François-Bienvenu Myriel, Digne Piskoposu idi. Yaklaşık yetmiş beş yaşlarında bir ihtiyardı; 1806'dan beri bu mevkide bulunuyordu. Piskopos kapısını asla kilitlemezdi; evine gelen her yoksul, her yabancı içeri kabul edilirdi.`
-  },
-  {
-    id: 'book_suc_ve_ceza',
-    title: 'Suç ve Ceza',
-    author: 'Fyodor Dostoyevski',
-    cover: '/cover-2.svg',
-    totalPages: 612,
-    currentPage: 0,
-    progress: 0,
-    date: '12 Ekim 2025',
-    isCurrent: false,
-    chapter: '-',
-    status: 'okunacaklar',
-    chapterSubtitle: '- / 612 sayfa',
-    content: `# Suç ve Ceza
-*Fyodor Dostoyevski*
-
-## Bölüm 1: Petersburg ve Raskolnikov
-
-Temmuz başında, son derece sıcak bir günün akşamüstü, S. sokağındaki daracık odasından çıkan bir genç, ağır ağır K. köprüsüne doğru yürüdü.`
-  },
-  {
-    id: 'book_donusum',
-    title: 'Dönüşüm',
-    author: 'Franz Kafka',
-    cover: '/cover-4.svg',
-    totalPages: 189,
-    currentPage: 68,
-    progress: 36,
-    date: '8 Ekim 2025',
-    isCurrent: false,
-    chapter: '4. Bölüm',
-    status: 'okunanlar',
-    chapterSubtitle: '4. Bölüm · 68 / 189 sayfa',
-    content: `# Dönüşüm
-*Franz Kafka*
-
-## Bölüm 1: Gregor Samsa
-
-Gregor Samsa bir sabah huzursuz düşlerden uyandığında, kendini yatağında devasa bir böceğe dönüşmüş olarak buldu.`
-  },
-  {
-    id: 'book_kurk_mantolu_madonna',
-    title: 'Kürk Mantolu Madonna',
-    author: 'Sabahattin Ali',
-    cover: '/cover-5.svg',
-    totalPages: 243,
-    currentPage: 28,
-    progress: 12,
-    date: '5 Ekim 2025',
-    isCurrent: false,
-    chapter: '2. Bölüm',
-    status: 'okunanlar',
-    chapterSubtitle: '2. Bölüm · 28 / 243 sayfa',
-    content: `# Kürk Mantolu Madonna
-*Sabahattin Ali*
-
-## Bölüm 1: Raif Efendi
-
-Şimdiye kadar tesadüf ettiğim insanlardan bir tanesi benim üzerimde belki en büyük tesiri yapmıştır. Aradan seneler geçtiği halde bu tesir zerre kadar azalmadı.`
-  },
-  {
-    id: 'book_tutunamayanlar',
-    title: 'Tutunamayanlar',
-    author: 'Oğuz Atay',
-    cover: '/cover-6.svg',
-    totalPages: 287,
-    currentPage: 0,
-    progress: 0,
-    date: '1 Ekim 2025',
-    isCurrent: false,
-    chapter: '-',
-    status: 'okunacaklar',
-    chapterSubtitle: '- / 287 sayfa',
-    content: `# Tutunamayanlar
-*Oğuz Atay*
-
-## Birinci Bölüm: Turgut Özben
-
-Olay, bir akşamüstü Turgut Özben'in Selim Işık'ın intihar ettiğini öğrenmesiyle başlar. Selim, hayatı boyunca tutunmaya çalışan ama başaramayan bir ruhtur.`
-  }
-];
+export const INITIAL_BOOKS = []; // Zero mock data
 
 export function getBooks() {
   try {
     const raw = localStorage.getItem(BOOKS_KEY);
-    if (!raw) {
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(INITIAL_BOOKS));
-      return INITIAL_BOOKS;
-    }
+    if (!raw) return [];
     const books = JSON.parse(raw);
-    if (!Array.isArray(books) || books.length === 0) {
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(INITIAL_BOOKS));
-      return INITIAL_BOOKS;
-    }
+    if (!Array.isArray(books)) return [];
     return books;
   } catch (err) {
     console.error('Kitaplar okunurken hata:', err);
-    return INITIAL_BOOKS;
+    return [];
   }
 }
 
@@ -463,13 +296,20 @@ export function saveBook(book) {
   try {
     const books = getBooks();
     const existingIndex = books.findIndex(b => b.id === book.id);
+    let updatedBook;
     if (existingIndex >= 0) {
-      books[existingIndex] = { ...books[existingIndex], ...book };
+      updatedBook = { ...books[existingIndex], ...book };
+      books[existingIndex] = updatedBook;
     } else {
-      books.unshift(book);
+      updatedBook = { ...book };
+      books.unshift(updatedBook);
     }
     localStorage.setItem(BOOKS_KEY, JSON.stringify(books));
-    return book;
+
+    // Background cloud sync
+    syncBookToCloud(updatedBook).catch(() => {});
+
+    return updatedBook;
   } catch (err) {
     console.error('Kitap kaydedilirken hata:', err);
     return null;
@@ -478,13 +318,14 @@ export function saveBook(book) {
 
 export function getCurrentBook() {
   const books = getBooks();
+  if (!books || books.length === 0) return null;
   const currentId = localStorage.getItem(CURRENT_BOOK_KEY);
   if (currentId) {
     const found = books.find(b => b.id === currentId);
     if (found) return found;
   }
   const current = books.find(b => b.isCurrent);
-  return current || books[0];
+  return current || books[0] || null;
 }
 
 export function setCurrentBook(bookId) {
@@ -505,19 +346,27 @@ export function setCurrentBook(bookId) {
 export function updateBookProgress(bookId, progressPercent, currentPage) {
   try {
     const books = getBooks();
+    let updatedBook = null;
     const updated = books.map(b => {
       if (b.id === bookId) {
-        return {
+        updatedBook = {
           ...b,
           progress: Math.min(100, Math.max(0, Math.round(progressPercent))),
           currentPage: currentPage || b.currentPage,
           isCurrent: true
         };
+        return updatedBook;
       }
       return { ...b, isCurrent: false };
     });
     localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
     localStorage.setItem(CURRENT_BOOK_KEY, bookId);
+
+    // Background cloud sync
+    if (updatedBook) {
+      syncBookToCloud(updatedBook).catch(() => {});
+    }
+
     return true;
   } catch (err) {
     console.error('İlerleme güncellenirken hata:', err);
@@ -535,6 +384,10 @@ export function deleteBook(bookId) {
     const books = getBooks();
     const filtered = books.filter(b => b.id !== bookId);
     localStorage.setItem(BOOKS_KEY, JSON.stringify(filtered));
+
+    // Background cloud sync
+    deleteBookFromCloud(bookId).catch(() => {});
+
     return true;
   } catch (err) {
     console.error('Kitap silinirken hata:', err);
@@ -545,17 +398,25 @@ export function deleteBook(bookId) {
 export function updateBookPageParagraphs(bookId, pageNum, paragraphs) {
   try {
     const books = getBooks();
+    let updatedBook = null;
     const updated = books.map(b => {
       if (b.id === bookId) {
         const pageParagraphs = { ...(b.pageParagraphs || {}), [pageNum]: paragraphs };
-        return {
+        updatedBook = {
           ...b,
           pageParagraphs
         };
+        return updatedBook;
       }
       return b;
     });
     localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
+
+    // Background cloud sync
+    if (updatedBook) {
+      syncBookToCloud(updatedBook).catch(() => {});
+    }
+
     return true;
   } catch (err) {
     console.error('Sayfa paragrafları kaydedilirken hata:', err);
@@ -563,4 +424,71 @@ export function updateBookPageParagraphs(bookId, pageNum, paragraphs) {
   }
 }
 
+/* ==========================================================================
+   Supabase Cloud Sync Trigger
+   ========================================================================== */
+export async function syncLocalWithCloudDb() {
+  const localBooks = getBooks();
+  const localNotes = getNotes();
+  const res = await syncAllWithCloud(localBooks, localNotes);
+  if (res.synced && Array.isArray(res.books) && Array.isArray(res.notes)) {
+    localStorage.setItem(BOOKS_KEY, JSON.stringify(res.books));
+    localStorage.setItem(NOTES_KEY, JSON.stringify(res.notes));
+  }
+  return res;
+}
 
+// Automatically sync when user logs in or auth state changes
+subscribeAuth((user) => {
+  if (user) {
+    syncLocalWithCloudDb().catch(err => {
+      console.warn('Auto sync on auth change warning:', err);
+    });
+  }
+});
+
+// Data Export & Import (Yedekleme ve Geri Yükleme)
+export function exportAllData() {
+  return JSON.stringify({
+    version: 'reawid_v2',
+    timestamp: Date.now(),
+    books: getBooks(),
+    notes: getNotes(),
+    settings: getSettings()
+  }, null, 2);
+}
+
+export function importAllData(jsonString) {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (parsed.books && Array.isArray(parsed.books)) {
+      localStorage.setItem(BOOKS_KEY, JSON.stringify(parsed.books));
+    }
+    if (parsed.notes && Array.isArray(parsed.notes)) {
+      localStorage.setItem(NOTES_KEY, JSON.stringify(parsed.notes));
+    }
+    if (parsed.settings && typeof parsed.settings === 'object') {
+      saveSettings(parsed.settings);
+    }
+    // Sync newly imported data to Supabase
+    syncLocalWithCloudDb().catch(() => {});
+    return { success: true, message: 'Yedek başarıyla içe aktarıldı ve buluta eşitlendi!' };
+  } catch (err) {
+    return { success: false, message: 'Geçersiz yedek dosyası formatı.' };
+  }
+}
+
+export function clearAppCache() {
+  try {
+    sessionStorage.clear();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Backward-compatibility stubs
+export const getHistory = () => [];
+export const saveHistoryItem = () => null;
+export const deleteHistoryItem = () => [];
+export const clearHistory = () => true;

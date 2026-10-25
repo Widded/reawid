@@ -4311,5 +4311,455 @@ input:checked + .switch-slider:before {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* ==========================================================================
+   SUPABASE CLOUD SYNC & ACCOUNT STYLES
+   ========================================================================== */
+
+/* Settings Apple ID Style Card */
+.settings-account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: #1c1c1e;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.settings-account-card:hover {
+  background: #242426;
+}
+
+.settings-account-card:active {
+  transform: scale(0.985);
+}
+
+.settings-account-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2c2c2e, #3a3a3c);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.settings-account-avatar svg {
+  width: 22px;
+  height: 22px;
+  color: var(--text-secondary);
+}
+
+.settings-account-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-account-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-account-status {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Account Modal Drawer */
+#accountModal {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 190;
+}
+
+#accountModal .account-drawer-panel {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  height: auto;
+  max-height: calc(88vh - env(safe-area-inset-top, 0px));
+  max-height: calc(88dvh - env(safe-area-inset-top, 0px));
+  border-radius: 24px 24px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: none;
+  border-right: none;
+  background: #1c1c1e;
+  animation: slideSheetUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-header-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 2px;
+}
+
+.account-drawer-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Logged In Section */
+.account-user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.account-avatar-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #0056b3);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+}
+
+.account-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-user-email {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-user-status {
+  font-size: 12px;
+  color: #30d158;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.status-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 8px #30d158;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* Cloud Stats Row */
+.account-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.account-stat-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stat-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.account-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.account-sync-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.btn-spin-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 200ms ease;
+}
+
+.spinning {
+  animation: spinIcon 800ms linear infinite;
+}
+
+@keyframes spinIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.btn-signout-danger {
+  width: 100%;
+  color: #ff453a !important;
+}
+
+.btn-signout-danger:hover {
+  background: rgba(255, 69, 58, 0.12) !important;
+}
+
+/* Auth View: Tabs & Form */
+.account-tabs-pill {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px;
+  border-radius: 11px;
+  margin-bottom: 18px;
+}
+
+.account-tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.account-tab-btn.active {
+  background: #2c2c2e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.account-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-input-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.auth-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: border-color 140ms ease;
+}
+
+.auth-input-box:focus-within {
+  border-color: #0a84ff;
+  background: #19191c;
+}
+
+.auth-input-box svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.auth-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: var(--font-system);
+}
+
+.auth-field::placeholder {
+  color: var(--text-tertiary);
+}
+
+.auth-error-alert {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #ff6961;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.auth-submit-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.auth-notice-text {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+/* ==========================================================================
+   EMPTY STATES FOR HOME & LIBRARY
+   ========================================================================== */
+
+/* Continue Book Empty Card */
+.empty-continue-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.empty-continue-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.empty-continue-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.empty-continue-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty-continue-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.empty-continue-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0 0;
+  line-height: 1.35;
+}
+
+.empty-continue-btn-badge {
+  background: #ffffff;
+  color: #000000;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+
+.empty-continue-card:active .empty-continue-btn-badge {
+  transform: scale(0.95);
+}
+
+/* Home Empty Books List */
+.home-empty-books-box {
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty-books-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.empty-books-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.empty-books-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+
 
 

@@ -392,6 +392,25 @@
       </header>
 
       <div class="settings-page-scroll">
+        <!-- 0. BULUT HESABI & CİHAZ EŞİTLEME (Apple ID Style) -->
+        <div class="settings-group-box">
+          <div class="settings-ios-card settings-account-card" id="btnSettingsOpenAccount" role="button" tabindex="0">
+            <div class="settings-account-avatar" id="settingsAccountAvatar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <div class="settings-account-info">
+              <span class="settings-account-name" id="settingsAccountName">Supabase Bulut Senkronizasyonu</span>
+              <span class="settings-account-status" id="settingsAccountStatus">Giriş yap veya kayıt ol</span>
+            </div>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </div>
+
         <!-- 1. GÖRÜNÜM & OKUMA DENEYİMİ -->
         <div class="settings-group-box">
           <h2 class="settings-group-heading">Okuma & Görünüm</h2>
@@ -1255,6 +1274,109 @@
         <div class="drawer-footer add-note-drawer-footer">
           <button type="button" id="btnCancelNoteModal" class="btn-sheet-secondary">Vazgeç</button>
           <button type="button" id="btnSaveNoteSubmit" class="btn-drawer-primary">Notu Kaydet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT & CLOUD SYNC MODAL (Apple Action Sheet) -->
+    <div id="accountModal" class="drawer-backdrop hidden">
+      <div class="drawer-panel account-drawer-panel">
+        <div class="drawer-header">
+          <div class="account-header-text">
+            <h3 class="drawer-title" id="accountModalTitle">Reawid Bulut Hesabı</h3>
+            <span class="account-header-subtitle">Cihazlar arası kitap ve okuma senkronizasyonu</span>
+          </div>
+          <button id="btnCloseAccountModal" class="drawer-close-btn" aria-label="Kapat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="drawer-body account-drawer-body">
+          <!-- State 1: Logged In View -->
+          <div id="accountLoggedInView" class="account-view-section hidden">
+            <div class="account-user-card">
+              <div class="account-avatar-badge" id="accountUserAvatar">R</div>
+              <div class="account-user-info">
+                <span class="account-user-email" id="accountUserEmail">kullanici@ornek.com</span>
+                <span class="account-user-status">
+                  <span class="status-pulse-dot"></span>
+                  <span>Supabase Canlı Eşitleme Aktif</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="account-stats-row">
+              <div class="account-stat-box">
+                <span class="stat-number" id="accountStatBooks">0</span>
+                <span class="stat-label">Bulutta Kitap</span>
+              </div>
+              <div class="account-stat-box">
+                <span class="stat-number" id="accountStatNotes">0</span>
+                <span class="stat-label">Bulutta Not</span>
+              </div>
+              <div class="account-stat-box">
+                <span class="stat-number">500 MB</span>
+                <span class="stat-label">Supabase Kotası</span>
+              </div>
+            </div>
+
+            <div class="account-actions-stack">
+              <button type="button" id="btnAccountSyncNow" class="btn-drawer-primary account-sync-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-spin-icon" id="syncSpinnerIcon">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <span>Şimdi Senkronize Et</span>
+              </button>
+              <button type="button" id="btnAccountSignOut" class="btn-sheet-secondary btn-signout-danger">
+                <span>Hesaptan Çıkış Yap</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- State 2: Auth Forms (Sign In / Sign Up) -->
+          <div id="accountAuthView" class="account-view-section">
+            <div class="account-tabs-pill">
+              <button type="button" class="account-tab-btn active" id="tabSignIn">Giriş Yap</button>
+              <button type="button" class="account-tab-btn" id="tabSignUp">Kayıt Ol</button>
+            </div>
+
+            <form id="formSupabaseAuth" class="account-auth-form">
+              <div class="auth-input-group">
+                <label for="authInputEmail" class="auth-input-label">E-Posta</label>
+                <div class="auth-input-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                  </svg>
+                  <input type="email" id="authInputEmail" class="auth-field" placeholder="ornek@posta.com" required autocomplete="email">
+                </div>
+              </div>
+
+              <div class="auth-input-group">
+                <label for="authInputPassword" class="auth-input-label">Şifre</label>
+                <div class="auth-input-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <input type="password" id="authInputPassword" class="auth-field" placeholder="En az 6 karakter" required minlength="6" autocomplete="current-password">
+                </div>
+              </div>
+
+              <div id="authErrorMsg" class="auth-error-alert hidden"></div>
+
+              <button type="submit" id="btnAuthSubmit" class="btn-drawer-primary auth-submit-btn">
+                <span>Giriş Yap</span>
+              </button>
+
+              <p class="auth-notice-text">
+                Giriş yaptığınızda veya kayıt olduğunuzda kitaplarınız, kaldığınız sayfa ve notlarınız 2. cihazınızla anında senkronize olur.
+              </p>
+            </form>
+          </div>
         </div>
       </div>
     </div>

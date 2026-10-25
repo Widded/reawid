@@ -22,8 +22,18 @@ import {
   deleteBook,
   getHistory,
   saveHistoryItem,
+  syncLocalWithCloudDb,
   AVAILABLE_MODELS
 } from './services/storageService.js';
+
+import {
+  isSupabaseConfigured,
+  getCurrentUser,
+  subscribeAuth,
+  signUpWithEmail,
+  signInWithEmail,
+  signOutUser
+} from './services/supabaseService.js';
 
 import {
   performOcr,
@@ -323,6 +333,30 @@ const el = {
   btnCancelNoteModal: document.getElementById('btnCancelNoteModal'),
   btnSaveNoteSubmit: document.getElementById('btnSaveNoteSubmit'),
 
+  // Supabase Cloud & Account Elements
+  accountModal: document.getElementById('accountModal'),
+  btnCloseAccountModal: document.getElementById('btnCloseAccountModal'),
+  btnSettingsOpenAccount: document.getElementById('btnSettingsOpenAccount'),
+  settingsAccountAvatar: document.getElementById('settingsAccountAvatar'),
+  settingsAccountName: document.getElementById('settingsAccountName'),
+  settingsAccountStatus: document.getElementById('settingsAccountStatus'),
+  accountLoggedInView: document.getElementById('accountLoggedInView'),
+  accountAuthView: document.getElementById('accountAuthView'),
+  accountUserAvatar: document.getElementById('accountUserAvatar'),
+  accountUserEmail: document.getElementById('accountUserEmail'),
+  accountStatBooks: document.getElementById('accountStatBooks'),
+  accountStatNotes: document.getElementById('accountStatNotes'),
+  btnAccountSyncNow: document.getElementById('btnAccountSyncNow'),
+  syncSpinnerIcon: document.getElementById('syncSpinnerIcon'),
+  btnAccountSignOut: document.getElementById('btnAccountSignOut'),
+  tabSignIn: document.getElementById('tabSignIn'),
+  tabSignUp: document.getElementById('tabSignUp'),
+  formSupabaseAuth: document.getElementById('formSupabaseAuth'),
+  authInputEmail: document.getElementById('authInputEmail'),
+  authInputPassword: document.getElementById('authInputPassword'),
+  authErrorMsg: document.getElementById('authErrorMsg'),
+  btnAuthSubmit: document.getElementById('btnAuthSubmit'),
+
   // PWA
   btnPwaInstall: document.getElementById('btnPwaInstall')
 };
@@ -378,6 +412,7 @@ function preventPwaZooming() {
 function init() {
   try { preventPwaZooming(); } catch (e) { console.warn('PWA zoom lock error:', e); }
   try { setupPwa(); } catch (e) { console.warn('PWA setup error:', e); }
+  try { setupAccountController(); } catch (e) { console.error('setupAccountController error:', e); }
   try { renderHomeScreen(); } catch (e) { console.error('renderHomeScreen error:', e); }
   try { renderLibraryScreen(); } catch (e) { console.error('renderLibraryScreen error:', e); }
   try { populateModelSelect(); } catch (e) { console.warn('populateModelSelect error:', e); }
@@ -397,55 +432,98 @@ function renderHomeScreen() {
   currentActiveBook = currentBook;
 
   if (currentBook) {
-    el.currentBookCover.src = currentBook.cover || '/cover-1.jpg';
-    el.currentBookTitle.textContent = currentBook.title;
-    el.currentBookAuthor.textContent = currentBook.author;
-    const progress = currentBook.progress || 0;
-    el.currentBookProgressFill.style.width = `${progress}%`;
-    el.currentBookProgressLabel.textContent = `%${progress}`;
+    el.cardContinueBook.innerHTML = `
+      <img src="${currentBook.cover || '/cover-1.jpg'}" alt="Devam Eden Kitap Kapağı" class="book-cover-thumb" id="currentBookCover">
+      <div class="continue-info">
+        <h3 class="continue-book-title" id="currentBookTitle">${currentBook.title}</h3>
+        <p class="continue-book-author" id="currentBookAuthor">${currentBook.author || ''}</p>
+        <div class="continue-progress-row">
+          <div class="progress-track">
+            <div class="progress-fill" id="currentBookProgressFill" style="width: ${currentBook.progress || 0}%;"></div>
+          </div>
+          <span class="progress-percent" id="currentBookProgressLabel">%${currentBook.progress || 0}</span>
+        </div>
+      </div>
+      <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    `;
+    el.cardContinueBook.onclick = () => {
+      openBookInReader(currentBook);
+    };
+  } else {
+    el.cardContinueBook.innerHTML = `
+      <div class="empty-continue-card">
+        <div class="empty-continue-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </div>
+        <div class="empty-continue-text">
+          <h3 class="empty-continue-title">Henüz Bir Kitap Yok</h3>
+          <p class="empty-continue-subtitle">PDF yükleyerek veya taratarak okumaya başlayın.</p>
+        </div>
+        <div class="empty-continue-btn-badge">
+          <span>Kitap Ekle</span>
+        </div>
+      </div>
+    `;
+    el.cardContinueBook.onclick = () => {
+      if (el.btnNewBookCard) el.btnNewBookCard.click();
+    };
   }
 
   // 2. Render Son Kitaplar
   const allBooks = getBooks();
   el.recentBooksList.innerHTML = '';
 
-  // Exclude current book or show latest 3 other books
-  const recentBooks = allBooks.slice(0, 3);
-
-  recentBooks.forEach((book, index) => {
-    const row = document.createElement('div');
-    row.className = 'book-row-item';
-    row.innerHTML = `
-      <img src="${book.cover || '/cover-1.jpg'}" alt="${book.title}" class="book-row-cover">
-      <div class="book-row-info">
-        <h4 class="book-row-title">${book.title}</h4>
-        <p class="book-row-author">${book.author}</p>
-        <span class="book-row-meta">${book.date || 'Ekim 2025'} · ${book.totalPages || 120} sayfa</span>
+  if (allBooks.length === 0) {
+    el.recentBooksList.innerHTML = `
+      <div class="home-empty-books-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-books-icon">
+          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        </svg>
+        <span class="empty-books-title">Kitaplığınız Boş</span>
+        <span class="empty-books-desc">Eklediğiniz tüm kitaplar ve sayfalar burada listelenir.</span>
       </div>
-      <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6"></polyline>
-      </svg>
     `;
+  } else {
+    const recentBooks = allBooks.slice(0, 3);
+    recentBooks.forEach((book, index) => {
+      const row = document.createElement('div');
+      row.className = 'book-row-item';
+      row.innerHTML = `
+        <img src="${book.cover || '/cover-1.jpg'}" alt="${book.title}" class="book-row-cover">
+        <div class="book-row-info">
+          <h4 class="book-row-title">${book.title}</h4>
+          <p class="book-row-author">${book.author || ''}</p>
+          <span class="book-row-meta">${book.date || 'Bugün'} · ${book.totalPages || 1} sayfa</span>
+        </div>
+        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      `;
 
-    row.addEventListener('click', () => {
-      openBookInReader(book);
+      row.addEventListener('click', () => {
+        openBookInReader(book);
+      });
+
+      el.recentBooksList.appendChild(row);
+
+      if (index < recentBooks.length - 1) {
+        const divider = document.createElement('div');
+        divider.className = 'book-row-divider';
+        el.recentBooksList.appendChild(divider);
+      }
     });
-
-    el.recentBooksList.appendChild(row);
-
-    // Add hairline divider if not last item
-    if (index < recentBooks.length - 1) {
-      const divider = document.createElement('div');
-      divider.className = 'book-row-divider';
-      el.recentBooksList.appendChild(divider);
-    }
-  });
+  }
 
   // Calculate simulated storage based on books & notes
   const allNotes = getNotes ? getNotes() : [];
-  const approxMb = (allBooks.length * 0.4 + allNotes.length * 0.05 + 2.1).toFixed(1);
+  const approxMb = (allBooks.length * 0.4 + allNotes.length * 0.05 + 0.1).toFixed(1);
   if (el.storageUsageText) {
-    el.storageUsageText.textContent = `${approxMb} GB / 10 GB`;
+    el.storageUsageText.textContent = `${approxMb} MB / 500 MB (Supabase)`;
   }
 }
 
@@ -493,8 +571,8 @@ function renderLibraryScreen() {
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <p style="font-size: 14px; margin: 0; color: #ffffff; font-weight: 500;">Kitap Bulunamadı</p>
-        <p style="font-size: 12px; margin-top: 4px; color: var(--text-secondary);">Filtreyi veya arama terimini değiştirmeyi deneyin.</p>
+        <p style="font-size: 14px; margin: 0; color: #ffffff; font-weight: 500;">${currentLibrarySearchQuery ? 'Aramanızla Eşleşen Kitap Bulunamadı' : 'Kitaplığınızda Henüz Kitap Yok'}</p>
+        <p style="font-size: 12px; margin-top: 4px; color: var(--text-secondary);">${currentLibrarySearchQuery ? 'Farklı bir arama terimi deneyin.' : 'Ana sayfadan "Yeni Kitap Ekle" butonu ile ilk kitabınızı ekleyin.'}</p>
       </div>
     `;
     return;
@@ -2771,6 +2849,207 @@ function showToast(message, type = 'info') {
     toast.style.transition = 'all 180ms ease';
     setTimeout(() => toast.remove(), 200);
   }, 2600);
+}
+
+/* ==========================================================================
+   Supabase Account & Cloud Sync Controller
+   ========================================================================== */
+let currentAuthMode = 'signin'; // 'signin' | 'signup'
+
+function openAccountModal() {
+  if (!el.accountModal) return;
+  renderAccountUI();
+  el.accountModal.classList.remove('hidden');
+}
+
+function closeAccountModal() {
+  if (!el.accountModal) return;
+  el.accountModal.classList.add('hidden');
+  if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+}
+
+function renderAccountUI() {
+  const user = getCurrentUser();
+  const allBooks = getBooks();
+  const allNotes = getNotes ? getNotes() : [];
+
+  // Settings screen profile banner
+  if (el.settingsAccountName) {
+    if (user) {
+      el.settingsAccountName.textContent = user.email || 'Giriş Yapıldı';
+      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = '🟢 Supabase Bulut Eşitlemesi Aktif';
+      if (el.settingsAccountAvatar) {
+        const initial = (user.email || 'R')[0].toUpperCase();
+        el.settingsAccountAvatar.innerHTML = `<span>${initial}</span>`;
+      }
+    } else {
+      el.settingsAccountName.textContent = 'Supabase Bulut Senkronizasyonu';
+      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = 'Giriş yap veya kayıt ol';
+      if (el.settingsAccountAvatar) {
+        el.settingsAccountAvatar.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        `;
+      }
+    }
+  }
+
+  // Account Modal UI
+  if (user) {
+    if (el.accountLoggedInView) el.accountLoggedInView.classList.remove('hidden');
+    if (el.accountAuthView) el.accountAuthView.classList.add('hidden');
+
+    if (el.accountUserEmail) el.accountUserEmail.textContent = user.email;
+    if (el.accountUserAvatar) el.accountUserAvatar.textContent = (user.email || 'R')[0].toUpperCase();
+    if (el.accountStatBooks) el.accountStatBooks.textContent = allBooks.length;
+    if (el.accountStatNotes) el.accountStatNotes.textContent = allNotes.length;
+  } else {
+    if (el.accountLoggedInView) el.accountLoggedInView.classList.add('hidden');
+    if (el.accountAuthView) el.accountAuthView.classList.remove('hidden');
+  }
+}
+
+function setupAccountController() {
+  // Open / Close modal
+  if (el.btnProfile) {
+    el.btnProfile.addEventListener('click', openAccountModal);
+  }
+  if (el.btnSettingsOpenAccount) {
+    el.btnSettingsOpenAccount.addEventListener('click', openAccountModal);
+  }
+  if (el.btnCloseAccountModal) {
+    el.btnCloseAccountModal.addEventListener('click', closeAccountModal);
+  }
+  if (el.accountModal) {
+    el.accountModal.addEventListener('click', (e) => {
+      if (e.target === el.accountModal) closeAccountModal();
+    });
+  }
+
+  // Auth tabs (Giriş Yap / Kayıt Ol)
+  if (el.tabSignIn && el.tabSignUp) {
+    el.tabSignIn.addEventListener('click', () => {
+      currentAuthMode = 'signin';
+      el.tabSignIn.classList.add('active');
+      el.tabSignUp.classList.remove('active');
+      if (el.btnAuthSubmit) {
+        const span = el.btnAuthSubmit.querySelector('span') || el.btnAuthSubmit;
+        span.textContent = 'Giriş Yap';
+      }
+      if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+    });
+
+    el.tabSignUp.addEventListener('click', () => {
+      currentAuthMode = 'signup';
+      el.tabSignUp.classList.add('active');
+      el.tabSignIn.classList.remove('active');
+      if (el.btnAuthSubmit) {
+        const span = el.btnAuthSubmit.querySelector('span') || el.btnAuthSubmit;
+        span.textContent = 'Kayıt Ol';
+      }
+      if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+    });
+  }
+
+  // Form Submit (Supabase Auth)
+  if (el.formSupabaseAuth) {
+    el.formSupabaseAuth.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = el.authInputEmail?.value?.trim();
+      const password = el.authInputPassword?.value;
+      if (!email || !password) return;
+
+      if (el.authErrorMsg) el.authErrorMsg.classList.add('hidden');
+      if (el.btnAuthSubmit) {
+        el.btnAuthSubmit.disabled = true;
+        const span = el.btnAuthSubmit.querySelector('span') || el.btnAuthSubmit;
+        span.textContent = 'İşleniyor...';
+      }
+
+      try {
+        if (currentAuthMode === 'signin') {
+          const { data, error } = await signInWithEmail(email, password);
+          if (error) throw error;
+          showToast('Hesaba başarıyla giriş yapıldı!', 'success');
+        } else {
+          const { data, error } = await signUpWithEmail(email, password);
+          if (error) throw error;
+          showToast('Hesap başarıyla oluşturuldu!', 'success');
+        }
+
+        // Trigger bi-directional sync
+        showToast('Kitaplarınız ve notlarınız bulut ile senkronize ediliyor...', 'info');
+        await syncLocalWithCloudDb();
+        renderHomeScreen();
+        renderLibraryScreen();
+        renderNotesScreen();
+        renderAccountUI();
+        closeAccountModal();
+      } catch (err) {
+        console.error('Auth error:', err);
+        if (el.authErrorMsg) {
+          el.authErrorMsg.textContent = err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.';
+          el.authErrorMsg.classList.remove('hidden');
+        }
+      } finally {
+        if (el.btnAuthSubmit) {
+          el.btnAuthSubmit.disabled = false;
+          const span = el.btnAuthSubmit.querySelector('span') || el.btnAuthSubmit;
+          span.textContent = currentAuthMode === 'signin' ? 'Giriş Yap' : 'Kayıt Ol';
+        }
+      }
+    });
+  }
+
+  // Manual Sync Now Button
+  if (el.btnAccountSyncNow) {
+    el.btnAccountSyncNow.addEventListener('click', async () => {
+      if (el.syncSpinnerIcon) el.syncSpinnerIcon.classList.add('spinning');
+      el.btnAccountSyncNow.disabled = true;
+      try {
+        const res = await syncLocalWithCloudDb();
+        if (res.synced) {
+          showToast('Tüm kitap ve notlar Supabase ile senkronize edildi!', 'success');
+          renderHomeScreen();
+          renderLibraryScreen();
+          renderNotesScreen();
+          renderAccountUI();
+        } else {
+          showToast(res.reason || 'Senkronizasyon tamamlandı.', 'info');
+        }
+      } catch (err) {
+        showToast('Eşitleme hatası: ' + err.message, 'error');
+      } finally {
+        if (el.syncSpinnerIcon) el.syncSpinnerIcon.classList.remove('spinning');
+        el.btnAccountSyncNow.disabled = false;
+      }
+    });
+  }
+
+  // Sign Out Button
+  if (el.btnAccountSignOut) {
+    el.btnAccountSignOut.addEventListener('click', async () => {
+      if (confirm('Hesaptan çıkış yapmak istediğinize emin misiniz?')) {
+        await signOutUser();
+        showToast('Hesaptan çıkış yapıldı.', 'info');
+        renderAccountUI();
+        renderHomeScreen();
+        renderLibraryScreen();
+        renderNotesScreen();
+      }
+    });
+  }
+
+  // Initial account UI render & subscription
+  renderAccountUI();
+  subscribeAuth(() => {
+    renderAccountUI();
+    renderHomeScreen();
+    renderLibraryScreen();
+    renderNotesScreen();
+  });
 }
 
 // Start

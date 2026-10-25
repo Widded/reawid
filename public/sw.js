@@ -38,10 +38,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Bypass AI API calls, non-http, and POST requests
+  // Bypass AI API & Supabase cloud calls, non-http, and POST requests
   if (
     event.request.url.includes('api.groq.com') ||
     event.request.url.includes('openrouter.ai') ||
+    event.request.url.includes('supabase.co') ||
     event.request.method !== 'GET'
   ) {
     return;
