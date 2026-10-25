@@ -446,7 +446,7 @@
 
             <!-- Ekran Uykusunu Engelle (Wake Lock) -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-wake">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="5"></circle>
                   <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -471,7 +471,7 @@
 
             <!-- Otomatik Gece Modu -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-moon">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
@@ -494,7 +494,7 @@
           <div class="settings-ios-card">
             <!-- Arka Planda Ön-Yükleme -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-prefetch">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                 </svg>
@@ -513,7 +513,7 @@
 
             <!-- Matbaa Tirelerini Birleştir -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-hyphen">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
@@ -532,7 +532,7 @@
 
             <!-- Başlık ve Sayfa Numarası Filtresi -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-clean">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -572,7 +572,7 @@
           <div class="settings-ios-card">
             <!-- Çevrimdışı Sayfa Önbelleği -->
             <div class="settings-ios-row">
-              <div class="settings-row-icon-box icon-storage">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
                   <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
@@ -593,7 +593,7 @@
 
             <!-- Yedek İndir (Export) -->
             <button type="button" class="settings-ios-btn-row" id="btnExportData">
-              <div class="settings-row-icon-box icon-backup">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
@@ -613,7 +613,7 @@
 
             <!-- Yedek Geri Yükle (Import) -->
             <button type="button" class="settings-ios-btn-row" id="btnImportData">
-              <div class="settings-row-icon-box icon-restore">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="17 8 12 3 7 8"></polyline>
@@ -633,17 +633,40 @@
             <div class="settings-row-divider"></div>
 
             <!-- Önbelleği Boşalt -->
-            <button type="button" class="settings-ios-btn-row btn-destructive" id="btnClearCache">
-              <div class="settings-row-icon-box icon-trash">
+            <button type="button" class="settings-ios-btn-row" id="btnClearCache">
+              <div class="settings-row-icon-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                  <path d="M16 16h5v5"></path>
                 </svg>
               </div>
               <div class="settings-row-text">
-                <span class="settings-row-title text-destructive">Geçici Önbelleği Boşalt</span>
-                <span class="settings-row-desc">Oturum OCR önbelleğini siler. Kayıtlı kitaplarınız ve notlarınız silinmez.</span>
+                <span class="settings-row-title">Geçici Önbelleği Boşalt</span>
+                <span class="settings-row-desc">Oturum önbelleğini ve servis worker dosyalarını yeniler. Kitaplarınız silinmez.</span>
               </div>
+            </button>
+
+            <div class="settings-row-divider"></div>
+
+            <!-- Tüm Verileri Sıfırla (Kalıcı Silme) -->
+            <button type="button" class="settings-ios-btn-row btn-destructive-row" id="btnOpenResetModal">
+              <div class="settings-row-icon-box icon-destructive">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </div>
+              <div class="settings-row-text">
+                <span class="settings-row-title text-destructive">Tüm Verileri Kalıcı Olarak Sil</span>
+                <span class="settings-row-desc">Tüm kitaplığınızı, kaldığınız sayfaları ve notlarınızı kalıcı olarak temizler.</span>
+              </div>
+              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
             </button>
           </div>
         </div>
@@ -1377,6 +1400,49 @@
               </p>
             </form>
           </div>
+    <!-- RESET ALL DATA CONFIRMATION MODAL -->
+    <div id="resetDataModal" class="drawer-backdrop hidden">
+      <div class="drawer-panel reset-drawer-panel">
+        <div class="drawer-header">
+          <div class="reset-header-text">
+            <h3 class="drawer-title text-destructive">Tüm Verileri Sil?</h3>
+            <span class="reset-header-subtitle">Bu işlem geri alınamaz ve tüm kitaplarınızı temizler</span>
+          </div>
+          <button id="btnCloseResetModal" class="drawer-close-btn" aria-label="Kapat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="drawer-body reset-drawer-body">
+          <p class="reset-modal-desc">
+            Cihazınızdaki ve buluttaki kayıtlı tüm kitaplar, okuma ilerlemeleri, taranan sayfalar ve notlar <strong>kalıcı olarak silinecektir</strong>.
+          </p>
+
+          <div class="reset-challenge-box">
+            <span class="challenge-label">Onaylamak için aşağıdaki 4 haneli güvenlik kodunu yazın:</span>
+            
+            <div class="challenge-code-container">
+              <span class="challenge-code-display" id="resetChallengeCode">7 4 9 2</span>
+              <button type="button" class="btn-refresh-code" id="btnRefreshResetCode" title="Kodu Yenile" aria-label="Kodu Yenile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+              </button>
+            </div>
+
+            <input type="text" id="inputResetCodeConfirm" class="reset-code-input" placeholder="Güvenlik kodunu girin" inputmode="numeric" maxlength="6" autocomplete="off">
+            <span class="code-match-hint" id="resetCodeHint">Kod eşleştiğinde silme butonu aktifleşir.</span>
+          </div>
+        </div>
+
+        <div class="drawer-footer reset-drawer-footer">
+          <button type="button" id="btnCancelResetModal" class="btn-sheet-secondary">Vazgeç</button>
+          <button type="button" id="btnConfirmResetSubmit" class="btn-drawer-danger" disabled>
+            <span>Tüm Verileri Kalıcı Olarak Sil</span>
+          </button>
         </div>
       </div>
     </div>

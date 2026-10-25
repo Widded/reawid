@@ -3,6 +3,7 @@
 // Seamlessly syncs books, reading progress, and notes with Supabase Cloud DB
 
 import {
+  supabase,
   syncBookToCloud,
   deleteBookFromCloud,
   syncNoteToCloud,
@@ -506,6 +507,35 @@ export function clearAppCache() {
     return true;
   } catch (_) {
     return false;
+  }
+}
+
+export async function resetAllAppData() {
+  try {
+    // 1. Wipe local books, notes and reading state
+    localStorage.setItem(BOOKS_KEY, JSON.stringify([]));
+    localStorage.setItem(NOTES_KEY, JSON.stringify([]));
+    localStorage.removeItem(CURRENT_BOOK_KEY);
+    localStorage.removeItem(HISTORY_KEY);
+    sessionStorage.clear();
+
+    // 2. If logged in, wipe Supabase remote data
+    const user = getCurrentUser ? getCurrentUser() : null;
+    if (user && supabase) {
+      await supabase.from('books').delete().eq('user_id', user.id);
+      await supabase.from('notes').delete().eq('user_id', user.id);
+    }
+
+    // 3. Purge caches
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Reset all data error:', err);
+    return { success: false, error: err };
   }
 }
 

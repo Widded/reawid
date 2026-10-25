@@ -23,6 +23,7 @@ import {
   getHistory,
   saveHistoryItem,
   syncLocalWithCloudDb,
+  resetAllAppData,
   AVAILABLE_MODELS
 } from './services/storageService.js';
 
@@ -358,6 +359,17 @@ const el = {
   authErrorMsg: document.getElementById('authErrorMsg'),
   btnAuthSubmit: document.getElementById('btnAuthSubmit'),
 
+  // Reset All Data Modal Elements
+  btnOpenResetModal: document.getElementById('btnOpenResetModal'),
+  resetDataModal: document.getElementById('resetDataModal'),
+  btnCloseResetModal: document.getElementById('btnCloseResetModal'),
+  btnCancelResetModal: document.getElementById('btnCancelResetModal'),
+  resetChallengeCode: document.getElementById('resetChallengeCode'),
+  btnRefreshResetCode: document.getElementById('btnRefreshResetCode'),
+  inputResetCodeConfirm: document.getElementById('inputResetCodeConfirm'),
+  resetCodeHint: document.getElementById('resetCodeHint'),
+  btnConfirmResetSubmit: document.getElementById('btnConfirmResetSubmit'),
+
   // PWA
   btnPwaInstall: document.getElementById('btnPwaInstall')
 };
@@ -414,6 +426,7 @@ function init() {
   try { preventPwaZooming(); } catch (e) { console.warn('PWA zoom lock error:', e); }
   try { setupPwa(); } catch (e) { console.warn('PWA setup error:', e); }
   try { setupAccountController(); } catch (e) { console.error('setupAccountController error:', e); }
+  try { setupResetDataController(); } catch (e) { console.error('setupResetDataController error:', e); }
   try { renderHomeScreen(); } catch (e) { console.error('renderHomeScreen error:', e); }
   try { renderLibraryScreen(); } catch (e) { console.error('renderLibraryScreen error:', e); }
   try { populateModelSelect(); } catch (e) { console.warn('populateModelSelect error:', e); }
@@ -3155,6 +3168,160 @@ function setupAccountController() {
     renderLibraryScreen();
     renderNotesScreen();
   });
+}
+
+/* ==========================================================================
+   Reset All Data Controller (Destructive Data Wipe with Security Code)
+   ========================================================================== */
+let currentResetSecurityCode = '';
+
+function generateRandomResetCode() {
+  // Generate a 4-digit security code (1000 - 9999)
+  currentResetSecurityCode = String(Math.floor(1000 + Math.random() * 9000));
+  if (el.resetChallengeCode) {
+    el.resetChallengeCode.textContent = currentResetSecurityCode.split('').join(' ');
+  }
+  if (el.inputResetCodeConfirm) {
+    el.inputResetCodeConfirm.value = '';
+  }
+  if (el.resetCodeHint) {
+    el.resetCodeHint.textContent = 'Kod eşleştiğinde silme butonu aktifleşir.';
+    el.resetCodeHint.classList.remove('valid');
+  }
+  if (el.btnConfirmResetSubmit) {
+    el.btnConfirmResetSubmit.disabled = true;
+  }
+}
+
+function openResetModal() {
+  if (!el.resetDataModal) return;
+  generateRandomResetCode();
+  el.resetDataModal.classList.remove('hidden');
+  setTimeout(() => {
+    if (el.inputResetCodeConfirm) {
+      el.inputResetCodeConfirm.focus();
+    }
+  }, 150);
+}
+
+function closeResetModal() {
+  if (!el.resetDataModal) return;
+  el.resetDataModal.classList.add('hidden');
+  if (el.inputResetCodeConfirm) {
+    el.inputResetCodeConfirm.value = '';
+  }
+  if (el.btnConfirmResetSubmit) {
+    el.btnConfirmResetSubmit.disabled = true;
+  }
+}
+
+function setupResetDataController() {
+  if (el.btnOpenResetModal) {
+    el.btnOpenResetModal.addEventListener('click', openResetModal);
+  }
+
+  if (el.btnCloseResetModal) {
+    el.btnCloseResetModal.addEventListener('click', closeResetModal);
+  }
+
+  if (el.btnCancelResetModal) {
+    el.btnCancelResetModal.addEventListener('click', closeResetModal);
+  }
+
+  if (el.resetDataModal) {
+    el.resetDataModal.addEventListener('click', (e) => {
+      if (e.target === el.resetDataModal) {
+        closeResetModal();
+      }
+    });
+  }
+
+  if (el.btnRefreshResetCode) {
+    el.btnRefreshResetCode.addEventListener('click', () => {
+      generateRandomResetCode();
+      if (el.inputResetCodeConfirm) {
+        el.inputResetCodeConfirm.focus();
+      }
+    });
+  }
+
+  if (el.inputResetCodeConfirm) {
+    el.inputResetCodeConfirm.addEventListener('input', () => {
+      const inputVal = el.inputResetCodeConfirm.value.trim();
+      if (inputVal === currentResetSecurityCode) {
+        if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = false;
+        if (el.resetCodeHint) {
+          el.resetCodeHint.textContent = '✓ Güvenlik kodu doğrulandı. Silmek için aşağıdaki butona basın.';
+          el.resetCodeHint.classList.add('valid');
+        }
+      } else {
+        if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = true;
+        if (el.resetCodeHint) {
+          if (inputVal.length >= currentResetSecurityCode.length) {
+            el.resetCodeHint.textContent = '✕ Hatalı kod girdiniz. Lütfen tekrar kontrol edin.';
+            el.resetCodeHint.classList.remove('valid');
+          } else {
+            el.resetCodeHint.textContent = 'Kod eşleştiğinde silme butonu aktifleşir.';
+            el.resetCodeHint.classList.remove('valid');
+          }
+        }
+      }
+    });
+
+    el.inputResetCodeConfirm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (el.btnConfirmResetSubmit && !el.btnConfirmResetSubmit.disabled) {
+          el.btnConfirmResetSubmit.click();
+        }
+      }
+    });
+  }
+
+  if (el.btnConfirmResetSubmit) {
+    el.btnConfirmResetSubmit.addEventListener('click', async () => {
+      const inputVal = el.inputResetCodeConfirm ? el.inputResetCodeConfirm.value.trim() : '';
+      if (inputVal !== currentResetSecurityCode) {
+        showToast('Lütfen ekrandaki 4 haneli güvenlik kodunu doğru girin', 'error');
+        return;
+      }
+
+      el.btnConfirmResetSubmit.disabled = true;
+      const span = el.btnConfirmResetSubmit.querySelector('span') || el.btnConfirmResetSubmit;
+      const origText = span.textContent;
+      span.textContent = 'Tüm Veriler Siliniyor...';
+
+      try {
+        const res = await resetAllAppData();
+        if (!res.success) {
+          throw res.error || new Error('Silme işlemi tamamlanamadı');
+        }
+
+        closeResetModal();
+        showToast('Tüm kitaplık, ilerlemeler ve notlar kalıcı olarak silindi!', 'success');
+
+        // Close reader if open
+        if (typeof closeReader === 'function' && el.readerScreen && !el.readerScreen.classList.contains('hidden')) {
+          closeReader();
+        }
+
+        // Re-render UI screens
+        renderHomeScreen();
+        renderLibraryScreen();
+        if (typeof renderNotesScreen === 'function') renderNotesScreen();
+        if (typeof renderSettingsScreen === 'function') renderSettingsScreen();
+        if (typeof renderAccountUI === 'function') renderAccountUI();
+
+        // Switch back to Home screen
+        switchBottomTab('home');
+      } catch (err) {
+        console.error('Reset all data error:', err);
+        showToast('Veriler silinirken hata oluştu: ' + (err.message || err), 'error');
+      } finally {
+        span.textContent = origText;
+      }
+    });
+  }
 }
 
 // Start
