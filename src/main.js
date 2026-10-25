@@ -1186,7 +1186,10 @@ function renderReaderPage(pageNum) {
   let chapterTitle = currentActiveBook.chapter || `SAYFA ${currentReaderPage}`;
 
   if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[currentReaderPage]) {
-    paragraphs = currentActiveBook.pageParagraphs[currentReaderPage];
+    const rawParas = currentActiveBook.pageParagraphs[currentReaderPage];
+    paragraphs = (Array.isArray(rawParas) ? rawParas : [rawParas]).map(p =>
+      typeof p === 'string' ? normalizeHyphensAndText(p) : p
+    );
     el.readerChapterBadge.textContent = `SAYFA ${currentReaderPage}`;
     el.readerArticleTitle.textContent = currentActiveBook.title;
     el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
@@ -2605,17 +2608,18 @@ function hideReaderBgOcrStatus() {
 
 async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
   try {
-    // 1. Önce anlık gömülü metin katmanını dene (10-20ms)
-    const fastText = await extractPdfPageText(pdfDoc, pageNum);
-    if (fastText && fastText.length > 0) {
-      return fastText;
+    const ocrEngine = appSettings.ocrEngine || 'auto';
+    const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
+
+    // 1. Yalnızca 'auto' modunda ve gömülü metin temizse dene; kullanıcı 'tesseract' veya 'vision_ai' seçtiyse doğrudan OCR çalıştır!
+    if (ocrEngine === 'auto') {
+      const fastText = await extractPdfPageText(pdfDoc, pageNum);
+      if (fastText && fastText.length > 0) {
+        return fastText;
+      }
     }
 
     if (signal?.aborted) return null;
-
-    // 2. Gömülü metin yoksa (taranmış sayfa), seçili OCR motoru ile işle
-    const ocrEngine = appSettings.ocrEngine || 'auto';
-    const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
     // UI donmalarını önlemek için event loop'a nefes aldır
     await yieldToMainThread(0);
@@ -4258,7 +4262,7 @@ function setupSettingsScreenEvents() {
    PWA & System File Integration
    ========================================================================== */
 function setupPwa() {
-  const CURRENT_CACHE = 'reawid-cloud-v25';
+  const CURRENT_CACHE = 'reawid-cloud-v50';
   if ('caches' in window) {
     caches.keys().then((keys) => {
       keys.forEach((key) => {

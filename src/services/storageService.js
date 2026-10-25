@@ -24,7 +24,7 @@ const HISTORY_KEY = 'reawid_history_v1';
 const NOTES_KEY = 'reawid_notes_v2';
 const BOOKS_KEY = 'reawid_books_v2';
 const CURRENT_BOOK_KEY = 'reawid_current_book_id';
-const PURGE_CACHE_KEY = 'reawid_purge_cache_v35';
+const PURGE_CACHE_KEY = 'reawid_purge_cache_v50';
 
 export const MOCK_BOOK_IDS = new Set([
   'book_insan_ne_ile_yasar',
@@ -309,11 +309,27 @@ function cleanLegacyMockDataOnce() {
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (key !== 'reawid-cloud-v35') {
+            if (key !== 'reawid-cloud-v50') {
               caches.delete(key);
             }
           });
         }).catch(() => {});
+      }
+
+      // Automatically purge legacy OCR page caches from previously loaded books
+      // This forces the newly improved v50 OCR engine to re-scan cleanly on mobile/web
+      const rawBooks = localStorage.getItem(BOOKS_KEY);
+      if (rawBooks) {
+        try {
+          const parsedBooks = JSON.parse(rawBooks);
+          if (Array.isArray(parsedBooks)) {
+            const clearedBooks = parsedBooks.map(b => ({
+              ...b,
+              pageParagraphs: {} // Purge corrupted old OCR text
+            }));
+            localStorage.setItem(BOOKS_KEY, JSON.stringify(clearedBooks));
+          }
+        } catch (_) {}
       }
 
       localStorage.setItem(PURGE_CACHE_KEY, 'true');

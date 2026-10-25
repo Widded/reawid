@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   envPrefix: ['VITE_', 'EXPO_PUBLIC_'],
+  server: {
+    host: true
+  },
   plugins: [
     {
       name: 'icon-generator',

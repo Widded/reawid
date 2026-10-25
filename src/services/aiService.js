@@ -507,26 +507,40 @@ export function healTurkishOcrArtifacts(text) {
 
   // 7. Safe healing for double 'ii' OCR confusion for 'ü' (umlaut dots read as 'ii'):
   // e.g. "Ziilfii" -> "Zülfü", "miizik" -> "müzik", "siirgiinde" -> "sürgünde", "tiim" -> "tüm"
-  const safeIiPatterns = [
-    { pattern: /\b(z)iilf(ii|u)\b/giu, repl: '$1ülfü' },
-    { pattern: /\bm[iı]{2}z[iı]k/giu, repl: 'müzik' },
-    { pattern: /\bs[iı]{2}rg[iı]{2}n/giu, repl: 'sürgün' },
-    { pattern: /\b(t)[iı]{2}m\b/giu, repl: '$1üm' },
-    { pattern: /\b(g)[iı]{2}z(el|ellik)/giu, repl: '$1üz$2' },
-    { pattern: /\b(b)[iı]{2}y([uü]k)/giu, repl: '$1üy$2' },
-    { pattern: /\b(k)[iı]{2}ç([uü]k)/giu, repl: '$1üç$2' },
-    { pattern: /\b(g)[iı]{2}ç(l[uü]|s[uü]z)?\b/giu, repl: '$1üç$2' },
-    { pattern: /\b(d)[iı]{2}ş([uü]n)/giu, repl: '$1üş$2' },
-    { pattern: /\b(g)[iı]{2}r(d[uü]|m[uü]ş|en)/giu, repl: '$1ür$2' },
-    { pattern: /\b(y)[iı]{2}r([uü]y)/giu, repl: '$1ür$2' }
-  ];
-  for (const { pattern, repl } of safeIiPatterns) {
-    s = s.replace(pattern, repl);
-  }
+  s = s.replace(/(^|[^\p{L}\p{N}])([zZ])iilf(ii|u|ü)?(?=[^\p{L}\p{N}]|$)/gu, '$1$2ülfü');
+  s = s.replace(/(^|[^\p{L}\p{N}])m[iı]{2}z[iı]k([a-zçğıöşü]*)/giu, '$1müzik$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s[iı]{2}rg[iı]{2}n([a-zçğıöşü]*)/giu, '$1sürgün$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])([tT])[iı]{2}m(?=[^\p{L}\p{N}]|$)/gu, '$1$2üm');
+  s = s.replace(/(^|[^\p{L}\p{N}])([gG])[iı]{2}z(el|ellik)([a-zçğıöşü]*)/giu, '$1$2üz$3$4');
+  s = s.replace(/(^|[^\p{L}\p{N}])([bB])[iı]{2}y([uü]k)([a-zçğıöşü]*)/giu, '$1$2üy$3$4');
+  s = s.replace(/(^|[^\p{L}\p{N}])([kK])[iı]{2}ç([uü]k)([a-zçğıöşü]*)/giu, '$1$2üç$3$4');
+  s = s.replace(/(^|[^\p{L}\p{N}])([gG])[iı]{2}ç(l[uü]|s[uü]z)?(?=[^\p{L}\p{N}]|$)/giu, '$1$2üç$3');
+  s = s.replace(/(^|[^\p{L}\p{N}])([dD])[iı]{2}ş([uü]n)([a-zçğıöşü]*)/giu, '$1$2üş$3$4');
+  s = s.replace(/(^|[^\p{L}\p{N}])([gG])[iı]{2}r(d[uü]|m[uü]ş|en)([a-zçğıöşü]*)/giu, '$1$2ür$3$4');
+  s = s.replace(/(^|[^\p{L}\p{N}])([yY])[iı]{2}r([uü]y)([a-zçğıöşü]*)/giu, '$1$2ür$3$4');
 
   // 8. Safe contextual fix for OCR dropped breve on "doğdu":
   // e.g. "1946 yılında dogdu" -> "1946 yılında doğdu"
-  s = s.replace(/\b(d)ogdu(k|m|n|lar)?\b/giu, '$1oğdu$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])([dD])ogdu(k|m|n|lar)?(?=[^\p{L}\p{N}]|$)/gu, '$1$2oğdu$3');
+
+  // 9. Common Turkish proper nouns and cities with lost diacritics:
+  // e.g. "Omer Zülfü" -> "Ömer Zülfü", "Omer Ziilfii" -> "Ömer Zülfü"
+  s = s.replace(/(^|[^\p{L}\p{N}])Omer(?=\s+[Zz][üi]lf[üi]|\s+Seyfettin|\s+Livaneli)/gu, '$1Ömer');
+  s = s.replace(/(^|[^\p{L}\p{N}])Ispanya(['’][a-zçğıöşü]+)?(?=[^\p{L}\p{N}]|$)/gu, '$1İspanya$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])Italya(['’][a-zçğıöşü]+)?(?=[^\p{L}\p{N}]|$)/gu, '$1İtalya$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])Izmir(['’][a-zçğıöşü]+)?(?=[^\p{L}\p{N}]|$)/gu, '$1İzmir$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])En\s+Iyi(?=[^\p{L}\p{N}]|$)/gu, '$1En İyi');
+
+  // 10. Split words due to line breaks where the hyphen was lost/converted to space:
+  // e.g. "Stock holm'de" -> "Stockholm'de", "Meh ta" -> "Mehta", "Bal kan" -> "Balkan"
+  // "Ya zar" -> "Yazar", "ötü rü" -> "ötürü", "ede biyat" -> "edebiyat", "mille tvekili" -> "milletvekili"
+  s = s.replace(/(^|[^\p{L}\p{N}])Stock\s+holm(['’][a-zçğıöşü]+)?(?=[^\p{L}\p{N}]|$)/giu, '$1Stockholm$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])(Zubin\s+)?Meh\s+ta(?=[^\p{L}\p{N}]|$)/giu, '$1$2Mehta');
+  s = s.replace(/(^|[^\p{L}\p{N}])Bal\s+kan(?=[^\p{L}\p{N}]|$)/giu, '$1Balkan');
+  s = s.replace(/(^|[^\p{L}\p{N}])(Büyük\s+)?Ya\s+zar(?=[^\p{L}\p{N}]|$)/giu, '$1$2Yazar');
+  s = s.replace(/(^|[^\p{L}\p{N}])ötü\s+rü(?=[^\p{L}\p{N}]|$)/giu, '$1ötürü');
+  s = s.replace(/(^|[^\p{L}\p{N}])ede\s+biyat(?=[^\p{L}\p{N}]|$)/giu, '$1edebiyat');
+  s = s.replace(/(^|[^\p{L}\p{N}])mille\s+tvekil(i|liği|lik)?(?=[^\p{L}\p{N}]|$)/giu, '$1milletvekil$2');
 
   return s;
 }

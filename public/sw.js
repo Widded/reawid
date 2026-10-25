@@ -1,13 +1,6 @@
 // Reawid Service Worker - Apple Minimalist PWA
-// Network-First strategy to ensure latest updates are immediately reflected
-const CACHE_NAME = 'reawid-cloud-v25';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/reawid-logo.svg',
-  '/favicon.svg',
-  '/manifest.webmanifest'
-];
+// Aggressive cache-busting and Network-First strategy to ensure latest updates are immediately reflected
+const CACHE_NAME = 'reawid-cloud-v50';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -20,6 +13,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.info('[ServiceWorker] Eski önbellek siliniyor:', key);
             return caches.delete(key);
           }
         })
@@ -40,9 +34,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First: Always fetch freshest files from server first!
+  // Network-First: Always fetch freshest files from network with cache bypass for HTML/assets
+  const fetchRequest = event.request.mode === 'navigate' 
+    ? new Request(event.request, { cache: 'reload' })
+    : event.request;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(fetchRequest)
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();

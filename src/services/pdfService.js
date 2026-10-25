@@ -304,12 +304,19 @@ export async function extractPdfPageText(pdfDoc, pageNumber) {
         return null;
       }
 
-      // Satır sonu kesme ve heceleme tirelerini birleştir
+      // Satır sonu kesme ve heceleme tirelerini birleştir ve Türkçe glifleri onar
       clean = normalizeHyphensAndText(clean);
 
-      // Türkçe Karakter Bütünlüğü Kontrolü (sadece uzun metinlerde doğrula)
+      // Bozuk eski OCR katmanı denetimi 1: Kelime ortasında rakamlar (yay1mlanan, b1r, y1l vb.)
+      const digitArtifacts = clean.match(/(?:^|[^\p{L}\p{N}])\p{L}+[0-9]+\p{L}+(?=[^\p{L}\p{N}]|$)/gu) || [];
+      if (digitArtifacts.length > 0) {
+        console.warn(`[PDF Engine] Sayfa ${pageNumber} gömülü metninde bozuk OCR rakam katmanı tespit edildi (${digitArtifacts.slice(0, 3).join(', ')}). Gerçek OCR motoruna yönlendiriliyor.`);
+        return null;
+      }
+
+      // Bozuk eski OCR katmanı denetimi 2: Türkçe Karakter Bütünlüğü Kontrolü
       if (clean.length > 25) {
-        const turkishKeywordRegex = /\b(degil|icin|cunku|oldugu|birkac|simdi|sey|kucuk|buyuk|hicbir|yagmur|dogru|goster|sag|dusun|kitap|yazik|yapil|gore|birlikte)\b/i;
+        const turkishKeywordRegex = /(?:^|[^\p{L}\p{N}])(degil|icin|cunku|oldugu|birkac|simdi|sey|kucuk|buyuk|hicbir|yagmur|dogru|goster|sag|dusun|kitap|yazik|yapil|gore|birlikte|dogdu|siirgiin|ziilfii)(?=[^\p{L}\p{N}]|$)/iu;
         const turkishSpecificCount = (clean.match(/[çğışöüÇĞİÖŞÜ]/g) || []).length;
 
         if (turkishKeywordRegex.test(clean) && turkishSpecificCount < 2) {
