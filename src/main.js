@@ -178,6 +178,7 @@ const el = {
   // Storage Card
   cardStorageUsage: document.getElementById('cardStorageUsage'),
   storageUsageText: document.getElementById('storageUsageText'),
+  storageUsageProgressFill: document.getElementById('storageUsageProgressFill'),
 
   // Bottom Navigation
   navHome: document.getElementById('navHome'),
@@ -519,11 +520,20 @@ function renderHomeScreen() {
     });
   }
 
-  // Calculate simulated storage based on books & notes
+  // Calculate accurate storage based on books, paragraphs & notes
   const allNotes = getNotes ? getNotes() : [];
-  const approxMb = (allBooks.length * 0.4 + allNotes.length * 0.05 + 0.1).toFixed(1);
+  const booksChars = (localStorage.getItem('reawid_books_v2') || '').length;
+  const notesChars = (localStorage.getItem('reawid_notes_v2') || '').length;
+  const rawMb = (booksChars + notesChars) / (1024 * 1024);
+  const usedMb = Math.max(0.1, Number((rawMb + (allBooks.length * 0.25) + (allNotes.length * 0.04)).toFixed(1)));
+  const quotaMb = 500;
+  const percent = Math.min(100, Math.max(1, (usedMb / quotaMb) * 100));
+
   if (el.storageUsageText) {
-    el.storageUsageText.textContent = `${approxMb} MB / 500 MB (Supabase)`;
+    el.storageUsageText.textContent = `${usedMb} MB / ${quotaMb} MB (Supabase)`;
+  }
+  if (el.storageUsageProgressFill) {
+    el.storageUsageProgressFill.style.width = `${percent.toFixed(1)}%`;
   }
 }
 
@@ -1069,11 +1079,18 @@ function setupEventListeners() {
     switchBottomTab('library');
   });
 
-  // Profile icon
-  el.btnProfile.addEventListener('click', () => {
-    const provider = appSettings.activeProvider.toUpperCase();
-    showToast(`Aktif Motor: ${provider} (Otomatik .env)`, 'success');
-  });
+  // Profile icon & Storage Card (Open Account Modal)
+  if (el.btnProfile) {
+    el.btnProfile.addEventListener('click', () => {
+      openAccountModal();
+    });
+  }
+
+  if (el.cardStorageUsage) {
+    el.cardStorageUsage.addEventListener('click', () => {
+      openAccountModal();
+    });
+  }
 
   // Reader Header Action Buttons
   el.btnCloseReader.addEventListener('click', closeReader);
@@ -1764,6 +1781,20 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
   }
 }
 
+// Cryptographic PDF fingerprint generator (SHA-256 hash of header & structure)
+async function generatePdfFingerprint(file) {
+  try {
+    const slice = file.slice(0, 32768);
+    const buffer = await slice.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+    return `pdf_${file.size}_${hashHex}`;
+  } catch (_) {
+    return `pdf_${file.size}_${file.name.toLowerCase()}`;
+  }
+}
+
 async function handlePdfFiles(files) {
   if (!files || files.length === 0) return;
   const file = files[0];
@@ -1776,12 +1807,50 @@ async function handlePdfFiles(files) {
   if (el.fileInputPdf) el.fileInputPdf.value = '';
 
   try {
-    showToast('Kitap açılıyor...', 'info');
+    showToast('Kitap kontrol ediliyor...', 'info');
     const { numPages, pdfDoc } = await loadPdf(file);
     currentPdfDoc = pdfDoc;
     currentPdfNumPages = numPages;
 
     const docName = file.name.replace(/\.[^/.]+$/, '');
+    const fingerprint = await generatePdfFingerprint(file);
+
+    // 1. Kitaplıkta aynı PDF daha önceden kayıtlı mı kontrol et!
+    const allBooks = getBooks();
+    const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, '');
+    const normalizedName = normalize(docName);
+
+    const existingBook = allBooks.find(b => {
+      // Kriter 1: Parmak izi (SHA-256 hash) birebir eşleşiyor mu?
+      if (b.pdfFingerprint && b.pdfFingerprint === fingerprint) return true;
+      // Kriter 2: Dosya boyutu ve toplam sayfa sayısı eşleşiyor mu?
+      if (b.fileSize && b.fileSize === file.size && b.totalPages === numPages) return true;
+      // Kriter 3: İsim ve toplam sayfa sayısı eşleşiyor mu?
+      if (normalize(b.title) === normalizedName && b.totalPages === numPages) return true;
+      return false;
+    });
+
+    if (existingBook) {
+      // Eğer eski kitapta parmak izi eksikse güncelle
+      if (!existingBook.pdfFingerprint || !existingBook.fileSize) {
+        existingBook.pdfFingerprint = fingerprint;
+        existingBook.fileSize = file.size;
+        saveBook(existingBook);
+      }
+
+      setCurrentBook(existingBook.id);
+      renderHomeScreen();
+      renderLibraryScreen();
+
+      openBookInReader(existingBook);
+      const progress = existingBook.progress || 0;
+      const page = existingBook.currentPage || 1;
+      showToast(`Bu kitap zaten kitaplığınızda var! Kaldığınız yerden (%${progress}, Sayfa ${page}) devam ediliyor.`, 'success');
+
+      // Taranmamış sayfalar varsa arka plan analizini sürdür
+      startBackgroundPdfAnalysis(existingBook, pdfDoc);
+      return;
+    }
 
     // Yeni kitap nesnesi oluştur ve hemen kaydet
     const newBook = {
@@ -1792,6 +1861,8 @@ async function handlePdfFiles(files) {
       totalPages: numPages,
       currentPage: 1,
       progress: 0,
+      fileSize: file.size,
+      pdfFingerprint: fingerprint,
       date: new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }),
       chapter: '1. Sayfa',
       status: 'okunanlar',
@@ -1805,7 +1876,7 @@ async function handlePdfFiles(files) {
     renderHomeScreen();
     renderLibraryScreen();
 
-    // DİREKT OKUYUCUYA GEÇ! Ekteki modal ekranı ASLA gelmeyecek!
+    // DİREKT OKUYUCUYA GEÇ!
     openBookInReader(newBook);
     showToast(`${docName} (${numPages} Sayfa) açıldı. Sayfalar arka planda taranıyor.`, 'success');
 

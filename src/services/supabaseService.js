@@ -127,13 +127,24 @@ function bookToDbRow(book, userId) {
     status: book.status || 'okunanlar',
     content: book.content || '',
     real_page_image: book.realPageImage || '',
-    page_paragraphs: book.pageParagraphs || {},
+    page_paragraphs: {
+      ...(book.pageParagraphs || {}),
+      __meta: {
+        pdfFingerprint: book.pdfFingerprint || '',
+        fileSize: book.fileSize || 0
+      }
+    },
     updated_at: new Date().toISOString()
   };
 }
 
 // Helper to convert database row back into Reawid Book object
 function dbRowToBook(row) {
+  const paragraphs = row.page_paragraphs || {};
+  const meta = paragraphs.__meta || {};
+  const cleanParagraphs = { ...paragraphs };
+  delete cleanParagraphs.__meta;
+
   return {
     id: row.id,
     title: row.title || 'Başlıksız Kitap',
@@ -148,7 +159,9 @@ function dbRowToBook(row) {
     status: row.status || 'okunanlar',
     content: row.content || '',
     realPageImage: row.real_page_image || '',
-    pageParagraphs: row.page_paragraphs || {},
+    pageParagraphs: cleanParagraphs,
+    pdfFingerprint: meta.pdfFingerprint || '',
+    fileSize: meta.fileSize || 0,
     date: row.updated_at ? new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(row.updated_at)) : 'Bugün',
     updatedAt: row.updated_at
   };
