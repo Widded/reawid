@@ -520,20 +520,41 @@ function renderHomeScreen() {
     });
   }
 
-  // Calculate accurate storage based on books, paragraphs & notes
+  // Calculate storage based on books, paragraphs & notes and user login state
+  const user = getCurrentUser ? getCurrentUser() : null;
   const allNotes = getNotes ? getNotes() : [];
   const booksChars = (localStorage.getItem('reawid_books_v2') || '').length;
   const notesChars = (localStorage.getItem('reawid_notes_v2') || '').length;
   const rawMb = (booksChars + notesChars) / (1024 * 1024);
-  const usedMb = Math.max(0.1, Number((rawMb + (allBooks.length * 0.25) + (allNotes.length * 0.04)).toFixed(1)));
-  const quotaMb = 500;
-  const percent = Math.min(100, Math.max(1, (usedMb / quotaMb) * 100));
+  const totalItems = allBooks.length + allNotes.length;
+  const usedMb = totalItems === 0 ? 0 : Number((rawMb + (allBooks.length * 0.25) + (allNotes.length * 0.04)).toFixed(1));
 
-  if (el.storageUsageText) {
-    el.storageUsageText.textContent = `${usedMb} MB / ${quotaMb} MB (Supabase)`;
-  }
-  if (el.storageUsageProgressFill) {
-    el.storageUsageProgressFill.style.width = `${percent.toFixed(1)}%`;
+  if (user) {
+    // Authenticated: Actually synced to Supabase Cloud
+    const quotaMb = 500;
+    const percent = Math.min(100, Math.max(usedMb > 0 ? 1 : 0, (usedMb / quotaMb) * 100));
+    if (el.storageUsageText) {
+      el.storageUsageText.textContent = `${usedMb} MB / ${quotaMb} MB (Supabase Bulut)`;
+    }
+    if (el.storageUsageProgressFill) {
+      el.storageUsageProgressFill.style.width = `${percent.toFixed(1)}%`;
+      el.storageUsageProgressFill.style.background = 'linear-gradient(90deg, #0a84ff, #5e5ce6)';
+    }
+  } else {
+    // Not logged in: 100% Local Device Storage (NOT in Supabase)
+    if (el.storageUsageText) {
+      if (allBooks.length === 0) {
+        el.storageUsageText.textContent = '0 MB · Cihaz Hafızası (Giriş Yapılmadı)';
+      } else {
+        el.storageUsageText.textContent = `${usedMb} MB (Yalnızca Bu Cihazda) · Buluta Eşitle`;
+      }
+    }
+    if (el.storageUsageProgressFill) {
+      const localBudgetMb = 50;
+      const localPercent = Math.min(100, Math.max(usedMb > 0 ? 2 : 0, (usedMb / localBudgetMb) * 100));
+      el.storageUsageProgressFill.style.width = `${localPercent.toFixed(1)}%`;
+      el.storageUsageProgressFill.style.background = 'rgba(255, 255, 255, 0.25)';
+    }
   }
 }
 
