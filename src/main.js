@@ -2697,7 +2697,7 @@ function setupSettingsScreenEvents() {
    PWA & System File Integration
    ========================================================================== */
 function setupPwa() {
-  const CURRENT_CACHE = 'reawid-apple-v22';
+  const CURRENT_CACHE = 'reawid-apple-v23';
   if ('caches' in window) {
     caches.keys().then((keys) => {
       keys.forEach((key) => {

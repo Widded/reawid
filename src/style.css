@@ -106,7 +106,7 @@ textarea,
   display: flex;
   flex-direction: column;
   position: relative;
-  padding-bottom: 96px; /* Space for bottom tab bar */
+  padding-bottom: 0; /* Padding is handled per screen view to prevent double scroll/overflow */
   overflow-x: hidden;
   box-sizing: border-box;
   touch-action: pan-x pan-y;
@@ -123,7 +123,7 @@ textarea,
   padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px));
   padding-left: 16px;
   padding-right: 16px;
-  padding-bottom: 24px;
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -2652,6 +2652,8 @@ input:checked + .switch-slider:before {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  width: 100%;
   max-width: 440px;
   margin: 0 auto;
   background: #000000;
@@ -2663,17 +2665,19 @@ input:checked + .switch-slider:before {
 .library-header {
   padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px));
   padding-bottom: 8px;
-  padding-left: 20px;
-  padding-right: 20px;
+  padding-left: 16px;
+  padding-right: 16px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
   box-sizing: border-box;
 }
 
 .library-header-text {
   flex: 1;
+  min-width: 0;
 }
 
 .library-title {
@@ -2697,6 +2701,7 @@ input:checked + .switch-slider:before {
   align-items: center;
   gap: 4px;
   padding-top: 2px;
+  flex-shrink: 0;
 }
 
 .library-icon-btn {
@@ -2724,7 +2729,9 @@ input:checked + .switch-slider:before {
 
 /* Library Search Bar */
 .library-search-wrap {
-  padding: 8px 18px 10px;
+  padding: 8px 16px 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .library-search-box {
@@ -2736,6 +2743,8 @@ input:checked + .switch-slider:before {
   align-items: center;
   padding: 0 12px;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
@@ -2753,6 +2762,7 @@ input:checked + .switch-slider:before {
 
 .library-search-field {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
@@ -2774,6 +2784,7 @@ input:checked + .switch-slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .btn-clear-search svg {
@@ -2783,20 +2794,26 @@ input:checked + .switch-slider:before {
 
 /* Filter Tabs & Sort Controls */
 .library-filters-row {
-  padding: 2px 18px 12px;
+  padding: 2px 16px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .library-filter-pills {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .library-filter-pills::-webkit-scrollbar {
@@ -2858,16 +2875,20 @@ input:checked + .switch-slider:before {
 .library-scroll-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px 96px;
+  overflow-x: hidden;
+  padding: 0 16px calc(84px + env(safe-area-inset-bottom, 0px));
   scroll-behavior: smooth;
   box-sizing: border-box;
   touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .library-books-stack {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .library-book-card {
@@ -2882,6 +2903,8 @@ input:checked + .switch-slider:before {
   transition: background var(--transition-fast), transform var(--transition-fast);
   position: relative;
   box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
 .library-book-card:hover {
@@ -2909,6 +2932,7 @@ input:checked + .switch-slider:before {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  overflow: hidden;
 }
 
 .library-book-title {
@@ -2937,10 +2961,13 @@ input:checked + .switch-slider:before {
   align-items: center;
   gap: 10px;
   margin-top: 5px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .library-progress-track {
   flex: 1;
+  min-width: 0;
   height: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
@@ -2961,6 +2988,7 @@ input:checked + .switch-slider:before {
   min-width: 28px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .library-book-status {
@@ -2977,7 +3005,8 @@ input:checked + .switch-slider:before {
   flex-direction: column;
   align-items: flex-end;
   justify-content: space-between;
-  height: 74px;
+  align-self: stretch;
+  min-height: 68px;
   flex-shrink: 0;
   padding-left: 4px;
 }
@@ -3016,11 +3045,11 @@ input:checked + .switch-slider:before {
 /* Floating Action Button (+ Yeni Kitap) */
 .library-fab-btn {
   position: fixed;
-  bottom: 84px;
-  right: calc(50% - 220px + 18px);
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  right: max(18px, calc(50% - 220px + 18px));
   z-index: 80;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: #2c2c2e;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -3028,7 +3057,7 @@ input:checked + .switch-slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
   cursor: pointer;
   transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background var(--transition-fast);
 }
