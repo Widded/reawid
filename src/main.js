@@ -1563,9 +1563,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal) {
       signal,
       onModelFallback: ({ from, to, reason }) => {
         console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason})`);
-        const fromShort = from.replace(/OpenRouter \(|\)|Groq \(/g, '');
-        const toShort = to.replace(/OpenRouter \(|\)|Groq \(/g, '');
-        updateReaderBgOcrStatus(`S.${pageNum} (${fromShort} yoğun, ${toShort})`, true);
+        updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
       }
     });
 
@@ -1623,9 +1621,11 @@ function prioritizePageAnalysis(pageNum) {
   if (!currentActiveBook || !currentPdfDoc) return;
   if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[pageNum]) return;
 
+  const total = currentTotalPages || currentPdfDoc.numPages || (currentActiveBook?.totalPages || 1);
+
   // Zaten o an bir paralel worker tarafından işleniyorsa
   if (activeAnalyzingPages.has(pageNum)) {
-    updateReaderBgOcrStatus(`Sayfa ${pageNum} taranıyor...`, true);
+    updateReaderBgOcrStatus(`${pageNum} / ${total}`, true);
     return;
   }
 
@@ -1646,7 +1646,7 @@ function prioritizePageAnalysis(pageNum) {
   if (!isBackgroundOcrActive) {
     startBackgroundPdfAnalysis(currentActiveBook, currentPdfDoc);
   } else {
-    updateReaderBgOcrStatus(`Sayfa ${pageNum} öncelikli taranıyor...`, true);
+    updateReaderBgOcrStatus(`${pageNum} / ${total}`, true);
   }
 }
 
@@ -1674,9 +1674,8 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
       activeWorkerControllers.set(workerId, { controller, pageNum: targetPage });
 
       const isPriority = (targetPage === currentReaderPage);
-      const readyCount = Object.keys(book.pageParagraphs).length;
       updateReaderBgOcrStatus(
-        isPriority ? `Sayfa ${targetPage} taranıyor...` : `Sayfa ${targetPage}/${totalPages} (${readyCount} hazır)`,
+        `${targetPage} / ${totalPages}`,
         isPriority
       );
 
@@ -1707,8 +1706,7 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
 
   try {
     await Promise.all(workerPromises);
-    const finalCount = Object.keys(book.pageParagraphs).length;
-    updateReaderBgOcrStatus(`Tüm sayfalar hazır (${finalCount} sayfa)`, false, true);
+    updateReaderBgOcrStatus(`${totalPages} / ${totalPages}`, false, true);
     setTimeout(() => hideReaderBgOcrStatus(), 4000);
   } catch (err) {
     console.warn('Arka plan analizi durduruldu:', err);
