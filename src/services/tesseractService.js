@@ -65,9 +65,7 @@ export async function getOrInitTesseractWorker(onProgress = null) {
 
       try {
         await worker.setParameters({
-          user_defined_dpi: '300',
-          preserve_interword_spaces: '1',
-          tessedit_pageseg_mode: '1'
+          tessedit_pageseg_mode: '3'
         });
       } catch (paramErr) {
         console.warn('[Tesseract Service] Parametre ayarlama uyarısı:', paramErr);
@@ -154,12 +152,12 @@ export async function performTesseractOcr({
       throw new Error('İşlem kullanıcı tarafından durduruldu.');
     }
 
-    // 1. Akıllı Adaptif Eşikleme & Otomatik Seviyeler (Faint Text & Contrast Enhancement)
+    // 1. Akıllı Kontrast Germe & Gri Tonlama (Preserve smooth letter contours for LSTM)
     let processedSource = imageSource;
     if (options.preprocess !== false && typeof document !== 'undefined') {
       try {
         processedSource = await preprocessImageForOcr(imageSource, {
-          mode: options.preprocessMode || 'adaptive_threshold'
+          mode: options.preprocessMode || 'contrast_stretch'
         });
       } catch (prepErr) {
         console.warn('[Tesseract Service] Ön işleme atlandı, ham görsel deneniyor:', prepErr);
@@ -178,10 +176,10 @@ export async function performTesseractOcr({
     let confidence = Math.round(recognizeRes?.data?.confidence || 0);
 
     // 2. İki Aşamalı Akıllı Fallback (Two-Pass OCR):
-    // Eğer güven skoru %62 altında kalırsa, yüksek kontrastlı gri tonlama filtresiyle 2. turu dene
+    // Eğer güven skoru %62 altında kalırsa, integral Bradley-Roth adaptif eşikleme ile 2. turu dene
     if (confidence < 62 && options.twoPass !== false && typeof document !== 'undefined' && !signal?.aborted) {
       try {
-        const pass2Source = await preprocessImageForOcr(imageSource, { mode: 'contrast_stretch' });
+        const pass2Source = await preprocessImageForOcr(imageSource, { mode: 'adaptive_threshold' });
         const pass2Promise = worker.recognize(pass2Source);
         const pass2Res = await Promise.race([
           pass2Promise,
@@ -191,7 +189,7 @@ export async function performTesseractOcr({
         const pass2Conf = Math.round(pass2Res?.data?.confidence || 0);
 
         if (pass2Conf > confidence || (pass2Text.length > rawText.length * 1.3 && pass2Conf >= 45)) {
-          console.info(`[Tesseract OCR] ✅ İkinci aşama (High-Contrast Grayscale) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
+          console.info(`[Tesseract OCR] ✅ İkinci aşama (Adaptive Thresholding) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
           rawText = pass2Text;
           confidence = pass2Conf;
         }
