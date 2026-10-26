@@ -315,7 +315,11 @@ const el = {
   popoverResetBookOcr: document.getElementById('popoverResetBookOcr'),
   readerSearchBar: document.getElementById('readerSearchBar'),
   readerSearchInput: document.getElementById('readerSearchInput'),
+  readerSearchCount: document.getElementById('readerSearchCount'),
+  btnReaderSearchPrev: document.getElementById('btnReaderSearchPrev'),
+  btnReaderSearchNext: document.getElementById('btnReaderSearchNext'),
   btnCloseReaderSearch: document.getElementById('btnCloseReaderSearch'),
+  btnExitZenMode: document.getElementById('btnExitZenMode'),
   readerContentScroll: document.getElementById('readerContentScroll'),
   readerArticleBody: document.getElementById('readerArticleBody'),
   readerChapterBadge: document.getElementById('readerChapterBadge'),
@@ -911,6 +915,9 @@ function openBookInReader(book, targetPage = null) {
   // Screen Wake Lock request
   requestWakeLock();
 
+  // Lock body scroll and pin reader
+  document.body.classList.add('reader-open');
+
   // Display Reader Screen
   el.inAppReaderView.classList.remove('hidden');
   closeMoreMenu();
@@ -926,6 +933,7 @@ function closeReader() {
   stopSpeech();
   releaseWakeLock();
   terminateTesseractWorker().catch(() => {});
+  document.body.classList.remove('reader-open');
   el.inAppReaderView.classList.add('hidden');
   closeComparisonView();
   closeMoreMenu();
@@ -1271,6 +1279,11 @@ function renderReaderPage(pageNum, turnDirection = null) {
   // Smooth scroll to top of reading area
   el.readerContentScroll.scrollTop = 0;
 
+  // Active search highlight on page change
+  if (currentSearchQuery && currentSearchQuery.length >= 2) {
+    highlightCurrentPageMatches();
+  }
+
   // If Comparison Modal is currently open, synchronize it immediately without recursive loops!
   if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden') && !isSyncingComparison) {
     isSyncingComparison = true;
@@ -1385,10 +1398,22 @@ function closeMoreMenu() {
   if (el.readerMoreMenu) el.readerMoreMenu.classList.add('hidden');
 }
 
+let currentSearchQuery = '';
+let searchMatches = []; // array of { page, index, length }
+let currentSearchMatchIndex = -1;
+let searchDebounceTimer = null;
+
 function toggleSearchBar() {
+  if (!el.readerSearchBar) return;
+  const isOpening = el.readerSearchBar.classList.contains('hidden');
   el.readerSearchBar.classList.toggle('hidden');
-  if (!el.readerSearchBar.classList.contains('hidden')) {
+  if (isOpening) {
     el.readerSearchInput.focus();
+    if (el.readerSearchInput.value.trim().length >= 2) {
+      executeReaderSearch(el.readerSearchInput.value.trim());
+    }
+  } else {
+    clearSearchHighlights();
   }
 }
 
@@ -1396,6 +1421,187 @@ function closeReaderSearch() {
   if (el.readerSearchBar) {
     el.readerSearchBar.classList.add('hidden');
     el.readerSearchInput.value = '';
+  }
+  if (el.readerSearchCount) {
+    el.readerSearchCount.classList.add('hidden');
+    el.readerSearchCount.textContent = '0 / 0';
+    el.readerSearchCount.classList.remove('no-matches');
+  }
+  currentSearchQuery = '';
+  searchMatches = [];
+  currentSearchMatchIndex = -1;
+  clearSearchHighlights();
+}
+
+function clearSearchHighlights() {
+  if (!el.readerParagraphsContainer) return;
+  const marks = el.readerParagraphsContainer.querySelectorAll('mark.search-highlight');
+  marks.forEach(mark => {
+    const parent = mark.parentNode;
+    if (parent) {
+      parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      parent.normalize();
+    }
+  });
+}
+
+function executeReaderSearch(query) {
+  const q = (query || '').trim();
+  currentSearchQuery = q;
+  searchMatches = [];
+  currentSearchMatchIndex = -1;
+
+  if (q.length < 2) {
+    clearSearchHighlights();
+    if (el.readerSearchCount) el.readerSearchCount.classList.add('hidden');
+    return;
+  }
+
+  if (!currentActiveBook) return;
+
+  const totalP = currentTotalPages || 1;
+  const lowerQ = q.toLocaleLowerCase('tr');
+
+  for (let p = 1; p <= totalP; p++) {
+    let pageText = '';
+    if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[p]) {
+      const pArr = currentActiveBook.pageParagraphs[p];
+      pageText = Array.isArray(pArr) ? pArr.join('\n') : String(pArr);
+    } else if (p === 1 && currentActiveBook.content) {
+      pageText = currentActiveBook.content;
+    }
+
+    if (!pageText) continue;
+
+    const lowerText = pageText.toLocaleLowerCase('tr');
+    let startIndex = 0;
+    while (startIndex < lowerText.length) {
+      const foundIndex = lowerText.indexOf(lowerQ, startIndex);
+      if (foundIndex === -1) break;
+      searchMatches.push({
+        page: p,
+        index: foundIndex,
+        length: q.length
+      });
+      startIndex = foundIndex + Math.max(1, q.length);
+    }
+  }
+
+  if (el.readerSearchCount) {
+    el.readerSearchCount.classList.remove('hidden');
+    if (searchMatches.length === 0) {
+      el.readerSearchCount.textContent = '0 sonuç';
+      el.readerSearchCount.classList.add('no-matches');
+      clearSearchHighlights();
+    } else {
+      el.readerSearchCount.classList.remove('no-matches');
+      let nearestIndex = searchMatches.findIndex(m => m.page >= currentReaderPage);
+      if (nearestIndex === -1) nearestIndex = 0;
+      currentSearchMatchIndex = nearestIndex;
+      el.readerSearchCount.textContent = `${currentSearchMatchIndex + 1} / ${searchMatches.length}`;
+      goToSearchMatch(currentSearchMatchIndex, false);
+    }
+  }
+}
+
+function goToSearchMatch(matchIdx, switchPage = true) {
+  if (searchMatches.length === 0 || matchIdx < 0 || matchIdx >= searchMatches.length) return;
+  currentSearchMatchIndex = matchIdx;
+  const targetMatch = searchMatches[matchIdx];
+
+  if (el.readerSearchCount) {
+    el.readerSearchCount.classList.remove('hidden');
+    el.readerSearchCount.textContent = `${matchIdx + 1} / ${searchMatches.length}`;
+  }
+
+  if (targetMatch.page !== currentReaderPage) {
+    if (switchPage) {
+      renderReaderPage(targetMatch.page);
+    }
+  } else {
+    highlightCurrentPageMatches();
+  }
+}
+
+function nextSearchMatch() {
+  if (searchMatches.length === 0) return;
+  const nextIdx = (currentSearchMatchIndex + 1) % searchMatches.length;
+  goToSearchMatch(nextIdx, true);
+}
+
+function prevSearchMatch() {
+  if (searchMatches.length === 0) return;
+  const prevIdx = (currentSearchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+  goToSearchMatch(prevIdx, true);
+}
+
+function highlightCurrentPageMatches() {
+  if (!el.readerParagraphsContainer) return;
+  clearSearchHighlights();
+  if (!currentSearchQuery || currentSearchQuery.length < 2) return;
+
+  const q = currentSearchQuery;
+  const lowerQ = q.toLocaleLowerCase('tr');
+
+  const walker = document.createTreeWalker(
+    el.readerParagraphsContainer,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement && node.parentElement.tagName !== 'MARK' && node.nodeValue.trim().length > 0) {
+      textNodes.push(node);
+    }
+  }
+
+  const createdMarks = [];
+
+  textNodes.forEach(textNode => {
+    const text = textNode.nodeValue;
+    const lowerText = text.toLocaleLowerCase('tr');
+    let idx = lowerText.indexOf(lowerQ);
+    if (idx === -1) return;
+
+    const fragment = document.createDocumentFragment();
+    let lastIdx = 0;
+
+    while (idx !== -1) {
+      if (idx > lastIdx) {
+        fragment.appendChild(document.createTextNode(text.substring(lastIdx, idx)));
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'search-highlight';
+      mark.textContent = text.substring(idx, idx + q.length);
+      fragment.appendChild(mark);
+      createdMarks.push(mark);
+
+      lastIdx = idx + q.length;
+      idx = lowerText.indexOf(lowerQ, lastIdx);
+    }
+
+    if (lastIdx < text.length) {
+      fragment.appendChild(document.createTextNode(text.substring(lastIdx)));
+    }
+
+    textNode.parentNode.replaceChild(fragment, textNode);
+  });
+
+  const pageMatches = searchMatches.filter(m => m.page === currentReaderPage);
+  const activeMatch = searchMatches[currentSearchMatchIndex];
+  if (activeMatch && activeMatch.page === currentReaderPage && pageMatches.length > 0) {
+    const pageIndex = pageMatches.indexOf(activeMatch);
+    if (pageIndex >= 0 && createdMarks[pageIndex]) {
+      createdMarks[pageIndex].classList.add('active-match');
+      try {
+        createdMarks[pageIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (_) {}
+    }
+  } else if (createdMarks.length > 0) {
+    createdMarks[0].classList.add('active-match');
   }
 }
 
@@ -1445,6 +1651,10 @@ async function openComparisonView() {
     }
   }
 
+  if (el.comparisonViewModal) {
+    el.comparisonViewModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
+    el.comparisonViewModal.classList.add(`theme-${currentReaderTheme || 'koyu'}`);
+  }
   el.comparisonViewModal.classList.remove('hidden');
   await updateComparisonPage(currentReaderPage);
   showToast(`Sayfa ${currentReaderPage} karşılaştırma stüdyosunda açıldı`, 'info');
@@ -1965,11 +2175,12 @@ function toggleZenMode(forceState = null) {
   if (el.inAppReaderView) {
     el.inAppReaderView.classList.toggle('zen-mode', isZenMode);
   }
+  if (el.btnExitZenMode) {
+    el.btnExitZenMode.classList.toggle('hidden', !isZenMode);
+  }
   closeMoreMenu();
   closeReaderSearch();
-  if (isZenMode) {
-    showToast('Tam ekran odak modu açıldı (çıkmak için dokunun)', 'info');
-  }
+  // Bildirim popup kaldırıldı (kullanıcı talebi)
 }
 
 /**
@@ -2047,9 +2258,11 @@ function setupReaderSwipeNavigation() {
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) return;
 
-    // 1. Temiz Tek Dokunuş (Single-Tap) -> Zen Odak Modunu Aç / Kapat
+    // 1. Temiz Tek Dokunuş (Single-Tap) -> Odak modundaysa kontrolleri geri getir
     if (Math.abs(diffX) < 14 && Math.abs(diffY) < 14 && elapsedTime < 280) {
-      toggleZenMode();
+      if (isZenMode) {
+        toggleZenMode(false);
+      }
       return;
     }
 
@@ -2098,7 +2311,9 @@ function setupReaderSwipeNavigation() {
     if (selection && selection.toString().trim().length > 0) return;
 
     if (diffX < 6 && diffY < 6 && elapsed < 300) {
-      toggleZenMode();
+      if (isZenMode) {
+        toggleZenMode(false);
+      }
     }
   });
 
@@ -2168,6 +2383,65 @@ function setupEventListeners() {
   }
   el.btnReaderSearch.addEventListener('click', toggleSearchBar);
   el.btnCloseReaderSearch.addEventListener('click', closeReaderSearch);
+
+  if (el.readerSearchInput) {
+    el.readerSearchInput.addEventListener('input', (e) => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        executeReaderSearch(e.target.value);
+      }, 180);
+    });
+    el.readerSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          prevSearchMatch();
+        } else {
+          nextSearchMatch();
+        }
+      } else if (e.key === 'Escape') {
+        closeReaderSearch();
+      }
+    });
+  }
+
+  if (el.btnReaderSearchPrev) {
+    el.btnReaderSearchPrev.addEventListener('click', prevSearchMatch);
+  }
+  if (el.btnReaderSearchNext) {
+    el.btnReaderSearchNext.addEventListener('click', nextSearchMatch);
+  }
+  if (el.btnExitZenMode) {
+    el.btnExitZenMode.addEventListener('click', () => {
+      toggleZenMode(false);
+    });
+  }
+
+  // Global Escape key controller
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
+        closeComparisonView();
+        return;
+      }
+      if (isZenMode) {
+        toggleZenMode(false);
+        return;
+      }
+      if (el.readerSearchBar && !el.readerSearchBar.classList.contains('hidden')) {
+        closeReaderSearch();
+        return;
+      }
+      if (el.readerMoreMenu && !el.readerMoreMenu.classList.contains('hidden')) {
+        closeMoreMenu();
+        return;
+      }
+      if (typeof isSettingsOpen !== 'undefined' && isSettingsOpen) {
+        closeSettingsSheet();
+        return;
+      }
+    }
+  });
 
   el.btnReaderMore.addEventListener('click', (e) => {
     e.stopPropagation();

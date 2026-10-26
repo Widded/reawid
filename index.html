@@ -883,11 +883,35 @@
         </button>
       </div>
 
-      <!-- Quick In-Book Search Bar (toggleable) -->
+      <!-- Quick In-Book Search Bar (toggleable & fully functional) -->
       <div id="readerSearchBar" class="reader-search-wrap hidden">
-        <input type="text" id="readerSearchInput" class="reader-search-input" placeholder="Kitap içinde ara...">
+        <div class="reader-search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="reader-search-box-icon">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="search" id="readerSearchInput" class="reader-search-input" placeholder="Kitap içinde ara..." autocomplete="off">
+          <span id="readerSearchCount" class="reader-search-count hidden">0 / 0</span>
+          <div class="reader-search-arrows">
+            <button id="btnReaderSearchPrev" class="reader-search-nav-btn" aria-label="Önceki Eşleşme" title="Önceki (Shift+Enter)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            </button>
+            <button id="btnReaderSearchNext" class="reader-search-nav-btn" aria-label="Sonraki Eşleşme" title="Sonraki (Enter)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+          </div>
+        </div>
         <button id="btnCloseReaderSearch" class="btn-close-search">Vazgeç</button>
       </div>
+
+      <!-- Floating Zen Mode Exit Pill -->
+      <button id="btnExitZenMode" class="reader-zen-exit-pill hidden" aria-label="Odak Modundan Çık" title="Odak Modundan Çık (Esc)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <span>Odaktan Çık</span>
+      </button>
 
       <!-- Reader Scrollable Main Content -->
       <div class="reader-content-scroll" id="readerContentScroll">
@@ -1558,26 +1582,7 @@
             </svg>
             <span>Orijinal Kitap Sayfası</span>
           </span>
-          <div class="pane-actions">
-            <button class="pane-action-btn" id="btnZoomOriginalIn" title="Yakınlaştır (+)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="btn-mini-icon">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
-            <button class="pane-action-btn" id="btnZoomOriginalReset" title="Varsayılan Boyut">100%</button>
-            <button class="pane-action-btn" id="btnZoomOriginalOut" title="Uzaklaştır (-)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="btn-mini-icon">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
-            <button class="pane-action-btn" id="btnFitOriginal" title="Ekrana Sığdır">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-mini-icon">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-              </svg>
-              <span>Sığdır</span>
-            </button>
-          </div>
+          <span class="pane-hint-text">Görseli sürükleyip çift tıklayarak yakınlaştırabilirsiniz</span>
         </div>
 
         <div class="original-page-viewport" id="originalPageViewport" title="Çift tıkla yakınlaştır / uzaklaştır • Tekerlek ile zoom yapabilir veya sayfayı sürükleyebilirsiniz">
@@ -1595,6 +1600,24 @@
             </div>
             <h4 id="compareOriginalEmptyTitle">Orijinal Sayfa Hazırlanıyor...</h4>
             <p id="compareOriginalEmptyDesc">Yüksek çözünürlüklü sayfa görüntüsü taranıyor.</p>
+          </div>
+
+          <!-- Apple Floating Zoom Dock Bar -->
+          <div class="apple-zoom-floating-dock" role="toolbar" aria-label="Yakınlaştırma Kontrolleri">
+            <button class="zoom-dock-btn" id="btnZoomOriginalOut" title="Uzaklaştır (-)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button class="zoom-dock-btn zoom-dock-pct" id="btnZoomOriginalReset" title="Varsayılan Boyut (%100)">100%</button>
+            <button class="zoom-dock-btn" id="btnZoomOriginalIn" title="Yakınlaştır (+)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="zoom-dock-sep"></div>
+            <button class="zoom-dock-btn zoom-dock-fit" id="btnFitOriginal" title="Ekrana Sığdır">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+              </svg>
+              <span>Sığdır</span>
+            </button>
           </div>
         </div>
       </div>
