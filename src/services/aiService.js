@@ -542,6 +542,40 @@ export function healTurkishOcrArtifacts(text) {
   s = s.replace(/(^|[^\p{L}\p{N}])ede\s+biyat(?=[^\p{L}\p{N}]|$)/giu, '$1edebiyat');
   s = s.replace(/(^|[^\p{L}\p{N}])mille\s+tvekil(i|liği|lik)?(?=[^\p{L}\p{N}]|$)/giu, '$1milletvekil$2');
 
+  // 11. Section symbol '§' visual confusion for 'ş' (faint/broken diacritic tails)
+  // e.g. "§u" -> "şu", "§imdi" -> "şimdi", "ba§ka" -> "başka", "ak§am" -> "akşam", "kar§ı" -> "karşı", "çalı§" -> "çalış"
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ])§([a-zçğıöşüA-ZÇĞİÖŞÜ])/gu, '$1ş$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])§([a-zçğıöşüA-ZÇĞİÖŞÜ]+)/gu, '$1ş$2');
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ]+)§(?=[^\p{L}\p{N}]|$)/gu, '$1ş');
+
+  // 12. Visual confusion: 'rn' instead of 'm' in common Turkish vocabulary
+  // e.g. "zarnan" -> "zaman", "tarnam" -> "tamam", "adarn" -> "adam", "anlarn" -> "anlam", "dönern" -> "dönem"
+  s = s.replace(/(^|[^\p{L}\p{N}])zarnan(?=[^\p{L}\p{N}]|$)/giu, '$1zaman');
+  s = s.replace(/(^|[^\p{L}\p{N}])tarnam(?=[^\p{L}\p{N}]|$)/giu, '$1tamam');
+  s = s.replace(/(^|[^\p{L}\p{N}])adarn(?=[^\p{L}\p{N}]|$)/giu, '$1adam');
+  s = s.replace(/(^|[^\p{L}\p{N}])anlarn(?=[^\p{L}\p{N}]|$)/giu, '$1anlam');
+  s = s.replace(/(^|[^\p{L}\p{N}])dönern(?=[^\p{L}\p{N}]|$)/giu, '$1dönem');
+  s = s.replace(/(^|[^\p{L}\p{N}])yetenekll(?=[^\p{L}\p{N}]|$)/giu, '$1yetenekli');
+  s = s.replace(/(^|[^\p{L}\p{N}])kellme(?=[^\p{L}\p{N}]|$)/giu, '$1kelime');
+
+  // 13. Contextual repair for common book words with dropped diacritics in faint scans
+  s = s.replace(/(^|[^\p{L}\p{N}])cunku(?=[^\p{L}\p{N}]|$)/giu, '$1çünkü');
+  s = s.replace(/(^|[^\p{L}\p{N}])ogrenci(ler|ye|den|si|miz|niz)?(?=[^\p{L}\p{N}]|$)/giu, '$1öğrenci$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])hukumet(ler|i|e|ten|in)?(?=[^\p{L}\p{N}]|$)/giu, '$1hükümet$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])yalniz(?=[^\p{L}\p{N}]|$)/giu, '$1yalnız');
+  s = s.replace(/(^|[^\p{L}\p{N}])yanlis(?=[^\p{L}\p{N}]|$)/giu, '$1yanlış');
+  s = s.replace(/(^|[^\p{L}\p{N}])birkac(?=[^\p{L}\p{N}]|$)/giu, '$1birkaç');
+  s = s.replace(/(^|[^\p{L}\p{N}])hic(?=\s+[a-zçğıöşüA-ZÇĞİÖŞÜ]+)/giu, '$1hiç');
+  s = s.replace(/(^|[^\p{L}\p{N}])artik(?=\s+[a-zçğıöşüA-ZÇĞİÖŞÜ]+)/giu, '$1artık');
+  s = s.replace(/(^|[^\p{L}\p{N}])ayni(?=\s+[a-zçğıöşüA-ZÇĞİÖŞÜ]+)/giu, '$1aynı');
+  s = s.replace(/(^|[^\p{L}\p{N}])nasil(?=[^\p{L}\p{N}]|$)/giu, '$1nasıl');
+
+  // 14. Noise dots inside words caused by dust/faint paper flecks
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,})\.([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,})/gu, '$1$2');
+
+  // 15. Reconnect floating apostrophes
+  s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ]+)\s+['’]\s+([a-zçğıöşüA-ZÇĞİÖŞÜ]+)/gu, "$1'$2");
+
   return s;
 }
 

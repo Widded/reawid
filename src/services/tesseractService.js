@@ -4,6 +4,7 @@
 
 import { normalizeHyphensAndText, healTurkishOcrArtifacts } from './aiService.js';
 import { perfMonitor } from './perfMonitor.js';
+import { preprocessImageForOcr } from './imageProcessor.js';
 
 let tesseractWorker = null;
 let isInitializing = false;
@@ -61,6 +62,16 @@ export async function getOrInitTesseractWorker(onProgress = null) {
       );
 
       const worker = await Promise.race([workerPromise, timeoutPromise]);
+
+      try {
+        await worker.setParameters({
+          user_defined_dpi: '300',
+          preserve_interword_spaces: '1',
+          tessedit_pageseg_mode: '1'
+        });
+      } catch (paramErr) {
+        console.warn('[Tesseract Service] Parametre ayarlama uyarısı:', paramErr);
+      }
 
       tesseractWorker = worker;
       const elapsed = Math.round(performance.now() - t0);
@@ -143,15 +154,51 @@ export async function performTesseractOcr({
       throw new Error('İşlem kullanıcı tarafından durduruldu.');
     }
 
-    const recognizePromise = worker.recognize(imageSource);
+    // 1. Akıllı Adaptif Eşikleme & Otomatik Seviyeler (Faint Text & Contrast Enhancement)
+    let processedSource = imageSource;
+    if (options.preprocess !== false && typeof document !== 'undefined') {
+      try {
+        processedSource = await preprocessImageForOcr(imageSource, {
+          mode: options.preprocessMode || 'adaptive_threshold'
+        });
+      } catch (prepErr) {
+        console.warn('[Tesseract Service] Ön işleme atlandı, ham görsel deneniyor:', prepErr);
+        processedSource = imageSource;
+      }
+    }
+
+    const recognizePromise = worker.recognize(processedSource);
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Tesseract sayfa tanıma zaman aşımına uğradı (25s).')), 25000)
     );
     const recognizeRes = await Promise.race([recognizePromise, timeoutPromise]);
     const durationMs = Math.round(performance.now() - startTime);
 
-    const rawText = (recognizeRes?.data?.text || '').trim();
-    const confidence = Math.round(recognizeRes?.data?.confidence || 0);
+    let rawText = (recognizeRes?.data?.text || '').trim();
+    let confidence = Math.round(recognizeRes?.data?.confidence || 0);
+
+    // 2. İki Aşamalı Akıllı Fallback (Two-Pass OCR):
+    // Eğer güven skoru %62 altında kalırsa, yüksek kontrastlı gri tonlama filtresiyle 2. turu dene
+    if (confidence < 62 && options.twoPass !== false && typeof document !== 'undefined' && !signal?.aborted) {
+      try {
+        const pass2Source = await preprocessImageForOcr(imageSource, { mode: 'contrast_stretch' });
+        const pass2Promise = worker.recognize(pass2Source);
+        const pass2Res = await Promise.race([
+          pass2Promise,
+          new Promise((_, r) => setTimeout(() => r(new Error('Pass 2 timeout')), 15000))
+        ]);
+        const pass2Text = (pass2Res?.data?.text || '').trim();
+        const pass2Conf = Math.round(pass2Res?.data?.confidence || 0);
+
+        if (pass2Conf > confidence || (pass2Text.length > rawText.length * 1.3 && pass2Conf >= 45)) {
+          console.info(`[Tesseract OCR] ✅ İkinci aşama (High-Contrast Grayscale) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
+          rawText = pass2Text;
+          confidence = pass2Conf;
+        }
+      } catch (pass2Err) {
+        console.warn('[Tesseract OCR] İkinci aşama uyarısı:', pass2Err?.message);
+      }
+    }
 
     // Run linguistic healing and end-of-line hyphen restoration
     const cleanedText = normalizeHyphensAndText(rawText, {

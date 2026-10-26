@@ -1,3 +1,26 @@
+
+/**
+ * Heuristic Quality & Coherence Check for OCR output
+ * Checks whether the text is genuine readable Turkish or degraded gibberish/symbols
+ */
+function isOcrOutputCoherent(text, confidence = 0) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 15) return false;
+  if (confidence && confidence < 50) return false;
+
+  // Count Turkish letters vs noise/symbols
+  const letters = (trimmed.match(/[\p{L}\p{N}]/gu) || []).length;
+  const letterRatio = letters / trimmed.length;
+  if (letterRatio < 0.65) return false;
+
+  // Check vowel ratio (in Turkish words, vowels comprise ~30-45% of letters; <20% indicates broken symbols)
+  const vowels = (trimmed.match(/[aeıioöuüAEIİOÖUÜ]/gu) || []).length;
+  const vowelRatio = vowels / Math.max(1, letters);
+  if (vowelRatio < 0.20 || vowelRatio > 0.65) return false;
+
+  return true;
+}
 // Reawid - Apple Minimalist Main Orchestrator
 import { marked } from 'marked';
 import confetti from 'canvas-confetti';
@@ -3197,7 +3220,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
     let canvas = null;
     let pageDataUrl = '';
     try {
-      const renderScale = appSettings.renderDpi || 2.0;
+      const renderScale = appSettings.renderDpi || 2.2;
       canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
       pageDataUrl = canvas.toDataURL('image/jpeg', 0.94);
     } finally {
@@ -3239,8 +3262,10 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
           }
         });
 
-        if (!pageText || pageText.isBlank || (pageText.confidence && pageText.confidence < 50)) {
-          console.info(`[OCR Auto Route] Tesseract güven skoru yetersiz (%${pageText?.confidence || 0}), Vision AI devreye alınıyor...`);
+        const textContent = pageText?.cleanedText || pageText?.text || '';
+        const isCoherent = isOcrOutputCoherent(textContent, pageText?.confidence || 0);
+        if (!pageText || pageText.isBlank || !isCoherent) {
+          console.info(`[OCR Auto Route] Tesseract güven/tutarlılık skoru yetersiz (Güven: %${pageText?.confidence || 0}, Tutarlı: ${isCoherent}), Vision AI devreye alınıyor...`);
           pageText = await performVisionAiOcr(pageDataUrl, pageNum, documentId, signal);
         }
       } catch (tessErr) {
