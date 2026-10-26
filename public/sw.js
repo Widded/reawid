@@ -1,6 +1,6 @@
 // Reawid Service Worker - Apple Minimalist PWA
 // Aggressive cache-busting and Network-First strategy to ensure latest updates are immediately reflected
-const CACHE_NAME = 'reawid-cloud-v50';
+const CACHE_NAME = 'reawid-cloud-v51';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

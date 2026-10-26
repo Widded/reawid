@@ -622,8 +622,33 @@ export function healTurkishOcrArtifacts(text) {
   s = s.replace(/(^|[^\p{L}\p{N}])s(ökyüz[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
   s = s.replace(/(^|[^\p{L}\p{N}])s(önül[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
   s = s.replace(/(^|[^\p{L}\p{N}])s(üçlü[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(ölge[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(ölge[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(övde[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(övde[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(eniş[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(eniş[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(elenek[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(elenek[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(ülümse[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(ülümse[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(ül(?:dü[kmn]?|müş|en|er|ecek|meli))(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(ül(?:dü[kmn]?|müş|en|er|ecek|meli))(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(ünah[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(ünah[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(özlem[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(özlem[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])s(üvercin[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1g$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])S(üvercin[a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/gu, '$1G$2');
 
   // c) Medial 's' confusion for 'ğ' or 'g':
+  s = s.replace(/(^|[^\p{L}\p{N}])(ol|yap|gör|bil|gel|git|iste|söyle|yaz|oku|bak|çık|anla|sev)(d|t)([ıiuü])[s5]([ıiuü][a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1$2$3$4ğ$5');
+  s = s.replace(/(^|[^\p{L}\p{N}])bil[s5]i([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1bilgi$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])sev[s5]i([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1sevgi$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])say[s5]ı([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1saygı$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])duy[s5]u([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1duygu$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])çiz[s5]i([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1çizgi$2');
+  s = s.replace(/(^|[^\p{L}\p{N}])sez[s5]i([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1sezgi$2');
   s = s.replace(/(^|[^\p{L}\p{N}])de[s5](il|ild[iı][kmn]?|ilmiş|ildir|iller|ile)?(?=[^\p{L}\p{N}]|$)/giu, '$1değ$2');
   s = s.replace(/(^|[^\p{L}\p{N}])di[s5](er|ere|erde|erden|erler|eri|erleri)?(?=[^\p{L}\p{N}]|$)/giu, '$1diğ$2');
   s = s.replace(/(^|[^\p{L}\p{N}])do[s5](ru|ruca|ruluk|ruyu|rudan|ruya)?(?=[^\p{L}\p{N}]|$)/giu, '$1doğ$2');
