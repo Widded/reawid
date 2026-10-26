@@ -95,11 +95,11 @@ let appSettings = getSettings();
 let currentActiveBook = null;
 let currentReaderPage = 1;
 let currentTotalPages = 1;
-let currentReaderTheme = 'koyu';
-let currentReaderFontSize = 'xl'; // 'sm' | 'md' | 'lg' | 'xl'
-let currentReaderLineHeight = 'standard'; // 'tight' | 'standard' | 'wide'
-let currentReaderFont = 'serif'; // 'serif' | 'sans' | 'mono'
-let currentReaderMargin = 'standard'; // 'narrow' | 'standard' | 'wide'
+let currentReaderTheme = appSettings.defaultTheme || 'koyu';
+let currentReaderFontSize = appSettings.defaultFontSize || 'xl';
+let currentReaderLineHeight = appSettings.defaultLineHeight || 'standard';
+let currentReaderFont = appSettings.defaultFont || 'serif';
+let currentReaderMargin = appSettings.defaultMargin || 'standard';
 let currentCompareZoom = 1.0;
 let comparePanX = 0;
 let comparePanY = 0;
@@ -890,11 +890,14 @@ function openBookInReader(book, targetPage = null) {
   // Render Page Content
   renderReaderPage(currentReaderPage);
 
-  // Apply Theme & Typography Preferences from Settings
+  // Apply Theme & Typography Preferences from Settings (Kullanıcı Tercihleri)
   if (appSettings.defaultTheme) currentReaderTheme = appSettings.defaultTheme;
   if (appSettings.defaultFont) currentReaderFont = appSettings.defaultFont;
-  applyReaderTheme(currentReaderTheme);
-  applyReaderTypography();
+  if (appSettings.defaultFontSize) currentReaderFontSize = appSettings.defaultFontSize;
+  if (appSettings.defaultLineHeight) currentReaderLineHeight = appSettings.defaultLineHeight;
+  if (appSettings.defaultMargin) currentReaderMargin = appSettings.defaultMargin;
+  applyReaderTheme(currentReaderTheme, false);
+  applyReaderTypography(false);
 
   // Screen Wake Lock request
   requestWakeLock();
@@ -1257,7 +1260,7 @@ function renderReaderPage(pageNum) {
 }
 
 /* Typography & Theme Adjustments */
-function applyReaderTheme(theme) {
+function applyReaderTheme(theme, save = true) {
   currentReaderTheme = theme;
   el.inAppReaderView.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
   el.inAppReaderView.classList.add(`theme-${theme}`);
@@ -1271,9 +1274,15 @@ function applyReaderTheme(theme) {
   if (el.toggleNightMode) {
     el.toggleNightMode.checked = (theme === 'koyu');
   }
+
+  // Kullanıcının en son seçtiği temayı hafızada tut (localStorage)
+  if (save) {
+    appSettings.defaultTheme = theme;
+    saveSettings(appSettings);
+  }
 }
 
-function applyReaderTypography() {
+function applyReaderTypography(save = true) {
   // Font Size
   el.readerArticleBody.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg', 'font-size-xl');
   el.readerArticleBody.classList.add(`font-size-${currentReaderFontSize}`);
@@ -1300,6 +1309,15 @@ function applyReaderTypography() {
   document.querySelectorAll('#marginSelector .btn-step').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.margin === currentReaderMargin);
   });
+
+  // Kullanıcının en son seçtiği tipografi tercihlerini hafızada tut (localStorage)
+  if (save) {
+    appSettings.defaultFontSize = currentReaderFontSize;
+    appSettings.defaultLineHeight = currentReaderLineHeight;
+    appSettings.defaultFont = currentReaderFont;
+    appSettings.defaultMargin = currentReaderMargin;
+    saveSettings(appSettings);
+  }
 }
 
 /* Reader Settings Bottom Sheet Controller (Aᴀ) */
@@ -2203,6 +2221,10 @@ function setupEventListeners() {
       applyReaderTypography();
     });
   });
+
+  // İlk yüklemede kullanıcının kayıtlı tipografi ve tema tercihlerini arayüze senkronize et
+  applyReaderTheme(currentReaderTheme, false);
+  applyReaderTypography(false);
 
   // Gece Modu Switch
   el.toggleNightMode.addEventListener('change', (e) => {

@@ -178,6 +178,8 @@ export const DEFAULT_SETTINGS = {
   defaultTheme: 'koyu', // 'koyu' | 'acik' | 'sepya'
   defaultFont: 'serif', // 'serif' | 'sans' | 'mono'
   defaultFontSize: 'xl', // 'sm' | 'md' | 'lg' | 'xl'
+  defaultLineHeight: 'standard', // 'tight' | 'standard' | 'wide'
+  defaultMargin: 'standard', // 'narrow' | 'standard' | 'wide'
   autoNightMode: true,
   keepScreenAwake: true, // Screen Wake Lock API for uninterrupted reading
   autoPrefetch: true, // Background next-page preloading
