@@ -302,7 +302,9 @@ const el = {
   bookmarkIconSvg: document.getElementById('bookmarkIconSvg'),
   btnReaderCompare: document.getElementById('btnReaderCompare'),
   btnReaderAppearance: document.getElementById('btnReaderAppearance'),
+  btnReaderZen: document.getElementById('btnReaderZen'),
   btnReaderSearch: document.getElementById('btnReaderSearch'),
+  popoverReaderSearch: document.getElementById('popoverReaderSearch'),
   btnReaderMore: document.getElementById('btnReaderMore'),
   readerMoreMenu: document.getElementById('readerMoreMenu'),
   popoverOpenAppearance: document.getElementById('popoverOpenAppearance'),
@@ -2175,6 +2177,9 @@ function toggleZenMode(forceState = null) {
   if (el.inAppReaderView) {
     el.inAppReaderView.classList.toggle('zen-mode', isZenMode);
   }
+  if (el.btnReaderZen) {
+    el.btnReaderZen.classList.toggle('active', isZenMode);
+  }
   if (el.btnExitZenMode) {
     el.btnExitZenMode.classList.toggle('hidden', !isZenMode);
   }
@@ -2381,7 +2386,20 @@ function setupEventListeners() {
       toggleSettingsSheet();
     });
   }
-  el.btnReaderSearch.addEventListener('click', toggleSearchBar);
+  if (el.btnReaderZen) {
+    el.btnReaderZen.addEventListener('click', () => {
+      toggleZenMode();
+    });
+  }
+  if (el.btnReaderSearch) {
+    el.btnReaderSearch.addEventListener('click', toggleSearchBar);
+  }
+  if (el.popoverReaderSearch) {
+    el.popoverReaderSearch.addEventListener('click', () => {
+      closeMoreMenu();
+      toggleSearchBar();
+    });
+  }
   el.btnCloseReaderSearch.addEventListener('click', closeReaderSearch);
 
   if (el.readerSearchInput) {

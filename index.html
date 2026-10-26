@@ -785,11 +785,10 @@
             <span class="header-aa-icon">Aᴀ</span>
           </button>
 
-          <!-- 3. Arama (Search) -->
-          <button class="reader-header-icon-btn" id="btnReaderSearch" title="Kitapta Ara">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <!-- 3. Tam Ekran Odak Modu (Zen Mode) -->
+          <button class="reader-header-icon-btn" id="btnReaderZen" title="Tam Ekran Odak Modu" aria-label="Tam Ekran Odak Modu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
             </svg>
           </button>
 
@@ -806,6 +805,13 @@
 
       <!-- Floating Context Popover Menu (Verimli İşlemler) -->
       <div id="readerMoreMenu" class="reader-context-popover hidden">
+        <button class="popover-item" id="popoverReaderSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>Kitapta Ara</span>
+        </button>
         <button class="popover-item" id="popoverToggleZen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
