@@ -770,17 +770,14 @@
         </div>
 
         <div class="reader-header-actions">
-          <!-- 1. Karşılaştırma (Comparison with Real Book Page) -->
-          <button class="reader-header-icon-btn btn-compare-highlight" id="btnReaderCompare" title="Gerçek Sayfa ile Karşılaştır">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-              <rect x="2" y="4" width="9" height="16" rx="1.5"></rect>
-              <rect x="13" y="4" width="9" height="16" rx="1.5"></rect>
-              <line x1="5" y1="8" x2="8" y2="8"></line>
-              <line x1="5" y1="12" x2="8" y2="12"></line>
-              <line x1="16" y1="8" x2="19" y2="8"></line>
-              <line x1="16" y1="12" x2="19" y2="12"></line>
+          <!-- 1. Karşılaştırma (Gerçek Sayfa & Dijital Metin Split Görünüm) -->
+          <button class="reader-header-icon-btn btn-compare-highlight" id="btnReaderCompare" title="Gerçek Sayfa ile Karşılaştır (Split Görünüm)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+              <line x1="12" y1="3" x2="12" y2="21"></line>
+              <path d="M7 8h2m-2 4h2m-2 4h2"></path>
+              <path d="M15 8h2m-2 4h2m-2 4h2"></path>
             </svg>
-            <span class="compare-btn-badge">VS</span>
           </button>
 
           <!-- 2. Yazı ve Tema Seçenekleri (Aᴀ) -->
@@ -788,14 +785,7 @@
             <span class="header-aa-icon">Aᴀ</span>
           </button>
 
-          <!-- 3. Yer İmi (Bookmark) -->
-          <button class="reader-header-icon-btn" id="btnReaderBookmark" title="Yer İmi Ekle">
-            <svg id="bookmarkIconSvg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </button>
-
-          <!-- 4. Arama (Search) -->
+          <!-- 3. Arama (Search) -->
           <button class="reader-header-icon-btn" id="btnReaderSearch" title="Kitapta Ara">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
@@ -803,7 +793,7 @@
             </svg>
           </button>
 
-          <!-- 5. Daha Fazla / İşlemler (More Menu) -->
+          <!-- 4. Daha Fazla / İşlemler (More Menu) -->
           <button class="reader-header-icon-btn" id="btnReaderMore" title="Diğer Seçenekler">
             <svg viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="12" r="1.8"></circle>
@@ -814,35 +804,49 @@
         </div>
       </header>
 
-      <!-- Floating Context Popover Menu (Yer İmi, Not, Kopyala, Paylaş, PDF) -->
+      <!-- Floating Context Popover Menu (Verimli İşlemler) -->
       <div id="readerMoreMenu" class="reader-context-popover hidden">
-        <button class="popover-item" id="popoverOpenAppearance">
-          <span style="font-family: 'Lora', serif; font-weight: 700; font-size: 13.5px; width: 18px; text-align: center; color: var(--text-secondary);">Aᴀ</span>
-          <span>Yazı ve Tema Ayarları</span>
-        </button>
-        <button class="popover-item" id="popoverAddBookmark">
+        <button class="popover-item" id="popoverToggleZen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
           </svg>
-          <span>Yer İmi Ekle</span>
+          <span>Tam Ekran Odak Modu</span>
+        </button>
+        <button class="popover-item" id="popoverToggleTts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span id="popoverTtsLabel">Sesli Oku (TTS)</span>
+        </button>
+        <button class="popover-item" id="popoverPageStats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>Sayfa İstatistikleri</span>
         </button>
         <button class="popover-item" id="popoverAddNote">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
-          <span>Not Ekle</span>
+          <span>Not / Düşünce Ekle</span>
+        </button>
+        <button class="popover-item" id="popoverExportTxt">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Metni İndir (.txt)</span>
         </button>
         <button class="popover-item" id="popoverCopyText">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
           </svg>
-          <span>Kopyala</span>
+          <span>Sayfa Metnini Kopyala</span>
         </button>
         <button class="popover-item" id="popoverShareText">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -854,28 +858,28 @@
           </svg>
           <span>Paylaş</span>
         </button>
+        <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0;"></div>
         <button class="popover-item" id="popoverOpenPdf">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
           </svg>
-          <span>PDF'yi Aç</span>
+          <span>Orijinal Sayfayı Gör</span>
         </button>
-        <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0;"></div>
         <button class="popover-item" id="popoverRescanPage">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <polyline points="23 4 23 10 17 10"></polyline>
             <polyline points="1 20 1 14 7 14"></polyline>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          <span>Bu Sayfayı Yeniden Tara (OCR)</span>
+          <span>Bu Sayfayı Yeniden Tara</span>
         </button>
         <button class="popover-item" id="popoverResetBookOcr">
           <svg viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="1.8">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
           </svg>
-          <span style="color: #ff453a;">Tüm Kitabı Baştan Tara (Sıfırla)</span>
+          <span style="color: #ff453a;">Tüm Kitabı Baştan Tara</span>
         </button>
       </div>
 
@@ -925,10 +929,8 @@
               </svg>
             </button>
           </div>
-          <button class="scrubber-btn-settings" id="btnToggleSettings" title="Görünüm ve Tema Seçenekleri" aria-label="Görünüm Seçenekleri">
-            <span class="aa-pill-label">Aᴀ</span>
-            <span class="settings-btn-hint">Seçenekler</span>
-          </button>
+          <!-- Dengeleme Slotu (Sayfa Numarasını Tam Ortada Tutar) -->
+          <div class="scrubber-spacer-slot"></div>
         </div>
       </div>
 

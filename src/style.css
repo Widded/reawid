@@ -829,6 +829,7 @@ textarea,
   z-index: 10;
   position: relative;
   box-sizing: border-box;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
 }
 
 .reader-header-icon-btn {
@@ -1071,8 +1072,10 @@ textarea,
   position: fixed;
   top: max(72px, calc(env(safe-area-inset-top, 0px) + 58px));
   right: 14px;
-  width: 190px;
+  width: 226px;
   max-width: calc(100vw - 28px);
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
@@ -1372,6 +1375,51 @@ textarea,
   background: rgba(12, 12, 14, 0.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+
+/* Zen / Distraction-Free Full-Screen Reading Mode */
+.reader-screen.zen-mode .reader-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reader-screen.zen-mode .reader-scrubber-bar {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Fluid Page Turn Slide Animations */
+@keyframes pageSlideNextAnim {
+  0% {
+    opacity: 0.15;
+    transform: translateX(26px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageSlidePrevAnim {
+  0% {
+    opacity: 0.15;
+    transform: translateX(-26px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.page-turn-next {
+  animation: pageSlideNextAnim 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.page-turn-prev {
+  animation: pageSlidePrevAnim 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .scrubber-track-wrap {
@@ -1415,6 +1463,16 @@ textarea,
   max-width: 82px;
   flex-shrink: 0;
   overflow: hidden;
+}
+
+.scrubber-spacer-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+  flex-shrink: 0;
 }
 
 .scrubber-center-nav {

@@ -85,7 +85,8 @@ import {
 } from './services/speechService.js';
 
 import {
-  copyToClipboard
+  copyToClipboard,
+  downloadTxt
 } from './services/exportService.js';
 
 /* ==========================================================================
@@ -105,6 +106,8 @@ let comparePanX = 0;
 let comparePanY = 0;
 let isCompareSpeaking = false;
 let isBookmarked = false;
+let isZenMode = false;
+let isReaderSpeaking = false;
 
 let currentImageRaw = null;
 let currentProcessedImage = null;
@@ -290,6 +293,12 @@ const el = {
   readerBgOcrDot: document.getElementById('readerBgOcrDot'),
   readerBgOcrText: document.getElementById('readerBgOcrText'),
   btnReaderBookmark: document.getElementById('btnReaderBookmark'),
+  bookmarkIconSvg: document.getElementById('bookmarkIconSvg'),
+  popoverToggleZen: document.getElementById('popoverToggleZen'),
+  popoverToggleTts: document.getElementById('popoverToggleTts'),
+  popoverTtsLabel: document.getElementById('popoverTtsLabel'),
+  popoverPageStats: document.getElementById('popoverPageStats'),
+  popoverExportTxt: document.getElementById('popoverExportTxt'),
   bookmarkIconSvg: document.getElementById('bookmarkIconSvg'),
   btnReaderCompare: document.getElementById('btnReaderCompare'),
   btnReaderAppearance: document.getElementById('btnReaderAppearance'),
@@ -911,6 +920,9 @@ function openBookInReader(book, targetPage = null) {
 }
 
 function closeReader() {
+  toggleZenMode(false);
+  stopSpeech();
+  isReaderSpeaking = false;
   stopSpeech();
   releaseWakeLock();
   terminateTesseractWorker().catch(() => {});
@@ -1167,11 +1179,24 @@ function renderPageAnalysisError(pageNum, reason = '') {
   }
 }
 
-function renderReaderPage(pageNum) {
+function renderReaderPage(pageNum, turnDirection = null) {
   const metricKey = `page_turn_p${pageNum}`;
   perfMonitor.start(metricKey);
 
+  const prevPage = currentReaderPage;
   currentReaderPage = Math.max(1, Math.min(currentTotalPages, pageNum));
+
+  // Akıcı Sayfa Geçiş Animasyonu & Dokunmatik Hissiyat (Haptic)
+  if (prevPage !== currentReaderPage && el.readerParagraphsContainer) {
+    const direction = turnDirection || (currentReaderPage > prevPage ? 'next' : 'prev');
+    el.readerParagraphsContainer.classList.remove('page-turn-next', 'page-turn-prev');
+    void el.readerParagraphsContainer.offsetWidth; // Force reflow
+    el.readerParagraphsContainer.classList.add(direction === 'next' ? 'page-turn-next' : 'page-turn-prev');
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(10); } catch (_) {}
+    }
+  }
   el.readerPageSlider.value = String(currentReaderPage);
   el.readerPageIndicator.textContent = `${currentReaderPage} / ${currentTotalPages}`;
 
@@ -1931,6 +1956,61 @@ function setupComparisonStudioInteractions() {
  * Enables smooth horizontal touch swipe to turn pages in the reader (previous / next page).
  * Configurable via appSettings.swipePageNavigation.
  */
+/**
+ * Tam Ekran Odak / Zen Okuma Modu
+ * Başlık ve alt scrubber çubuğunu gizler, yalnızca saf kitap metnini bırakır.
+ */
+function toggleZenMode(forceState = null) {
+  isZenMode = typeof forceState === 'boolean' ? forceState : !isZenMode;
+  if (el.inAppReaderView) {
+    el.inAppReaderView.classList.toggle('zen-mode', isZenMode);
+  }
+  closeMoreMenu();
+  closeReaderSearch();
+  if (isZenMode) {
+    showToast('Tam ekran odak modu açıldı (çıkmak için dokunun)', 'info');
+  }
+}
+
+/**
+ * Sayfadaki metni sesli okuma (TTS) Başlat / Durdur
+ */
+function toggleReaderSpeech() {
+  if (isSpeaking() || isReaderSpeaking) {
+    stopSpeech();
+    isReaderSpeaking = false;
+    if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+    showToast('Sesli okuma durduruldu', 'info');
+    return;
+  }
+
+  const textToRead = el.readerParagraphsContainer?.innerText || '';
+  if (!textToRead.trim()) {
+    showToast('Seslendirilecek metin bulunamadı', 'warning');
+    return;
+  }
+
+  isReaderSpeaking = true;
+  if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
+  showToast(`Sayfa ${currentReaderPage} seslendiriliyor...`, 'info');
+
+  speakText(textToRead, {
+    rate: appSettings.ttsSpeed || 1.0,
+    onStart: () => {
+      isReaderSpeaking = true;
+      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
+    },
+    onEnd: () => {
+      isReaderSpeaking = false;
+      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+    },
+    onError: () => {
+      isReaderSpeaking = false;
+      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+    }
+  });
+}
+
 function setupReaderSwipeNavigation() {
   const scrollContainer = el.readerContentScroll || document.getElementById('readerContentScroll');
   if (!scrollContainer) return;
@@ -1941,16 +2021,10 @@ function setupReaderSwipeNavigation() {
   let isSwiping = false;
 
   scrollContainer.addEventListener('touchstart', (e) => {
-    if (appSettings.swipePageNavigation === false) return;
-    if (!currentActiveBook || e.touches.length !== 1) return;
-
-    // Metin seçimi varsa veya etkileşimli bir öğeye tıklandıysa kaydırmayı engelle
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) return;
+    if (e.touches.length !== 1) return;
     if (e.target && e.target.closest('button, input, select, textarea, a, .reader-toolbar, .reader-scrubber-bar, .stepped-segmented-pill')) {
       return;
     }
-
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
@@ -1958,7 +2032,7 @@ function setupReaderSwipeNavigation() {
   }, { passive: true });
 
   scrollContainer.addEventListener('touchend', (e) => {
-    if (!isSwiping || appSettings.swipePageNavigation === false) return;
+    if (!isSwiping) return;
     isSwiping = false;
 
     if (!e.changedTouches || e.changedTouches.length === 0) return;
@@ -1969,24 +2043,64 @@ function setupReaderSwipeNavigation() {
     const diffY = touchEndY - touchStartY;
     const elapsedTime = Date.now() - touchStartTime;
 
-    // Hızlı veya belirgin yatay kaydırma denetimi:
-    // 1. Yatay mesafe en az 48 piksel olmalı
-    // 2. Yatay hareket dikey hareketin en az 1.35 katı olmalı (dikey okuma kaydırmasını engellememek için)
-    // 3. Çok uzun süreli sürüklemeler (örn. 750ms üzeri) kaydırma değil gezinmedir
-    if (Math.abs(diffX) >= 48 && Math.abs(diffX) > Math.abs(diffY) * 1.35 && elapsedTime < 750) {
-      if (diffX < 0) {
-        // Sola kaydırma (parmak sağdan sola) -> Sonraki Sayfa
-        if (currentReaderPage < currentTotalPages) {
-          renderReaderPage(currentReaderPage + 1);
-        }
-      } else {
-        // Sağa kaydırma (parmak soldan sağa) -> Önceki Sayfa
-        if (currentReaderPage > 1) {
-          renderReaderPage(currentReaderPage - 1);
+    // Metin seçimi varsa hiçbir jesti tetikleme
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) return;
+
+    // 1. Temiz Tek Dokunuş (Single-Tap) -> Zen Odak Modunu Aç / Kapat
+    if (Math.abs(diffX) < 14 && Math.abs(diffY) < 14 && elapsedTime < 280) {
+      toggleZenMode();
+      return;
+    }
+
+    // 2. Sağa/Sola Kaydırma (Swipe) -> Akıcı Sayfa Geçişi
+    if (appSettings.swipePageNavigation !== false) {
+      if (Math.abs(diffX) >= 45 && Math.abs(diffX) > Math.abs(diffY) * 1.35 && elapsedTime < 750) {
+        if (diffX < 0) {
+          // Sola kaydırma -> Sonraki Sayfa
+          if (currentReaderPage < currentTotalPages) {
+            renderReaderPage(currentReaderPage + 1, 'next');
+          }
+        } else {
+          // Sağa kaydırma -> Önceki Sayfa
+          if (currentReaderPage > 1) {
+            renderReaderPage(currentReaderPage - 1, 'prev');
+          }
         }
       }
     }
   }, { passive: true });
+
+  // Masaüstü için tıklama ile Zen Modu geçişi
+  let clickStartX = 0;
+  let clickStartY = 0;
+  let clickStartTime = 0;
+
+  scrollContainer.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target && e.target.closest('button, input, select, textarea, a, .reader-toolbar, .reader-scrubber-bar, .stepped-segmented-pill, .reader-context-popover')) {
+      return;
+    }
+    clickStartX = e.clientX;
+    clickStartY = e.clientY;
+    clickStartTime = Date.now();
+  });
+
+  scrollContainer.addEventListener('mouseup', (e) => {
+    if (e.button !== 0) return;
+    if (e.target && e.target.closest('button, input, select, textarea, a, .reader-toolbar, .reader-scrubber-bar, .stepped-segmented-pill, .reader-context-popover')) {
+      return;
+    }
+    const diffX = Math.abs(e.clientX - clickStartX);
+    const diffY = Math.abs(e.clientY - clickStartY);
+    const elapsed = Date.now() - clickStartTime;
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) return;
+
+    if (diffX < 6 && diffY < 6 && elapsed < 300) {
+      toggleZenMode();
+    }
+  });
 
   scrollContainer.addEventListener('touchcancel', () => {
     isSwiping = false;
@@ -2044,7 +2158,7 @@ function setupEventListeners() {
 
   // Reader Header Action Buttons
   el.btnCloseReader.addEventListener('click', closeReader);
-  el.btnReaderBookmark.addEventListener('click', toggleBookmark);
+  if (el.btnReaderBookmark) el.btnReaderBookmark.addEventListener('click', toggleBookmark);
   el.btnReaderCompare.addEventListener('click', openComparisonView);
   if (el.btnReaderAppearance) {
     el.btnReaderAppearance.addEventListener('click', (e) => {
@@ -2076,14 +2190,53 @@ function setupEventListeners() {
       openSettingsSheet();
     });
   }
-  el.popoverAddBookmark.addEventListener('click', () => {
-    toggleBookmark();
-    closeMoreMenu();
-  });
-  el.popoverAddNote.addEventListener('click', () => {
-    closeMoreMenu();
-    openAddNoteModal('note');
-  });
+  if (el.popoverAddBookmark) el.popoverAddBookmark.addEventListener('click', () => { toggleBookmark(); closeMoreMenu(); });
+    // Yeni Üretken Popover İşlemleri
+  if (el.popoverToggleZen) {
+    el.popoverToggleZen.addEventListener('click', () => {
+      closeMoreMenu();
+      toggleZenMode();
+    });
+  }
+
+  if (el.popoverToggleTts) {
+    el.popoverToggleTts.addEventListener('click', () => {
+      closeMoreMenu();
+      toggleReaderSpeech();
+    });
+  }
+
+  if (el.popoverPageStats) {
+    el.popoverPageStats.addEventListener('click', () => {
+      closeMoreMenu();
+      const text = el.readerParagraphsContainer?.innerText || '';
+      const words = (text.match(/[\p{L}\p{N}]+/gu) || []).length;
+      const chars = text.length;
+      const estMinutes = Math.max(1, Math.ceil(words / 175));
+      showToast(`Sayfa ${currentReaderPage}: ${words} kelime (${chars} karakter) · ~${estMinutes} dk okuma`, 'info');
+    });
+  }
+
+  if (el.popoverExportTxt) {
+    el.popoverExportTxt.addEventListener('click', () => {
+      closeMoreMenu();
+      const text = el.readerParagraphsContainer?.innerText || '';
+      if (!text.trim()) {
+        showToast('İndirilecek metin bulunamadı', 'warning');
+        return;
+      }
+      const safeTitle = (currentActiveBook?.title || 'ReaWid').replace(/[\\/:*?"<>|]/g, '_');
+      downloadTxt(text, `${safeTitle}_sayfa_${currentReaderPage}.txt`);
+      showToast('Sayfa metni .txt olarak indirildi', 'success');
+    });
+  }
+
+  if (el.popoverAddNote) {
+    el.popoverAddNote.addEventListener('click', () => {
+      closeMoreMenu();
+      openAddNoteModal('note');
+    });
+  }
   el.popoverCopyText.addEventListener('click', async () => {
     closeMoreMenu();
     const text = el.readerParagraphsContainer.innerText || '';
@@ -2144,7 +2297,7 @@ function setupEventListeners() {
 
   // Scrubber Controls & Settings Toggle
   if (el.btnToggleSettings) {
-    el.btnToggleSettings.addEventListener('click', (e) => {
+    if (el.btnToggleSettings) el.btnToggleSettings.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSettingsSheet();
     });
@@ -2177,10 +2330,10 @@ function setupEventListeners() {
     renderReaderPage(parseInt(e.target.value, 10));
   });
   el.btnReaderPrevPage.addEventListener('click', () => {
-    renderReaderPage(currentReaderPage - 1);
+    renderReaderPage(currentReaderPage - 1, 'prev');
   });
   el.btnReaderNextPage.addEventListener('click', () => {
-    renderReaderPage(currentReaderPage + 1);
+    renderReaderPage(currentReaderPage + 1, 'next');
   });
 
   // Reader Typography Controls (Yazı Boyutu)
