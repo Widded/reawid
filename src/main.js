@@ -328,6 +328,7 @@ const el = {
   marginSelector: document.getElementById('marginSelector'),
   toggleNightMode: document.getElementById('toggleNightMode'),
   toggleBookDialogueFormat: document.getElementById('toggleBookDialogueFormat'),
+  toggleSwipePageNav: document.getElementById('toggleSwipePageNav'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -418,6 +419,7 @@ const el = {
   setMergeHyphens: document.getElementById('setMergeHyphens'),
   setIgnorePageNums: document.getElementById('setIgnorePageNums'),
   setDialogueFormatting: document.getElementById('setDialogueFormatting'),
+  setSwipeNavigation: document.getElementById('setSwipeNavigation'),
   badgeTtsSpeed: document.getElementById('badgeTtsSpeed'),
   settingsTtsSelector: document.getElementById('settingsTtsSelector'),
   badgeOcrEngine: document.getElementById('badgeOcrEngine'),
@@ -1309,6 +1311,9 @@ function openSettingsSheet() {
   if (el.toggleBookDialogueFormat) {
     el.toggleBookDialogueFormat.checked = (appSettings.smartDialogueFormatting !== false);
   }
+  if (el.toggleSwipePageNav) {
+    el.toggleSwipePageNav.checked = (appSettings.swipePageNavigation !== false);
+  }
   closeMoreMenu();
   closeReaderSearch();
 }
@@ -1904,6 +1909,72 @@ function setupComparisonStudioInteractions() {
 /* ==========================================================================
    Primary Actions & Conversion Modals Setup
    ========================================================================== */
+/**
+ * Enables smooth horizontal touch swipe to turn pages in the reader (previous / next page).
+ * Configurable via appSettings.swipePageNavigation.
+ */
+function setupReaderSwipeNavigation() {
+  const scrollContainer = el.readerContentScroll || document.getElementById('readerContentScroll');
+  if (!scrollContainer) return;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let isSwiping = false;
+
+  scrollContainer.addEventListener('touchstart', (e) => {
+    if (appSettings.swipePageNavigation === false) return;
+    if (!currentActiveBook || e.touches.length !== 1) return;
+
+    // Metin seçimi varsa veya etkileşimli bir öğeye tıklandıysa kaydırmayı engelle
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) return;
+    if (e.target && e.target.closest('button, input, select, textarea, a, .reader-toolbar, .reader-scrubber-bar, .stepped-segmented-pill')) {
+      return;
+    }
+
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+    isSwiping = true;
+  }, { passive: true });
+
+  scrollContainer.addEventListener('touchend', (e) => {
+    if (!isSwiping || appSettings.swipePageNavigation === false) return;
+    isSwiping = false;
+
+    if (!e.changedTouches || e.changedTouches.length === 0) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    const elapsedTime = Date.now() - touchStartTime;
+
+    // Hızlı veya belirgin yatay kaydırma denetimi:
+    // 1. Yatay mesafe en az 48 piksel olmalı
+    // 2. Yatay hareket dikey hareketin en az 1.35 katı olmalı (dikey okuma kaydırmasını engellememek için)
+    // 3. Çok uzun süreli sürüklemeler (örn. 750ms üzeri) kaydırma değil gezinmedir
+    if (Math.abs(diffX) >= 48 && Math.abs(diffX) > Math.abs(diffY) * 1.35 && elapsedTime < 750) {
+      if (diffX < 0) {
+        // Sola kaydırma (parmak sağdan sola) -> Sonraki Sayfa
+        if (currentReaderPage < currentTotalPages) {
+          renderReaderPage(currentReaderPage + 1);
+        }
+      } else {
+        // Sağa kaydırma (parmak soldan sağa) -> Önceki Sayfa
+        if (currentReaderPage > 1) {
+          renderReaderPage(currentReaderPage - 1);
+        }
+      }
+    }
+  }, { passive: true });
+
+  scrollContainer.addEventListener('touchcancel', () => {
+    isSwiping = false;
+  }, { passive: true });
+}
+
 function setupEventListeners() {
   // 1. Yeni Kitap Ekle
   el.btnNewBookCard.addEventListener('click', () => {
@@ -2149,6 +2220,20 @@ function setupEventListeners() {
       showToast(e.target.checked ? 'Diyalog ve kitap düzeni açıldı' : 'Diyalog düzeni kapatıldı', 'info');
     });
   }
+
+  // Sağa ve Sola Kaydırarak Sayfa Değiştir Switch
+  if (el.toggleSwipePageNav) {
+    el.toggleSwipePageNav.checked = (appSettings.swipePageNavigation !== false);
+    el.toggleSwipePageNav.addEventListener('change', (e) => {
+      appSettings.swipePageNavigation = e.target.checked;
+      saveSettings(appSettings);
+      if (el.setSwipeNavigation) el.setSwipeNavigation.checked = e.target.checked;
+      showToast(e.target.checked ? 'Kaydırarak sayfa geçişi açıldı' : 'Kaydırarak sayfa geçişi kapatıldı', 'info');
+    });
+  }
+
+  // Okuyucu Kaydırma (Swipe) Gezintisini Başlat
+  setupReaderSwipeNavigation();
 
   // Comparison Studio 10/10 View Controls
   if (el.btnCloseComparison) el.btnCloseComparison.addEventListener('click', closeComparisonView);
@@ -2567,16 +2652,32 @@ function updatePdfBatchActionButtons() {
    ========================================================================== */
 let lastOcrStatusUpdate = 0;
 let ocrStatusHideTimeout = null;
+let lastOcrStatusText = '';
 
 function updateReaderBgOcrStatus(message, isPriority = false, isCompleted = false) {
   if (!el.readerBgOcrPill || !el.readerBgOcrText) return;
 
   const now = Date.now();
-  // Glitch ve titreme önleme: Hızlı tarama esnasında saniyede en fazla 3-4 kez güncelle (260ms limit)
-  if (!isCompleted && !isPriority && now - lastOcrStatusUpdate < 260) {
+
+  // Bilgilendirici kutu metnini temizle ve standartlaştır:
+  // "Tesseract: %40 (S.1)" veya "OCR: %40 (S.1)" gibi değişken formatları "S.1 • %40" formatına dönüştür
+  let displayMessage = message;
+  if (isCompleted) {
+    displayMessage = 'Tamamlandı';
+  } else if (typeof message === 'string') {
+    const matchProgress = message.match(/(?:Tesseract|OCR):\s*%?(\d+)\s*\(S\.(\d+)\)/i);
+    if (matchProgress) {
+      displayMessage = `S.${matchProgress[2]} • %${matchProgress[1]}`;
+    }
+  }
+
+  // Glitch ve titreme önleme:
+  // Metin aynıysa veya son güncellemeden en az 350ms geçmediyse DOM'u gereksiz güncelleme
+  if (!isCompleted && (now - lastOcrStatusUpdate < 350 || displayMessage === lastOcrStatusText)) {
     return;
   }
   lastOcrStatusUpdate = now;
+  lastOcrStatusText = displayMessage;
 
   if (ocrStatusHideTimeout) {
     clearTimeout(ocrStatusHideTimeout);
@@ -2586,12 +2687,12 @@ function updateReaderBgOcrStatus(message, isPriority = false, isCompleted = fals
   el.readerBgOcrPill.classList.remove('hidden');
   el.readerBgOcrPill.classList.toggle('priority-active', isPriority);
   el.readerBgOcrPill.classList.toggle('completed', isCompleted);
-  el.readerBgOcrText.textContent = isCompleted ? 'Tamamlandı' : message;
+  el.readerBgOcrText.textContent = displayMessage;
 
   if (isCompleted) {
     ocrStatusHideTimeout = setTimeout(() => {
       hideReaderBgOcrStatus();
-    }, 2800);
+    }, 2200);
   }
 }
 
@@ -2604,6 +2705,7 @@ function hideReaderBgOcrStatus() {
     el.readerBgOcrPill.classList.add('hidden');
     el.readerBgOcrPill.classList.remove('priority-active', 'completed');
   }
+  lastOcrStatusText = '';
 }
 
 async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
@@ -2649,7 +2751,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
         },
         signal,
         onProgress: ({ status, progress }) => {
-          updateReaderBgOcrStatus(`Tesseract: %${progress} (S.${pageNum})`, true);
+          updateReaderBgOcrStatus(`S.${pageNum} • %${progress}`, true);
         }
       });
     } else if (ocrEngine === 'vision_ai') {
@@ -2666,7 +2768,7 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
           },
           signal,
           onProgress: ({ status, progress }) => {
-            updateReaderBgOcrStatus(`OCR: %${progress} (S.${pageNum})`, true);
+            updateReaderBgOcrStatus(`S.${pageNum} • %${progress}`, true);
           }
         });
 
@@ -2742,7 +2844,7 @@ async function performVisionAiOcr(pageDataUrl, pageNum, documentId, signal) {
       signal,
       onModelFallback: ({ from, to, reason }) => {
         console.info(`[Dynamic OCR Failover] ${from} -> ${to} (${reason}) | Belge: ${documentId} | Sayfa: ${pageNum}`);
-        updateReaderBgOcrStatus(`${pageNum} / ${currentTotalPages || (currentActiveBook?.totalPages || 1)}`, true);
+        updateReaderBgOcrStatus(`S.${pageNum} taranıyor`, true);
       }
     });
     return pageText;
@@ -2802,7 +2904,7 @@ function prioritizePageAnalysis(pageNum) {
 
   // Zaten o an bir paralel worker tarafından işleniyorsa
   if (activeAnalyzingPages.has(pageNum)) {
-    updateReaderBgOcrStatus(`${pageNum} / ${total}`, true);
+    updateReaderBgOcrStatus(`S.${pageNum} taranıyor`, true);
     return;
   }
 
@@ -2823,7 +2925,7 @@ function prioritizePageAnalysis(pageNum) {
   if (!isBackgroundOcrActive) {
     startBackgroundPdfAnalysis(currentActiveBook, currentPdfDoc);
   } else {
-    updateReaderBgOcrStatus(`${pageNum} / ${total}`, true);
+    updateReaderBgOcrStatus(`S.${pageNum} taranıyor`, true);
   }
 }
 
@@ -2863,10 +2965,7 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
 
       const isPriority = (targetPage === currentReaderPage);
       const doneCount = Object.keys(book.pageParagraphs || {}).length;
-      updateReaderBgOcrStatus(
-        `${Math.min(totalPages, doneCount + 1)} / ${totalPages}`,
-        isPriority
-      );
+      updateReaderBgOcrStatus(isPriority ? `S.${targetPage} taranıyor` : `${Math.min(totalPages, doneCount + 1)} / ${totalPages}`, isPriority);
 
       try {
         const paragraphs = await analyzeSinglePdfPage(pdfDoc, targetPage, controller.signal, book.id);
@@ -4031,6 +4130,7 @@ function renderSettingsScreen() {
   if (el.setMergeHyphens) el.setMergeHyphens.checked = appSettings.mergeHyphenatedWords !== false;
   if (el.setIgnorePageNums) el.setIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
   if (el.setDialogueFormatting) el.setDialogueFormatting.checked = appSettings.smartDialogueFormatting !== false;
+  if (el.setSwipeNavigation) el.setSwipeNavigation.checked = appSettings.swipePageNavigation !== false;
   if (el.setOfflineCache) el.setOfflineCache.checked = appSettings.offlineCache !== false;
 
   // 4. TTS Speed Selector
@@ -4165,6 +4265,16 @@ function setupSettingsScreenEvents() {
         renderReaderPage(currentReaderPage);
       }
       showToast(e.target.checked ? 'Diyalog ve kitap düzeni açıldı' : 'Diyalog düzeni kapatıldı', 'info');
+    });
+  }
+
+  // Sağa/Sola Kaydırarak Sayfa Değiştirme
+  if (el.setSwipeNavigation) {
+    el.setSwipeNavigation.addEventListener('change', (e) => {
+      appSettings.swipePageNavigation = e.target.checked;
+      saveSettings(appSettings);
+      if (el.toggleSwipePageNav) el.toggleSwipePageNav.checked = e.target.checked;
+      showToast(e.target.checked ? 'Kaydırarak sayfa geçişi açıldı' : 'Kaydırarak sayfa geçişi kapatıldı', 'info');
     });
   }
 

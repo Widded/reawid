@@ -911,37 +911,42 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-width: 65px;
+  min-width: 82px;
+  width: 82px;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .reader-bg-ocr-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 9999px;
-  padding: 3.5px 9px 3.5px 7px;
+  padding: 3px 8px 3px 6px;
   font-size: 11px;
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
-  transition: opacity 180ms ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: opacity 220ms ease, border-color 220ms ease, background-color 220ms ease;
   user-select: none;
+  max-width: 82px;
 }
 
 .reader-bg-ocr-pill #readerBgOcrText {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   color: #ffffff;
-  min-width: 50px;
+  min-width: 48px;
   text-align: center;
   display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .reader-bg-ocr-pill.priority-active {
@@ -1249,11 +1254,13 @@ textarea,
   text-indent: 0;
 }
 
-/* 2. Diyalog ve Konuşma Paragrafları (Authentic Book Hanging Indent) */
+/* 2. Diyalog ve Konuşma Paragrafları (Alıntı / Callout Çizgili Modern Matbaa Tasarımı | xx xx xx) */
 .reader-paragraphs .reader-dialogue {
   position: relative;
-  text-indent: -1.35em;
-  padding-left: 1.35em;
+  border-left: 2.5px solid rgba(255, 255, 255, 0.35);
+  padding: 3px 0 3px 14px;
+  text-indent: 0 !important;
+  margin-top: 10px;
   margin-bottom: 14px;
   text-align: left !important;
   text-justify: none !important;
@@ -1263,9 +1270,11 @@ textarea,
   hyphens: auto;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
+  border-radius: 0 6px 6px 0;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-/* Uzun Konuşma Çizgisi (Em-Dash) */
+/* Konuşma Çizgisi (Em-Dash) */
 .dialogue-dash {
   font-family: ui-monospace, SFMono-Regular, "Times New Roman", serif;
   font-weight: 600;
@@ -1281,9 +1290,11 @@ textarea,
 
 /* Tırnak İçinde Başlayan Konuşmalar */
 .reader-quote-speech {
-  padding-left: 0.8em;
-  border-left: 2px solid rgba(255, 255, 255, 0.2);
-  margin-bottom: 16px;
+  padding: 3px 0 3px 14px;
+  border-left: 2.5px solid rgba(255, 255, 255, 0.35);
+  margin-bottom: 14px;
+  text-indent: 0 !important;
+  border-radius: 0 6px 6px 0;
 }
 
 /* Cümle İçi Alıntılar ve Konuşmalar (Inline Quotes) */
@@ -1297,6 +1308,11 @@ textarea,
 /* THEME SPECIFIC DIALOGUE ACCENTS */
 
 /* Koyu (OLED) Tema */
+.theme-koyu .reader-paragraphs .reader-dialogue,
+.theme-koyu .reader-quote-speech {
+  border-left-color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.025);
+}
 .theme-koyu .dialogue-dash {
   color: #ffffff;
   text-shadow: none;
@@ -1307,11 +1323,13 @@ textarea,
 }
 
 /* Açık (Light) Tema */
+.theme-acik .reader-paragraphs .reader-dialogue,
+.theme-acik .reader-quote-speech {
+  border-left-color: #0071e3;
+  background: rgba(0, 113, 227, 0.035);
+}
 .theme-acik .dialogue-dash {
   color: #0071e3;
-}
-.theme-acik .reader-quote-speech {
-  border-left-color: rgba(0, 0, 0, 0.18);
 }
 .theme-acik .reader-inline-quote {
   color: #1d1d1f;
@@ -1319,12 +1337,14 @@ textarea,
 }
 
 /* Sepya (Kitap Kağıdı) Tema */
+.theme-sepya .reader-paragraphs .reader-dialogue,
+.theme-sepya .reader-quote-speech {
+  border-left-color: rgba(140, 74, 30, 0.45);
+  background: rgba(140, 74, 30, 0.04);
+}
 .theme-sepya .dialogue-dash {
   color: #8c4a1e;
   font-weight: 800;
-}
-.theme-sepya .reader-quote-speech {
-  border-left-color: rgba(140, 74, 30, 0.25);
 }
 .theme-sepya .reader-inline-quote {
   color: #4a2810;
@@ -1379,8 +1399,9 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-width: 78px;
-  max-width: 155px;
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
   flex-shrink: 0;
   overflow: hidden;
 }

@@ -588,6 +588,25 @@
 
             <div class="settings-row-divider"></div>
 
+            <!-- Sağa ve Sola Kaydırarak Sayfa Değiştirme -->
+            <div class="settings-ios-row">
+              <div class="settings-row-icon-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M7 16l-4-4m0 0l4-4m-4 4h18m-4 4l4-4m0 0l-4-4"></path>
+                </svg>
+              </div>
+              <div class="settings-row-text">
+                <span class="settings-row-title">Kaydırarak Sayfa Değiştir</span>
+                <span class="settings-row-desc">Okuma ekranında parmağınızı sağa veya sola kaydırarak sayfalar arasında hızla gezinin.</span>
+              </div>
+              <label class="apple-switch-wrap">
+                <input type="checkbox" id="setSwipeNavigation" class="apple-switch" checked>
+                <span class="apple-slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row-divider"></div>
+
             <!-- Sesli Okuma (TTS) Hızı -->
             <div class="settings-ios-row-stack">
               <div class="settings-row-label-row">
@@ -1056,6 +1075,22 @@
             </div>
             <label class="ios-switch">
               <input type="checkbox" id="toggleBookDialogueFormat" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Row 5: Kaydırarak Sayfa Değiştir Switch -->
+          <div class="settings-toggle-row">
+            <div class="toggle-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="moon-icon">
+                <path d="M7 16l-4-4m0 0l4-4m-4 4h18m-4 4l4-4m0 0l-4-4"></path>
+              </svg>
+              <span class="toggle-text">Kaydırarak Sayfa Değiştir</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="toggleSwipePageNav" checked>
               <span class="switch-slider"></span>
             </label>
           </div>
