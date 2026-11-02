@@ -1705,19 +1705,19 @@ export async function askBookAi({
   const groqKey = (settings.groqApiKey || '').trim();
   const orKey = (settings.openrouterApiKey || '').trim();
 
-  // Determine provider and model
+  // Determine provider and model (strictly use verified active models)
   let provider = 'groq';
   let apiKey = groqKey;
-  let model = 'llama-3.3-70b-versatile';
+  let model = (settings.groqModel && settings.groqModel !== 'auto') ? settings.groqModel : 'qwen/qwen3.8-27b';
 
   if (groqKey) {
     provider = 'groq';
     apiKey = groqKey;
-    model = 'llama-3.3-70b-versatile';
+    model = (settings.groqModel && settings.groqModel !== 'auto') ? settings.groqModel : 'qwen/qwen3.8-27b';
   } else if (orKey) {
     provider = 'openrouter';
     apiKey = orKey;
-    model = 'google/gemma-4-26b-a4b-it:free';
+    model = (settings.openrouterModel && settings.openrouterModel !== 'auto') ? settings.openrouterModel : 'openrouter/free';
   } else {
     throw new Error('Yapay zeka asistanını kullanmak için Ayarlar menüsünden ücretsiz Groq veya OpenRouter API anahtarınızı girin.');
   }
@@ -1818,6 +1818,29 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
       });
     } else {
       throw new Error(`Ağ bağlantısı kurulamadı: ${err.message}`);
+    }
+  }
+
+  if (!res.ok) {
+    if (provider === 'groq' && orKey) {
+      console.warn('[Book AI Chat] Groq yanıt hatası, OpenRouter deneniyor...');
+      const fallbackHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${orKey}`,
+        'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
+        'X-Title': 'ReaWid Book AI Chat'
+      };
+      const fallbackPayload = {
+        model: 'openrouter/free',
+        messages,
+        temperature: 0.6,
+        max_tokens: 1024
+      };
+      res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: fallbackHeaders,
+        body: JSON.stringify(fallbackPayload)
+      });
     }
   }
 
