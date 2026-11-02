@@ -116,6 +116,7 @@ let isCompareSpeaking = false;
 let isBookmarked = false;
 let isZenMode = false;
 let isReaderSpeaking = false;
+let currentPlayingSentenceIndex = -1;
 
 let currentImageRaw = null;
 let currentProcessedImage = null;
@@ -940,9 +941,7 @@ function openBookInReader(book, targetPage = null) {
 
 function closeReader() {
   toggleZenMode(false);
-  stopSpeech();
-  isReaderSpeaking = false;
-  stopSpeech();
+  stopReaderSpeech();
   releaseWakeLock();
   terminateTesseractWorker().catch(() => {});
   document.body.classList.remove('reader-open');
@@ -1020,6 +1019,10 @@ function renderReaderPage(pageNum, turnDirection = null) {
 
   const prevPage = currentReaderPage;
   currentReaderPage = Math.max(1, Math.min(currentTotalPages, pageNum));
+
+  if (prevPage !== currentReaderPage && (isSpeaking() || isReaderSpeaking)) {
+    stopReaderSpeech();
+  }
 
   // Akıcı Sayfa Geçiş Animasyonu & Dokunmatik Hissiyat (Haptic)
   if (prevPage !== currentReaderPage && el.readerParagraphsContainer) {
@@ -2015,51 +2018,103 @@ function toggleZenMode(forceState = null) {
 }
 
 /**
- * Sayfadaki metni sesli okuma (TTS) Başlat / Durdur
+ * Okuyucu sesli okuma durumunu durdurur ve aktif cümle vurgularını temizler
  */
-function toggleReaderSpeech() {
-  if (isSpeaking() || isReaderSpeaking) {
-    stopSpeech();
-    isReaderSpeaking = false;
-    if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
-    showToast('Sesli okuma durduruldu', 'info');
+function stopReaderSpeech() {
+  stopSpeech();
+  isReaderSpeaking = false;
+  currentPlayingSentenceIndex = -1;
+  if (el.readerParagraphsContainer) {
+    el.readerParagraphsContainer.querySelectorAll('.sentence-active').forEach(span => {
+      span.classList.remove('sentence-active');
+    });
+  }
+  if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+}
+
+/**
+ * Sayfadaki belirli bir cümleden itibaren sesli okuma kuyruğunu oynatır (Dokun ve Dinle)
+ */
+function playSentenceQueue(index = 0) {
+  if (!el.readerParagraphsContainer) return;
+
+  const targetSpan = el.readerParagraphsContainer.querySelector(`.reader-sentence[data-sentence-idx="${index}"]`);
+
+  if (!targetSpan) {
+    if (index === 0) {
+      // Cümle span'ı bulunamadıysa (ör. henüz formatlanmamış metin veya analiz kartı)
+      const textToRead = el.readerParagraphsContainer?.innerText || '';
+      if (!textToRead.trim()) {
+        showToast('Seslendirilecek metin bulunamadı', 'warning');
+        stopReaderSpeech();
+        return;
+      }
+      isReaderSpeaking = true;
+      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
+      speakText(textToRead, {
+        voice: appSettings.ttsVoice || 'tr-TR-AhmetNeural',
+        rate: appSettings.ttsSpeed || 1.0,
+        onEnd: () => stopReaderSpeech(),
+        onError: () => stopReaderSpeech()
+      });
+      return;
+    }
+    // Sayfanın tüm cümleleri tamamlandı
+    stopReaderSpeech();
+    showToast('Sayfa okuması tamamlandı', 'info');
     return;
   }
 
-  const textToRead = el.readerParagraphsContainer?.innerText || '';
-  if (!textToRead.trim()) {
-    showToast('Seslendirilecek metin bulunamadı', 'warning');
-    return;
-  }
+  // Önceki aktif vurguyu kaldır ve yenisine ekle
+  el.readerParagraphsContainer.querySelectorAll('.sentence-active').forEach(span => {
+    span.classList.remove('sentence-active');
+  });
 
+  currentPlayingSentenceIndex = index;
   isReaderSpeaking = true;
   if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
-  const voiceName = (appSettings.ttsVoice === 'tr-TR-EmelNeural') ? 'Emel' : 'Ahmet';
-  showToast(`Sayfa ${currentReaderPage} seslendiriliyor (${voiceName})...`, 'info');
 
-  speakText(textToRead, {
+  targetSpan.classList.add('sentence-active');
+  targetSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+
+  const rawText = targetSpan.textContent || '';
+  const sentenceText = rawText.trim();
+  if (!sentenceText) {
+    playSentenceQueue(index + 1);
+    return;
+  }
+
+  speakText(sentenceText, {
     voice: appSettings.ttsVoice || 'tr-TR-AhmetNeural',
     rate: appSettings.ttsSpeed || 1.0,
-    onEngineSelected: (engine) => {
-      if (engine === 'edge') {
-        showToast(`🎙️ Doğal ${voiceName} Sesi (Edge Neural) oynatılıyor`, 'success');
-      } else {
-        showToast('⚠️ Edge TTS sunucusuna erişilemedi, yerel tarayıcı sesi kullanılıyor. Sayfayı Ctrl+F5 ile yenileyin.', 'warning');
-      }
-    },
     onStart: () => {
       isReaderSpeaking = true;
       if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
     },
     onEnd: () => {
-      isReaderSpeaking = false;
-      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+      if (isReaderSpeaking && currentPlayingSentenceIndex === index) {
+        playSentenceQueue(index + 1);
+      }
     },
     onError: () => {
-      isReaderSpeaking = false;
-      if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Sesli Oku (TTS)';
+      stopReaderSpeech();
     }
   });
+}
+
+/**
+ * Sayfadaki metni sesli okuma (TTS) Başlat / Durdur
+ */
+function toggleReaderSpeech() {
+  if (isSpeaking() || isReaderSpeaking) {
+    stopReaderSpeech();
+    showToast('Sesli okuma durduruldu', 'info');
+    return;
+  }
+
+  const voiceName = (appSettings.ttsVoice === 'tr-TR-EmelNeural') ? 'Emel' : 'Ahmet';
+  showToast(`Sayfa ${currentReaderPage} seslendiriliyor (${voiceName})...`, 'info');
+  playSentenceQueue(0);
 }
 
 function setupReaderSwipeNavigation() {
@@ -2419,6 +2474,32 @@ function setupEventListeners() {
         }
         showToast('Tüm sayfaların OCR önbelleği sıfırlandı, yeniden taranıyor...', 'success');
       }
+    });
+  }
+
+  // Dokun ve Dinle: Cümleye tıklayarak / dokunarak oradan itibaren sesli okuma
+  if (el.readerParagraphsContainer) {
+    el.readerParagraphsContainer.addEventListener('click', (e) => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 0) return;
+
+      const sentenceEl = e.target.closest('.reader-sentence');
+      if (!sentenceEl) return;
+
+      const idxAttr = sentenceEl.getAttribute('data-sentence-idx');
+      if (idxAttr === null) return;
+
+      const idx = parseInt(idxAttr, 10);
+      if (isNaN(idx)) return;
+
+      // Kullanıcı zaten çalan aktif cümleye dokunduysa durdur
+      if (isReaderSpeaking && currentPlayingSentenceIndex === idx) {
+        stopReaderSpeech();
+        showToast('Sesli okuma durduruldu', 'info');
+        return;
+      }
+
+      playSentenceQueue(idx);
     });
   }
 

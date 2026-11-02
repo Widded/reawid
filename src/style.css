@@ -1593,6 +1593,49 @@ mark.search-highlight.active-match {
   border-radius: 4px;
 }
 
+/* ==========================================================================
+   Interactive Sentence Targets for Tap-to-Read TTS & Karaoke Highlighting
+   ========================================================================== */
+.reader-sentence {
+  display: inline;
+  position: relative;
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: 0 -2px;
+  cursor: pointer;
+  transition: background-color 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .reader-sentence:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-acik .reader-sentence:hover,
+  .theme-sepya .reader-sentence:hover,
+  .theme-paper .reader-sentence:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Karaoke Glow when speaking */
+.reader-sentence.sentence-active {
+  background: rgba(234, 179, 8, 0.26) !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.45);
+  border-radius: 5px;
+}
+
+.theme-acik .reader-sentence.sentence-active {
+  background: rgba(217, 119, 6, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.45);
+}
+
+.theme-sepya .reader-sentence.sentence-active {
+  background: rgba(180, 83, 9, 0.22) !important;
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.4);
+}
+
 /* THEME SPECIFIC DIALOGUE ACCENTS */
 
 /* Koyu (OLED) Tema */

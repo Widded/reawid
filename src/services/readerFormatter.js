@@ -70,11 +70,31 @@ export function isDialogueTurn(str) {
 }
 
 /**
+ * Splits Turkish book prose into sentences while preserving ellipsis (... / …),
+ * abbreviations (Dr., Prof., vs., vb.), and terminal quotes.
+ */
+export function splitIntoSentences(text) {
+  if (!text || typeof text !== 'string') return [];
+  // 1. Temporarily protect common abbreviations
+  let s = text.replace(/\b(Dr|Prof|Av|vs|vb|bkz|sf)\.\s+/gi, '$1__TEMP_DOT_SPACE__');
+
+  // 2. Split on sentence boundaries:
+  // After terminal punctuation (. ! ? ... …) optionally followed by closing quote,
+  // then whitespace, followed by Capital letter, opening quote, dialogue dash, or number.
+  const parts = s.split(/(?<=[.!?…]["”»]?|(?:\.\.\.)["”»]?)\s+(?=[A-ZÇĞİÖŞÜ"“«—–\d])/u);
+
+  return parts
+    .map(p => p.replace(/__TEMP_DOT_SPACE__/g, '. ').trim())
+    .filter(Boolean);
+}
+
+/**
  * Formats book paragraphs and dialogs with authentic novel typography.
  * - Merges end-of-line hyphens (matbaa heceleme çizgisi) so words are whole.
  * - Never confuses end-of-line hyphens or lowercase continuations with dialogue dashes.
  * - Groups wrapped lines into full narrative paragraphs.
  * - Formats genuine dialogues with em-dashes and hanging indents.
+ * - Wraps every sentence in a clickable .reader-sentence target for tap-to-read TTS.
  */
 export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {}) {
   const isEnabled = options.enabled !== false;
@@ -98,12 +118,24 @@ export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {})
   // Pre-process 2: Reconstruct accidental paragraph breaks caused by line heights or wrapped hyphens
   rawList = mergeAccidentalParagraphSplits(rawList);
 
+  let sentenceCounter = 0;
+
+  function renderSentencesHtml(rawParagraphText) {
+    const sentences = splitIntoSentences(rawParagraphText);
+    if (sentences.length === 0) return '';
+    return sentences.map(sentence => {
+      const idx = sentenceCounter++;
+      const formatted = formatInlineQuotes(escapeBookHtml(sentence));
+      return `<span class="reader-sentence" data-sentence-idx="${idx}">${formatted}</span>`;
+    }).join(' ');
+  }
+
   // If disabled, render plain paragraphs without novel styling
   if (!isEnabled) {
     return rawList
       .map(p => (typeof p === 'string' ? fixSpacedOutLetters(p).trim() : ''))
       .filter(Boolean)
-      .map(p => `<p class="reader-paragraph">${escapeBookHtml(p)}</p>`)
+      .map(p => `<p class="reader-paragraph">${renderSentencesHtml(p)}</p>`)
       .join('');
   }
 
@@ -200,7 +232,7 @@ export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {})
     return '';
   }
 
-  // 3. Render each segment with authentic typography
+  // 3. Render each segment with authentic typography and sentence targets
   return finalSegments.map(rawP => {
     const p = fixSpacedOutLetters(rawP);
     const isDashDialogue = isDialogueTurn(p) && (/^[—–―]/.test(p) || /^-\s+/.test(p));
@@ -209,17 +241,17 @@ export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {})
     if (isDashDialogue) {
       // Strip leading dash & space cleanly
       const speechBody = p.replace(/^[—–―]\s*|^-\s+/, '').trim();
-      const formattedBody = formatInlineQuotes(escapeBookHtml(speechBody));
+      const formattedBody = renderSentencesHtml(speechBody);
       return `<p class="reader-paragraph reader-dialogue"><span class="dialogue-dash" aria-hidden="true">—</span><span class="dialogue-text">${formattedBody}</span></p>`;
     }
 
     if (isQuoteDialogue) {
-      const formattedBody = formatInlineQuotes(escapeBookHtml(p));
+      const formattedBody = renderSentencesHtml(p);
       return `<p class="reader-paragraph reader-dialogue reader-quote-speech">${formattedBody}</p>`;
     }
 
     // Standard narrative prose
-    const formattedBody = formatInlineQuotes(escapeBookHtml(p));
+    const formattedBody = renderSentencesHtml(p);
     return `<p class="reader-paragraph reader-narrative">${formattedBody}</p>`;
   }).join('');
 }
