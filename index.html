@@ -382,411 +382,564 @@
       </div>
     </section>
 
-    <!-- AYARLAR (APP SETTINGS & PREFERENCES) SCREEN (Apple iOS Inset Grouped Style) -->
+    <!-- AYARLAR (APP SETTINGS & PREFERENCES) SCREEN (Apple iOS Inset Hierarchical Sub-Menu Style) -->
     <section id="settingsViewScreen" class="settings-page-container hidden">
-      <!-- Settings Header -->
-      <header class="settings-page-header">
-        <div class="settings-page-header-text">
-          <h1 class="settings-page-title">Ayarlar</h1>
-          <p class="settings-page-subtitle">Okuma deneyimi, depolama ve uygulama tercihleri.</p>
-        </div>
-      </header>
 
-      <div class="settings-page-scroll">
-        <!-- 0. BULUT HESABI & CİHAZ EŞİTLEME (Apple ID Style) -->
-        <div class="settings-group-box">
-          <div class="settings-ios-card settings-account-card" id="btnSettingsOpenAccount" role="button" tabindex="0">
-            <div class="settings-account-avatar" id="settingsAccountAvatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
+      <!-- 1. SETTINGS MAIN HUB (Main Menu) -->
+      <div id="settingsHubView" class="settings-hub-view">
+        <header class="settings-page-header">
+          <div class="settings-page-header-text">
+            <h1 class="settings-page-title">Ayarlar</h1>
+            <p class="settings-page-subtitle">Okuma deneyimi, sesler ve sistem tercihleri.</p>
+          </div>
+        </header>
+
+        <div class="settings-page-scroll">
+          <!-- 0. BULUT HESABI & CİHAZ EŞİTLEME (Apple ID Style) -->
+          <div class="settings-group-box">
+            <div class="settings-ios-card settings-account-card" id="btnSettingsOpenAccount" role="button" tabindex="0">
+              <div class="settings-account-avatar" id="settingsAccountAvatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div class="settings-account-info">
+                <span class="settings-account-name" id="settingsAccountName">Hesap & Senkronizasyon</span>
+                <span class="settings-account-status" id="settingsAccountStatus">Kaldığınız yerden devam etmek için giriş yapın</span>
+              </div>
+              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
             </div>
-            <div class="settings-account-info">
-              <span class="settings-account-name" id="settingsAccountName">Hesap & Senkronizasyon</span>
-              <span class="settings-account-status" id="settingsAccountStatus">Kaldığınız yerden devam etmek için giriş yapın</span>
+          </div>
+
+          <!-- 1. KATEGORİ MENÜLERİ (Apple iOS Inset Nav Rows) -->
+          <div class="settings-group-box">
+            <h2 class="settings-group-heading">Tercihler</h2>
+            <div class="settings-ios-card settings-nav-menu-card">
+              <!-- Okuma & Görünüm -->
+              <button type="button" class="settings-nav-row" data-subpage="appearance">
+                <div class="settings-row-icon-box icon-palette">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <line x1="21.17" y1="8" x2="12" y2="8"></line>
+                    <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+                    <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+                  </svg>
+                </div>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">Okuma & Görünüm</span>
+                  <span class="settings-row-desc">Tema, tipografi, gece modu ve ekran</span>
+                </div>
+                <span class="settings-nav-badge" id="hubBadgeAppearance">Koyu (OLED)</span>
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
+              <div class="settings-row-divider"></div>
+
+              <!-- Akıllı Okuyucu & OCR -->
+              <button type="button" class="settings-nav-row" data-subpage="analysis">
+                <div class="settings-row-icon-box icon-zap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                </div>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">Akıllı Okuyucu & OCR</span>
+                  <span class="settings-row-desc">Sayfa analizi, heceleme ve diyaloglar</span>
+                </div>
+                <span class="settings-nav-badge" id="hubBadgeOcr">Otomatik</span>
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
+              <div class="settings-row-divider"></div>
+
+              <!-- Sesli Okuma (TTS) -->
+              <button type="button" class="settings-nav-row" data-subpage="tts">
+                <div class="settings-row-icon-box icon-voice">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                  </svg>
+                </div>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">Sesli Okuma (TTS)</span>
+                  <span class="settings-row-desc">Doğal seslendirmen ve okuma hızı</span>
+                </div>
+                <span class="settings-nav-badge" id="hubBadgeTts">Ahmet · 1.0x</span>
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
+              <div class="settings-row-divider"></div>
+
+              <!-- Depolama & Yedekleme -->
+              <button type="button" class="settings-nav-row" data-subpage="storage">
+                <div class="settings-row-icon-box icon-storage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                  </svg>
+                </div>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">Depolama & Yedekleme</span>
+                  <span class="settings-row-desc">Önbellek, dışa aktar ve sıfırla</span>
+                </div>
+                <span class="settings-nav-badge" id="hubBadgeStorage">Aktif</span>
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
+              <div class="settings-row-divider"></div>
+
+              <!-- Hakkında & Gizlilik -->
+              <button type="button" class="settings-nav-row" data-subpage="about">
+                <div class="settings-row-icon-box icon-about">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                </div>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">Hakkında & Gizlilik</span>
+                  <span class="settings-row-desc">ReaWid v2.4, çevrimdışı PWA modu</span>
+                </div>
+                <span class="settings-nav-badge">v2.4</span>
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
             </div>
-            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"></polyline>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. SETTINGS SUB-PAGE CONTAINER (Menu Inside Menu - Nested Views) -->
+      <div id="settingsSubView" class="settings-sub-view hidden">
+        <!-- Top Back Navigation Header -->
+        <div class="settings-subpage-nav-bar">
+          <button type="button" class="btn-settings-back" id="btnSettingsBack" aria-label="Ayarlar'a dön">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+              <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
-          </div>
+            <span>Ayarlar</span>
+          </button>
+          <h2 class="settings-subpage-nav-title" id="settingsSubpageTitle">Okuma & Görünüm</h2>
+          <div class="settings-subpage-nav-spacer"></div>
         </div>
 
-        <!-- 1. GÖRÜNÜM & OKUMA DENEYİMİ -->
-        <div class="settings-group-box">
-          <h2 class="settings-group-heading">Okuma & Görünüm</h2>
-          <div class="settings-ios-card">
-            <!-- Varsayılan Tema -->
-            <div class="settings-ios-row-stack">
-              <div class="settings-row-label-row">
-                <span class="settings-row-title">Varsayılan Okuma Teması</span>
-                <span class="settings-row-hint-badge" id="badgeCurrentTheme">Koyu (OLED)</span>
-              </div>
-              <div class="settings-segmented-control" id="settingsThemeSelector">
-                <button type="button" class="segmented-pill active" data-theme="koyu">Koyu (OLED)</button>
-                <button type="button" class="segmented-pill" data-theme="acik">Açık</button>
-                <button type="button" class="segmented-pill" data-theme="sepya">Sepya</button>
+        <div class="settings-subpage-scroll">
+
+          <!-- ALT MENÜ 1: Okuma & Görünüm -->
+          <div id="subpage_appearance" class="settings-subpage-panel hidden">
+            <div class="settings-group-box">
+              <h3 class="settings-group-heading">Tema & Tipografi</h3>
+              <div class="settings-ios-card">
+                <!-- Varsayılan Tema -->
+                <div class="settings-ios-row-stack">
+                  <div class="settings-row-label-row">
+                    <span class="settings-row-title">Varsayılan Okuma Teması</span>
+                    <span class="settings-row-hint-badge" id="badgeCurrentTheme">Koyu (OLED)</span>
+                  </div>
+                  <div class="settings-segmented-control" id="settingsThemeSelector">
+                    <button type="button" class="segmented-pill active" data-theme="koyu">Koyu (OLED)</button>
+                    <button type="button" class="segmented-pill" data-theme="acik">Açık</button>
+                    <button type="button" class="segmented-pill" data-theme="sepya">Sepya</button>
+                  </div>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Varsayılan Yazı Tipi -->
+                <div class="settings-ios-row-stack">
+                  <div class="settings-row-label-row">
+                    <span class="settings-row-title">Yazı Karakteri (Tipografi)</span>
+                  </div>
+                  <div class="settings-segmented-control" id="settingsFontSelector">
+                    <button type="button" class="segmented-pill active" data-font="serif">Kitap Serifi</button>
+                    <button type="button" class="segmented-pill" data-font="sans">Modern Sans</button>
+                    <button type="button" class="segmented-pill" data-font="mono">Monospace</button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="settings-row-divider"></div>
+            <div class="settings-group-box" style="margin-top: 18px;">
+              <h3 class="settings-group-heading">Ekran & Aydınlatma</h3>
+              <div class="settings-ios-card">
+                <!-- Ekran Uykusunu Engelle (Wake Lock) -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="5"></circle>
+                      <line x1="12" y1="1" x2="12" y2="3"></line>
+                      <line x1="12" y1="21" x2="12" y2="23"></line>
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                      <line x1="1" y1="12" x2="3" y2="12"></line>
+                      <line x1="21" y1="12" x2="23" y2="12"></line>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Ekranı Sürekli Açık Tut</span>
+                    <span class="settings-row-desc">Okuma esnasında telefon ekranının kararmasını engeller.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setWakeLock" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
 
-            <!-- Varsayılan Yazı Tipi -->
-            <div class="settings-ios-row-stack">
-              <div class="settings-row-label-row">
-                <span class="settings-row-title">Yazı Karakteri (Tipografi)</span>
-              </div>
-              <div class="settings-segmented-control" id="settingsFontSelector">
-                <button type="button" class="segmented-pill active" data-font="serif">Kitap Serifi</button>
-                <button type="button" class="segmented-pill" data-font="sans">Modern Sans</button>
-                <button type="button" class="segmented-pill" data-font="mono">Monospace</button>
-              </div>
-            </div>
+                <div class="settings-row-divider"></div>
 
-            <div class="settings-row-divider"></div>
-
-            <!-- Ekran Uykusunu Engelle (Wake Lock) -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="5"></circle>
-                  <line x1="12" y1="1" x2="12" y2="3"></line>
-                  <line x1="12" y1="21" x2="12" y2="23"></line>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                  <line x1="1" y1="12" x2="3" y2="12"></line>
-                  <line x1="21" y1="12" x2="23" y2="12"></line>
-                </svg>
+                <!-- Otomatik Gece Modu -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Otomatik Gece Modu</span>
+                    <span class="settings-row-desc">Saat 19:00 - 07:00 arasında otomatik olarak OLED siyah temaya geçer.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setAutoNightMode" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Ekranı Sürekli Açık Tut</span>
-                <span class="settings-row-desc">Okuma esnasında telefon ekranının kararmasını ve kilitlenmesini engeller.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setWakeLock" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Otomatik Gece Modu -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Otomatik Gece Modu</span>
-                <span class="settings-row-desc">Saat 19:00 - 07:00 arasında otomatik olarak göz yormayan OLED siyah temaya geçer.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setAutoNightMode" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
             </div>
           </div>
-        </div>
 
-        <!-- 2. AKILLI OKUYUCU & METİN ÇÖZÜMLEME -->
-        <div class="settings-group-box">
-          <h2 class="settings-group-heading">Akıllı Okuyucu & Sayfa Analizi</h2>
-          <div class="settings-ios-card">
-            <!-- OCR Motoru Tercihi -->
-            <div class="settings-ios-row-stack">
-              <div class="settings-row-label-row">
-                <span class="settings-row-title">OCR Motoru Tercihi</span>
-                <span class="settings-row-hint-badge" id="badgeOcrEngine">Otomatik</span>
-              </div>
-              <div class="settings-segmented-control" id="settingsOcrEngineSelector">
-                <button type="button" class="segmented-pill active" data-engine="auto">Otomatik</button>
-                <button type="button" class="segmented-pill" data-engine="tesseract">Tesseract (Yerel)</button>
-                <button type="button" class="segmented-pill" data-engine="vision_ai">Vision AI (Bulut)</button>
-              </div>
-              <span class="settings-row-desc" style="margin-top: 6px;">
-                <strong>Otomatik:</strong> Taranmış sayfalarda önce hızlı ve ücretsiz Tesseract OCR'ı dener; gerekirse Vision AI'ya geçer.
-              </span>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Arka Planda Ön-Yükleme -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Sonraki Sayfayı Arka Planda Yükle</span>
-                <span class="settings-row-desc">Siz mevcut sayfayı okurken sonraki sayfa sessizce taranır, sayfa çevirmek anlık olur.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setAutoPrefetch" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Matbaa Tirelerini Birleştir -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Matbaa Tirelerini Otomatik Birleştir</span>
-                <span class="settings-row-desc">Satır sonundaki hece tirelerini (örn: ge-liş-me -> gelişme) tek parça yapar.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setMergeHyphens" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Başlık ve Sayfa Numarası Filtresi -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Sayfa Numaralarını ve Başlıkları Gizle</span>
-                <span class="settings-row-desc">Sayfa başı ve altındaki tekrar eden kitap adı/numaralarını akıllıca temizler.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setIgnorePageNums" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Akıllı Diyalog & Paragraf Düzeni -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Diyalog ve Kitap Düzeni</span>
-                <span class="settings-row-desc">Kitaplardaki konuşma çizgilerini (—) ve paragrafları matbaa düzeninde ayrı satırlara döker.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setDialogueFormatting" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Sağa ve Sola Kaydırarak Sayfa Değiştirme -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M7 16l-4-4m0 0l4-4m-4 4h18m-4 4l4-4m0 0l-4-4"></path>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Kaydırarak Sayfa Değiştir</span>
-                <span class="settings-row-desc">Okuma ekranında parmağınızı sağa veya sola kaydırarak sayfalar arasında hızla gezinin.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setSwipeNavigation" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Biyonik Okuma (Hızlı Odak Modu) -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Biyonik Okuma (Odak Modu)</span>
-                <span class="settings-row-desc">Kelimelerin ilk harflerini koyulaştırarak gözün kelimeleri daha hızlı ve yorulmadan kavramasını sağlar.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setBionicReading" class="apple-switch">
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Sesli Okuma (TTS) Hızı -->
-            <div class="settings-ios-row-stack">
-              <div class="settings-row-label-row">
-                <span class="settings-row-title">Sesli Okuma (TTS) Hızı</span>
-                <span class="settings-row-hint-badge" id="badgeTtsSpeed">1.0x</span>
-              </div>
-              <div class="settings-segmented-control" id="settingsTtsSelector">
-                <button type="button" class="segmented-pill" data-speed="0.8">0.8x</button>
-                <button type="button" class="segmented-pill active" data-speed="1.0">1.0x</button>
-                <button type="button" class="segmented-pill" data-speed="1.25">1.25x</button>
-                <button type="button" class="segmented-pill" data-speed="1.5">1.5x</button>
+          <!-- ALT MENÜ 2: Akıllı Okuyucu & Sayfa Analizi -->
+          <div id="subpage_analysis" class="settings-subpage-panel hidden">
+            <div class="settings-group-box">
+              <h3 class="settings-group-heading">OCR Motoru</h3>
+              <div class="settings-ios-card">
+                <div class="settings-ios-row-stack">
+                  <div class="settings-row-label-row">
+                    <span class="settings-row-title">OCR Motoru Tercihi</span>
+                    <span class="settings-row-hint-badge" id="badgeOcrEngine">Otomatik</span>
+                  </div>
+                  <div class="settings-segmented-control" id="settingsOcrEngineSelector">
+                    <button type="button" class="segmented-pill active" data-engine="auto">Otomatik</button>
+                    <button type="button" class="segmented-pill" data-engine="tesseract">Tesseract (Yerel)</button>
+                    <button type="button" class="segmented-pill" data-engine="vision_ai">Vision AI (Bulut)</button>
+                  </div>
+                  <span class="settings-row-desc" style="margin-top: 6px;">
+                    <strong>Otomatik:</strong> Taranmış sayfalarda önce yerel Tesseract OCR'ı dener; gerekirse Vision AI'ya geçer.
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div class="settings-row-divider"></div>
+            <div class="settings-group-box" style="margin-top: 18px;">
+              <h3 class="settings-group-heading">Okuma & Sayfalama Geliştirmeleri</h3>
+              <div class="settings-ios-card">
+                <!-- Arka Planda Ön-Yükleme -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Sonraki Sayfayı Arka Planda Yükle</span>
+                    <span class="settings-row-desc">Mevcut sayfayı okurken sonraki sayfa sessizce taranır, sayfa geçişleri anlık olur.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setAutoPrefetch" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
 
-            <!-- Doğal AI Seslendirmen Seçimi -->
-            <div class="settings-ios-row-stack">
-              <div class="settings-row-label-row">
-                <span class="settings-row-title">Doğal Seslendirmen (Edge Neural)</span>
-                <span class="settings-row-hint-badge" id="badgeTtsVoice">Ahmet</span>
+                <div class="settings-row-divider"></div>
+
+                <!-- Matbaa Tirelerini Birleştir -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Matbaa Tirelerini Otomatik Birleştir</span>
+                    <span class="settings-row-desc">Satır sonundaki hece tirelerini (örn: ge-liş-me -> gelişme) tek parça yapar.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setMergeHyphens" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Başlık ve Sayfa Numarası Filtresi -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Sayfa Numaralarını ve Başlıkları Gizle</span>
+                    <span class="settings-row-desc">Tekrar eden kitap adı ve sayfa numaralarını akıllıca temizler.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setIgnorePageNums" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Akıllı Diyalog & Paragraf Düzeni -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Diyalog ve Kitap Düzeni</span>
+                    <span class="settings-row-desc">Konuşma çizgilerini (—) ve paragrafları matbaa düzeninde ayrı satırlara döker.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setDialogueFormatting" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Sağa ve Sola Kaydırarak Sayfa Değiştirme -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 16l-4-4m0 0l4-4m-4 4h18m-4 4l4-4m0 0l-4-4"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Kaydırarak Sayfa Değiştir</span>
+                    <span class="settings-row-desc">Okuma ekranında parmağınızı sağa/sola kaydırarak sayfalar arasında hızla gezinin.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setSwipeNavigation" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Biyonik Okuma (Hızlı Odak Modu) -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Biyonik Okuma (Odak Modu)</span>
+                    <span class="settings-row-desc">Kelimelerin ilk harflerini kalınlaştırarak gözün daha hızlı okumasını sağlar.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setBionicReading" class="apple-switch">
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-segmented-control" id="settingsTtsVoiceSelector">
-                <button type="button" class="segmented-pill active" data-voice="tr-TR-AhmetNeural">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Ahmet (Erkek)
+            </div>
+          </div>
+
+          <!-- ALT MENÜ 3: Sesli Okuma (TTS) -->
+          <div id="subpage_tts" class="settings-subpage-panel hidden">
+            <div class="settings-group-box">
+              <h3 class="settings-group-heading">Ses Motoru & Seslendirmen</h3>
+              <div class="settings-ios-card">
+                <!-- Sesli Okuma Hızı -->
+                <div class="settings-ios-row-stack">
+                  <div class="settings-row-label-row">
+                    <span class="settings-row-title">Sesli Okuma (TTS) Hızı</span>
+                    <span class="settings-row-hint-badge" id="badgeTtsSpeed">1.0x</span>
+                  </div>
+                  <div class="settings-segmented-control" id="settingsTtsSelector">
+                    <button type="button" class="segmented-pill" data-speed="0.8">0.8x</button>
+                    <button type="button" class="segmented-pill active" data-speed="1.0">1.0x</button>
+                    <button type="button" class="segmented-pill" data-speed="1.25">1.25x</button>
+                    <button type="button" class="segmented-pill" data-speed="1.5">1.5x</button>
+                  </div>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Doğal AI Seslendirmen Seçimi -->
+                <div class="settings-ios-row-stack">
+                  <div class="settings-row-label-row">
+                    <span class="settings-row-title">Doğal Seslendirmen (Edge Neural)</span>
+                    <span class="settings-row-hint-badge" id="badgeTtsVoice">Ahmet</span>
+                  </div>
+                  <div class="settings-segmented-control" id="settingsTtsVoiceSelector">
+                    <button type="button" class="segmented-pill active" data-voice="tr-TR-AhmetNeural">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Ahmet (Erkek)
+                    </button>
+                    <button type="button" class="segmented-pill" data-voice="tr-TR-EmelNeural">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Emel (Kadın)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ALT MENÜ 4: Depolama & Yedekleme -->
+          <div id="subpage_storage" class="settings-subpage-panel hidden">
+            <div class="settings-group-box">
+              <h3 class="settings-group-heading">Cihaz Hafızası & Önbellek</h3>
+              <div class="settings-ios-card">
+                <!-- Çevrimdışı Sayfa Önbelleği -->
+                <div class="settings-ios-row">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Çevrimdışı Sayfa Önbelleği</span>
+                    <span class="settings-row-desc">Taranan kitap sayfalarını cihazda saklayarak internetsiz okutur.</span>
+                  </div>
+                  <label class="apple-switch-wrap">
+                    <input type="checkbox" id="setOfflineCache" class="apple-switch" checked>
+                    <span class="apple-slider"></span>
+                  </label>
+                </div>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Önbelleği Boşalt -->
+                <button type="button" class="settings-ios-btn-row" id="btnClearCache">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                      <path d="M3 3v5h5"></path>
+                      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                      <path d="M16 16h5v5"></path>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Geçici Önbelleği Boşalt</span>
+                    <span class="settings-row-desc">Oturum önbelleğini ve servis worker dosyalarını yeniler. Kitaplar silinmez.</span>
+                  </div>
                 </button>
-                <button type="button" class="segmented-pill" data-voice="tr-TR-EmelNeural">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Emel (Kadın)
+              </div>
+            </div>
+
+            <div class="settings-group-box" style="margin-top: 18px;">
+              <h3 class="settings-group-heading">Yedekleme & Sıfırlama</h3>
+              <div class="settings-ios-card">
+                <!-- Yedek İndir (Export) -->
+                <button type="button" class="settings-ios-btn-row" id="btnExportData">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Tüm Verileri Dışa Aktar (Yedek İndir)</span>
+                    <span class="settings-row-desc">Kitaplarınızı, ilerlemenizi ve notlarınızı JSON olarak indirin.</span>
+                  </div>
+                  <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Yedek Geri Yükle (Import) -->
+                <button type="button" class="settings-ios-btn-row" id="btnImportData">
+                  <div class="settings-row-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title">Yedeği Geri Yükle (İçe Aktar)</span>
+                    <span class="settings-row-desc">Daha önce indirdiğiniz JSON yedeğini bu cihaza geri yükleyin.</span>
+                  </div>
+                  <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+                <input type="file" id="fileInputBackup" accept=".json" class="hidden">
+
+                <div class="settings-row-divider"></div>
+
+                <!-- Tüm Verileri Sıfırla (Kalıcı Silme) -->
+                <button type="button" class="settings-ios-btn-row btn-destructive-row" id="btnOpenResetModal">
+                  <div class="settings-row-icon-box icon-destructive">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </div>
+                  <div class="settings-row-text">
+                    <span class="settings-row-title text-destructive">Tüm Verileri Kalıcı Olarak Sil</span>
+                    <span class="settings-row-desc">Tüm kitaplığınızı, okuma durumunuzu ve notlarınızı kalıcı siler.</span>
+                  </div>
+                  <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
                 </button>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 3. DEPOLAMA & YEDEKLEME -->
-        <div class="settings-group-box">
-          <h2 class="settings-group-heading">Depolama & Yedekleme</h2>
-          <div class="settings-ios-card">
-            <!-- Çevrimdışı Sayfa Önbelleği -->
-            <div class="settings-ios-row">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-                </svg>
+          <!-- ALT MENÜ 5: Hakkında & Gizlilik -->
+          <div id="subpage_about" class="settings-subpage-panel hidden">
+            <div class="settings-group-box">
+              <div class="settings-about-card">
+                <div class="about-icon-glyph">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                  </svg>
+                </div>
+                <div class="about-title-row">
+                  <span class="about-app-title">ReaWid</span>
+                  <span class="about-badge">v2.4 Apple Edition</span>
+                </div>
+                <p class="about-desc">
+                  Kitap sayfalarını yapay zeka gücüyle kusursuz okunabilir dijital kitap formatına çevirir. Verileriniz tamamen cihazınızda kalır, sıfır telemetri ve sıfır veri takibi.
+                </p>
+                <div class="about-pwa-status">
+                  <span class="pwa-status-dot"></span>
+                  <span>PWA Çevrimdışı Modu Aktif</span>
+                </div>
               </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Çevrimdışı Sayfa Önbelleği</span>
-                <span class="settings-row-desc">Taranan kitap sayfalarını cihazda saklayarak uçak veya metroda çevrimdışı okutur.</span>
-              </div>
-              <label class="apple-switch-wrap">
-                <input type="checkbox" id="setOfflineCache" class="apple-switch" checked>
-                <span class="apple-slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Yedek İndir (Export) -->
-            <button type="button" class="settings-ios-btn-row" id="btnExportData">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Tüm Verileri Dışa Aktar (Yedek İndir)</span>
-                <span class="settings-row-desc">Kitaplarınızı, okuma ilerlemenizi ve notlarınızı JSON olarak indirin.</span>
-              </div>
-              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Yedek Geri Yükle (Import) -->
-            <button type="button" class="settings-ios-btn-row" id="btnImportData">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Yedeği Geri Yükle (İçe Aktar)</span>
-                <span class="settings-row-desc">Daha önce indirdiğiniz JSON yedeğini bu cihaza geri yükleyin.</span>
-              </div>
-              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-            <input type="file" id="fileInputBackup" accept=".json" class="hidden">
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Önbelleği Boşalt -->
-            <button type="button" class="settings-ios-btn-row" id="btnClearCache">
-              <div class="settings-row-icon-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                  <path d="M3 3v5h5"></path>
-                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-                  <path d="M16 16h5v5"></path>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title">Geçici Önbelleği Boşalt</span>
-                <span class="settings-row-desc">Oturum önbelleğini ve servis worker dosyalarını yeniler. Kitaplarınız silinmez.</span>
-              </div>
-            </button>
-
-            <div class="settings-row-divider"></div>
-
-            <!-- Tüm Verileri Sıfırla (Kalıcı Silme) -->
-            <button type="button" class="settings-ios-btn-row btn-destructive-row" id="btnOpenResetModal">
-              <div class="settings-row-icon-box icon-destructive">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  <line x1="10" y1="11" x2="10" y2="17"></line>
-                  <line x1="14" y1="11" x2="14" y2="17"></line>
-                </svg>
-              </div>
-              <div class="settings-row-text">
-                <span class="settings-row-title text-destructive">Tüm Verileri Kalıcı Olarak Sil</span>
-                <span class="settings-row-desc">Tüm kitaplığınızı, kaldığınız sayfaları ve notlarınızı kalıcı olarak temizler.</span>
-              </div>
-              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- 4. HAKKINDA & GİZLİLİK -->
-        <div class="settings-group-box">
-          <div class="settings-about-card">
-            <div class="about-icon-glyph">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-              </svg>
-            </div>
-            <div class="about-title-row">
-              <span class="about-app-title">ReaWid</span>
-              <span class="about-badge">v2.4 Apple Edition</span>
-            </div>
-            <p class="about-desc">
-              Kitap sayfalarını yapay zeka gücüyle kusursuz okunabilir dijital kitap formatına çevirir. Verileriniz tamamen cihazınızda kalır, sıfır telemetri ve sıfır veri takibi.
-            </p>
-            <div class="about-pwa-status">
-              <span class="pwa-status-dot"></span>
-              <span>PWA Çevrimdışı Modu Aktif</span>
             </div>
           </div>
+
         </div>
       </div>
     </section>

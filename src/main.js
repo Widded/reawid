@@ -483,6 +483,14 @@ const el = {
   notesListContainer: document.getElementById('notesListContainer'),
 
   // Settings View Screen Elements
+  settingsHubView: document.getElementById('settingsHubView'),
+  settingsSubView: document.getElementById('settingsSubView'),
+  btnSettingsBack: document.getElementById('btnSettingsBack'),
+  settingsSubpageTitle: document.getElementById('settingsSubpageTitle'),
+  hubBadgeAppearance: document.getElementById('hubBadgeAppearance'),
+  hubBadgeOcr: document.getElementById('hubBadgeOcr'),
+  hubBadgeTts: document.getElementById('hubBadgeTts'),
+  hubBadgeStorage: document.getElementById('hubBadgeStorage'),
   settingsThemeSelector: document.getElementById('settingsThemeSelector'),
   badgeCurrentTheme: document.getElementById('badgeCurrentTheme'),
   settingsFontSelector: document.getElementById('settingsFontSelector'),
@@ -3742,6 +3750,7 @@ function switchBottomTab(tab) {
   closeBookCardActionSheet();
   closeLibraryHeaderMenu();
   closeAddNoteModal();
+  if (typeof closeSettingsSubpage === 'function') closeSettingsSubpage();
 
   if (tab === 'home') {
     previousActiveTab = 'home';
@@ -5365,9 +5374,79 @@ function renderSettingsScreen() {
     const engineNames = { auto: 'Otomatik', tesseract: 'Tesseract (Yerel)', vision_ai: 'Vision AI (Bulut)' };
     el.badgeOcrEngine.textContent = engineNames[currentEngine] || 'Otomatik';
   }
+
+  // 6. Main Menu Hub Badges (Quick glance indicators)
+  if (el.hubBadgeAppearance) {
+    const themeNames = { koyu: 'Koyu (OLED)', acik: 'Açık', sepya: 'Sepya' };
+    el.hubBadgeAppearance.textContent = themeNames[appSettings.defaultTheme] || 'Koyu (OLED)';
+  }
+  if (el.hubBadgeOcr) {
+    const engineNames = { auto: 'Otomatik', tesseract: 'Tesseract', vision_ai: 'Vision AI' };
+    el.hubBadgeOcr.textContent = engineNames[currentEngine] || 'Otomatik';
+  }
+  if (el.hubBadgeTts) {
+    const voiceName = (currentVoice === 'tr-TR-EmelNeural') ? 'Emel' : 'Ahmet';
+    el.hubBadgeTts.textContent = `${voiceName} · ${currentSpeed}x`;
+  }
+  if (el.hubBadgeStorage) {
+    el.hubBadgeStorage.textContent = appSettings.offlineCache !== false ? 'Çevrimdışı Aktif' : 'Önbellek Kapalı';
+  }
+}
+
+function openSettingsSubpage(subpageId) {
+  if (!el.settingsHubView || !el.settingsSubView) return;
+
+  const titles = {
+    appearance: 'Okuma & Görünüm',
+    analysis: 'Akıllı Okuyucu & OCR',
+    tts: 'Sesli Okuma (TTS)',
+    storage: 'Depolama & Yedekleme',
+    about: 'Hakkında & Gizlilik'
+  };
+
+  if (el.settingsSubpageTitle) {
+    el.settingsSubpageTitle.textContent = titles[subpageId] || 'Ayarlar';
+  }
+
+  const allSubpages = el.settingsSubView.querySelectorAll('.settings-subpage-panel');
+  allSubpages.forEach(p => p.classList.add('hidden'));
+
+  const targetPanel = document.getElementById(`subpage_${subpageId}`);
+  if (targetPanel) {
+    targetPanel.classList.remove('hidden');
+  }
+
+  el.settingsHubView.classList.add('hidden');
+  el.settingsSubView.classList.remove('hidden');
+
+  const scrollContainer = el.settingsSubView.querySelector('.settings-subpage-scroll');
+  if (scrollContainer) scrollContainer.scrollTop = 0;
+}
+
+function closeSettingsSubpage() {
+  if (!el.settingsHubView || !el.settingsSubView) return;
+  el.settingsSubView.classList.add('hidden');
+  el.settingsHubView.classList.remove('hidden');
+  renderSettingsScreen();
 }
 
 function setupSettingsScreenEvents() {
+  // Nested Sub-Menu Navigation (Apple iOS Menu Inside Menu)
+  if (el.settingsViewScreen) {
+    el.settingsViewScreen.querySelectorAll('.settings-nav-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const subpage = row.dataset.subpage;
+        if (subpage) openSettingsSubpage(subpage);
+      });
+    });
+  }
+
+  if (el.btnSettingsBack) {
+    el.btnSettingsBack.addEventListener('click', () => {
+      closeSettingsSubpage();
+    });
+  }
+
   // OCR Engine Selector
   if (el.settingsOcrEngineSelector) {
     el.settingsOcrEngineSelector.querySelectorAll('.segmented-pill').forEach(btn => {
