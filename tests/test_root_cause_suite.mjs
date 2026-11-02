@@ -21,10 +21,10 @@ let failed = 0;
 function assert(condition, message) {
   if (condition) {
     passed++;
-    console.log(`  ✓ ${message}`);
+    console.log(`  [PASS] ${message}`);
   } else {
     failed++;
-    console.error(`  ✗ FAIL: ${message}`);
+    console.error(`  [FAIL] ${message}`);
   }
 }
 

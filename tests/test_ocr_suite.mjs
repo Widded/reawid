@@ -19,9 +19,9 @@ function assert(description, condition, extra = '') {
   total++;
   if (condition) {
     passed++;
-    console.log(`  ✅ [PASS] ${description} ${extra ? `(${extra})` : ''}`);
+    console.log(`  [PASS] ${description} ${extra ? `(${extra})` : ''}`);
   } else {
-    console.error(`  ❌ [FAIL] ${description} ${extra ? `(${extra})` : ''}`);
+    console.error(`  [FAIL] ${description} ${extra ? `(${extra})` : ''}`);
   }
 }
 
@@ -92,8 +92,8 @@ const afterHealed = normalizeHyphensAndText(rawParagraph);
 const afterCer = calculateCer(targetParagraph, afterHealed);
 const afterWer = calculateWer(targetParagraph, afterHealed);
 
-console.log(`  📊 Orijinal Paragraf Hata Oranı -> CER: ${(beforeCer * 100).toFixed(2)}% | WER: ${(beforeWer * 100).toFixed(2)}%`);
-console.log(`  📊 Düzeltilmiş Paragraf Hata Oranı -> CER: ${(afterCer * 100).toFixed(2)}% | WER: ${(afterWer * 100).toFixed(2)}%`);
+console.log(`  [METRIC] Orijinal Paragraf Hata Oranı -> CER: ${(beforeCer * 100).toFixed(2)}% | WER: ${(beforeWer * 100).toFixed(2)}%`);
+console.log(`  [METRIC] Düzeltilmiş Paragraf Hata Oranı -> CER: ${(afterCer * 100).toFixed(2)}% | WER: ${(afterWer * 100).toFixed(2)}%`);
 assert('Tam paragraf metni birebir hedef metinle eşleşiyor', afterHealed === targetParagraph);
 assert('Düzeltme sonrası Paragraf CER %0.00 olmalı', afterCer === 0);
 assert('Düzeltme sonrası Paragraf WER %0.00 olmalı', afterWer === 0);

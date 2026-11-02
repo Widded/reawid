@@ -73,7 +73,7 @@ export async function getOrInitTesseractWorker(onProgress = null) {
 
       tesseractWorker = worker;
       const elapsed = Math.round(performance.now() - t0);
-      console.info(`[Tesseract Service] ✅ Türkçe OCR motoru başarıyla yüklendi (${elapsed}ms).`);
+      console.info(`[Tesseract Service] [OK] Türkçe OCR motoru başarıyla yüklendi (${elapsed}ms).`);
       return tesseractWorker;
     } catch (err) {
       console.error('[Tesseract Service] Türkçe dil verisi veya Worker başlatılamadı:', err);
@@ -189,7 +189,7 @@ export async function performTesseractOcr({
         const pass2Conf = Math.round(pass2Res?.data?.confidence || 0);
 
         if (pass2Conf > confidence || (pass2Text.length > rawText.length * 1.3 && pass2Conf >= 45)) {
-          console.info(`[Tesseract OCR] ✅ İkinci aşama (Adaptive Thresholding) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
+          console.info(`[Tesseract OCR] [Adaptive] İkinci aşama (Adaptive Thresholding) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
           rawText = pass2Text;
           confidence = pass2Conf;
         }
@@ -220,7 +220,7 @@ export async function performTesseractOcr({
     verifiableResult.isBlank = isBlank;
 
     console.info(
-      `[Tesseract OCR] ✅ Belge: [${documentId}] | Sayfa: [${pageNumber}] | Süre: ${durationMs}ms | Güven: %${confidence} | Karakter: ${cleanedText.length}`
+      `[Tesseract OCR] [OK] Belge: [${documentId}] | Sayfa: [${pageNumber}] | Süre: ${durationMs}ms | Güven: %${confidence} | Karakter: ${cleanedText.length}`
     );
 
     return verifiableResult;

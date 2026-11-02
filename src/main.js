@@ -1019,7 +1019,13 @@ function renderPageAnalysisError(pageNum, reason = '') {
   el.readerArticleTitle.textContent = currentActiveBook?.title || '';
   el.readerParagraphsContainer.innerHTML = `
     <div class="reader-page-error-card" style="text-align: center; padding: 36px 20px; max-width: 480px; margin: 32px auto; background: var(--bg-secondary, rgba(255,255,255,0.03)); border: 1px solid var(--border-color, rgba(255,255,255,0.08)); border-radius: 16px;">
-      <div style="font-size: 2.2rem; margin-bottom: 12px;">⚠️</div>
+      <div style="margin-bottom: 14px; color: #f59e0b; display: flex; justify-content: center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="38" height="38">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </div>
       <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;">Sayfa ${pageNum} Analiz Edilemedi</h3>
       <p style="color: var(--text-secondary, #8e8e93); font-size: 0.92rem; line-height: 1.5; margin-bottom: 20px;">
         ${reason || 'Yapay zeka veya OCR motorundan yanıt alınamadı. İnternet bağlantınızı kontrol edin veya Ayarlar menüsünden motoru değiştirin.'}
@@ -1034,7 +1040,10 @@ function renderPageAnalysisError(pageNum, reason = '') {
           Bu Sayfayı Tekrar Dene
         </button>
         <button type="button" id="btnSwitchEngineFromError" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 980px; background: var(--bg-tertiary, #2c2c2e); color: var(--text-primary, #fff); font-size: 0.9rem; font-weight: 500; border: 1px solid var(--border-color, rgba(255,255,255,0.12)); cursor: pointer;">
-          ⚡ Motoru Değiştir (${appSettings.ocrEngine === 'tesseract' ? 'Vision AI' : 'Tesseract'})
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          Motoru Değiştir (${appSettings.ocrEngine === 'tesseract' ? 'Vision AI' : 'Tesseract'})
         </button>
       </div>
     </div>
@@ -2549,7 +2558,7 @@ async function handleSendBookChatMessage(text) {
     if (el.bookChatTyping) {
       el.bookChatTyping.classList.add('hidden');
     }
-    const errPrefix = '⚠️ **Yanıt Alınamadı:** ';
+    const errPrefix = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>**Yanıt Alınamadı:** ';
     appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`);
   } finally {
     isBookChatSending = false;
@@ -5758,7 +5767,9 @@ function renderAccountUI() {
   if (el.settingsAccountName) {
     if (user) {
       el.settingsAccountName.textContent = user.email || 'Giriş Yapıldı';
-      if (el.settingsAccountStatus) el.settingsAccountStatus.textContent = '🟢 Bulut Eşitlemesi Aktif';
+      if (el.settingsAccountStatus) {
+        el.settingsAccountStatus.innerHTML = '<span class="status-pulse-dot" style="display:inline-block; vertical-align:middle; margin-right:6px;"></span>Bulut Eşitlemesi Aktif';
+      }
       if (el.settingsAccountAvatar) {
         const initial = (user.email || 'R')[0].toUpperCase();
         el.settingsAccountAvatar.innerHTML = `<span>${initial}</span>`;
@@ -6058,14 +6069,14 @@ function setupResetDataController() {
       if (inputVal === currentResetSecurityCode) {
         if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = false;
         if (el.resetCodeHint) {
-          el.resetCodeHint.textContent = '✓ Güvenlik kodu doğrulandı. Silmek için aşağıdaki butona basın.';
+          el.resetCodeHint.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Güvenlik kodu doğrulandı. Silmek için aşağıdaki butona basın.';
           el.resetCodeHint.classList.add('valid');
         }
       } else {
         if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = true;
         if (el.resetCodeHint) {
           if (inputVal.length >= currentResetSecurityCode.length) {
-            el.resetCodeHint.textContent = '✕ Hatalı kod girdiniz. Lütfen tekrar kontrol edin.';
+            el.resetCodeHint.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>Hatalı kod girdiniz. Lütfen tekrar kontrol edin.';
             el.resetCodeHint.classList.remove('valid');
           } else if (inputVal.length > 0) {
             el.resetCodeHint.textContent = `Yazılan: ${inputVal.length} / ${currentResetSecurityCode.length} harf`;

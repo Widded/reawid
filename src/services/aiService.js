@@ -88,7 +88,7 @@ const congestedModels = new Map();
 
 export function markModelCongested(key, durationMs = 45000, reason = 'Yoğunluk/Kota Sınırı') {
   congestedModels.set(key, { expiresAt: Date.now() + durationMs, reason });
-  console.warn(`[AI Router] ⏳ "${key}" geçici olarak meşgul işaretlendi (${Math.round(durationMs / 1000)}s soğuma): ${reason}`);
+  console.warn(`[AI Router] [HOLD] "${key}" geçici olarak meşgul işaretlendi (${Math.round(durationMs / 1000)}s soğuma): ${reason}`);
 }
 
 export function isModelCongested(key) {
@@ -149,9 +149,9 @@ export function recordOcrAudit({
   }
 
   // Safe console logging without API keys, prompts, or image payloads
-  const icon = status === 'success' ? '✅' : (status === 'failover' ? '⚠️' : '❌');
+  const statusTag = status === 'success' ? '[OK]' : (status === 'failover' ? '[FAILOVER]' : '[ERROR]');
   console.info(
-    `[AI OCR Audit] ${icon} Belge: [${entry.documentId}] | Sayfa: [${entry.pageNumber}] | Sağlayıcı: ${entry.provider} | Model: ${entry.model} | Süre: ${entry.durationMs}ms | Durum: ${entry.status}${entry.error ? ` (${entry.error})` : ` (${entry.charCount} kr)`}`
+    `[AI OCR Audit] ${statusTag} Belge: [${entry.documentId}] | Sayfa: [${entry.pageNumber}] | Sağlayıcı: ${entry.provider} | Model: ${entry.model} | Süre: ${entry.durationMs}ms | Durum: ${entry.status}${entry.error ? ` (${entry.error})` : ` (${entry.charCount} kr)`}`
   );
 
   return entry;

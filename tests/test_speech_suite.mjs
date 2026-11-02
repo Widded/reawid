@@ -15,10 +15,10 @@ function it(title, fn) {
   totalTests++;
   try {
     fn();
-    console.log(`  ✅ [PASS] ${title}`);
+    console.log(`  [PASS] ${title}`);
     passedTests++;
   } catch (err) {
-    console.error(`  ❌ [FAIL] ${title}`);
+    console.error(`  [FAIL] ${title}`);
     console.error(`     Hata: ${err.message}`);
   }
 }
@@ -27,10 +27,10 @@ async function itAsync(title, fn) {
   totalTests++;
   try {
     await fn();
-    console.log(`  ✅ [PASS] ${title}`);
+    console.log(`  [PASS] ${title}`);
     passedTests++;
   } catch (err) {
-    console.error(`  ❌ [FAIL] ${title}`);
+    console.error(`  [FAIL] ${title}`);
     console.error(`     Hata: ${err.message}`);
   }
 }

@@ -15,10 +15,10 @@ let failed = 0;
 function assert(condition, message, details = '') {
   if (condition) {
     passed++;
-    console.log(`  ✅ [PASS] ${message} ${details ? `(${details})` : ''}`);
+    console.log(`  [PASS] ${message} ${details ? `(${details})` : ''}`);
   } else {
     failed++;
-    console.error(`  ❌ [FAIL] ${message} ${details ? `(${details})` : ''}`);
+    console.error(`  [FAIL] ${message} ${details ? `(${details})` : ''}`);
   }
 }
 

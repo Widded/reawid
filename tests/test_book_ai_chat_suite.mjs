@@ -10,10 +10,10 @@ let passedCount = 0;
 function runTest(name, fn) {
   try {
     fn();
-    console.log(`  ✅ [PASS] ${name}`);
+    console.log(`  [PASS] ${name}`);
     passedCount++;
   } catch (err) {
-    console.error(`  ❌ [FAIL] ${name}`);
+    console.error(`  [FAIL] ${name}`);
     console.error(`     Hata: ${err.message}`);
     process.exitCode = 1;
   }
@@ -22,10 +22,10 @@ function runTest(name, fn) {
 async function runAsyncTest(name, fn) {
   try {
     await fn();
-    console.log(`  ✅ [PASS] ${name}`);
+    console.log(`  [PASS] ${name}`);
     passedCount++;
   } catch (err) {
-    console.error(`  ❌ [FAIL] ${name}`);
+    console.error(`  [FAIL] ${name}`);
     console.error(`     Hata: ${err.message}`);
     process.exitCode = 1;
   }

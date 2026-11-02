@@ -20,10 +20,10 @@ let failed = 0;
 function assert(description, condition, details = '') {
   if (condition) {
     passed++;
-    console.log(`  ✅ [PASS] ${description} ${details ? `(${details})` : ''}`);
+    console.log(`  [PASS] ${description} ${details ? `(${details})` : ''}`);
   } else {
     failed++;
-    console.error(`  ❌ [FAIL] ${description} ${details ? `(${details})` : ''}`);
+    console.error(`  [FAIL] ${description} ${details ? `(${details})` : ''}`);
   }
 }
 

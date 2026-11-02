@@ -15,9 +15,9 @@ function assert(description, condition, extra = '') {
   total++;
   if (condition) {
     passed++;
-    console.log(`  ✅ [PASS] ${description} ${extra ? `(${extra})` : ''}`);
+    console.log(`  [PASS] ${description} ${extra ? `(${extra})` : ''}`);
   } else {
-    console.error(`  ❌ [FAIL] ${description} ${extra ? `(${extra})` : ''}`);
+    console.error(`  [FAIL] ${description} ${extra ? `(${extra})` : ''}`);
   }
 }
 
