@@ -859,6 +859,12 @@
           </svg>
           <span id="popoverTtsLabel">Sesli Oku (TTS)</span>
         </button>
+        <button class="popover-item" id="popoverSpeedReader">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Kelime Kelime Hızlı Oku</span>
+        </button>
         <button class="popover-item" id="popoverPageStats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <circle cx="12" cy="12" r="10"></circle>
@@ -1746,6 +1752,85 @@
         </button>
       </div>
     </footer>
+  </div>
+
+  <!-- RSVP SPEED READER MODAL (Kelime Kelime Biyonik Hızlı Okuma Modu) -->
+  <div id="rsvpReaderModal" class="rsvp-modal-backdrop hidden">
+    <div class="rsvp-modal-content">
+      <!-- Header -->
+      <div class="rsvp-header">
+        <button type="button" id="btnCloseRsvp" class="rsvp-icon-btn" aria-label="Kapat" title="Kapat (ESC)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="rsvp-header-center">
+          <span class="rsvp-title">Biyonik Hızlı Okuyucu</span>
+          <span class="rsvp-page-tag" id="rsvpPageTag">Sayfa 1</span>
+        </div>
+        <div class="rsvp-wpm-pill" id="rsvpWpmBadge">350 K/Dk</div>
+      </div>
+
+      <!-- Center Word Display Stage with Spritz/Bionic Reticle -->
+      <div class="rsvp-stage" id="rsvpStage" title="Oynat / Duraklat (Boşluk Tuşu veya Dokunma)">
+        <div class="rsvp-reticle">
+          <div class="rsvp-notch top"></div>
+          <div class="rsvp-notch bottom"></div>
+        </div>
+        <div class="rsvp-word-display" id="rsvpWordDisplay">
+          <span class="rsvp-part-left">Haz</span><span class="rsvp-part-orp">ı</span><span class="rsvp-part-right">r</span>
+        </div>
+        <div class="rsvp-tap-hint" id="rsvpTapHint">Dokunarak başlatın veya duraklatın</div>
+      </div>
+
+      <!-- Scrubber Slider -->
+      <div class="rsvp-scrubber-area">
+        <input type="range" id="rsvpWordSlider" class="rsvp-progress-slider" min="0" max="100" value="0">
+        <div class="rsvp-stats-row">
+          <span id="rsvpWordCounter">0 / 0 kelime</span>
+          <span id="rsvpTimeLeft">~0 dk kaldı</span>
+        </div>
+      </div>
+
+      <!-- Control Toolbar -->
+      <div class="rsvp-controls-row">
+        <button type="button" id="btnRsvpPrevWords" class="rsvp-control-btn" title="10 Kelime Geri (Sol Ok)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+            <polyline points="11 17 6 12 11 7"></polyline>
+            <polyline points="18 17 13 12 18 7"></polyline>
+          </svg>
+          <span>-10</span>
+        </button>
+
+        <button type="button" id="btnRsvpTogglePlay" class="rsvp-play-btn" aria-label="Oynat / Duraklat (Boşluk)">
+          <svg id="rsvpPlayIcon" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          </svg>
+          <svg id="rsvpPauseIcon" viewBox="0 0 24 24" fill="currentColor" width="24" height="24" class="hidden">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+        </button>
+
+        <button type="button" id="btnRsvpNextWords" class="rsvp-control-btn" title="10 Kelime İleri (Sağ Ok)">
+          <span>+10</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+            <polyline points="13 17 18 12 13 7"></polyline>
+            <polyline points="6 17 11 12 6 7"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Speed Selector Pills -->
+      <div class="rsvp-speed-pills" id="rsvpSpeedPills">
+        <span class="rsvp-speed-label">Hız (K/Dk):</span>
+        <button type="button" class="rsvp-speed-btn" data-wpm="250">250</button>
+        <button type="button" class="rsvp-speed-btn active" data-wpm="350">350</button>
+        <button type="button" class="rsvp-speed-btn" data-wpm="450">450</button>
+        <button type="button" class="rsvp-speed-btn" data-wpm="600">600</button>
+      </div>
+    </div>
   </div>
 
   <!-- Global Toast Notifications Overlay (Safe Area Aware) -->

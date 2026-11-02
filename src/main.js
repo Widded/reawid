@@ -7,7 +7,10 @@ import {
   escapeBookHtml,
   formatInlineQuotes,
   isDialogueTurn,
-  formatBookHtml as formatBookHtmlEngine
+  formatBookHtml as formatBookHtmlEngine,
+  calculateOrpIndex,
+  splitWordForRsvp,
+  extractWordsForRsvp
 } from './services/readerFormatter.js';
 
 import {
@@ -315,6 +318,7 @@ const el = {
   btnReaderZen: document.getElementById('btnReaderZen'),
   btnReaderSearch: document.getElementById('btnReaderSearch'),
   popoverReaderSearch: document.getElementById('popoverReaderSearch'),
+  popoverSpeedReader: document.getElementById('popoverSpeedReader'),
   btnReaderMore: document.getElementById('btnReaderMore'),
   readerMoreMenu: document.getElementById('readerMoreMenu'),
   popoverOpenAppearance: document.getElementById('popoverOpenAppearance'),
@@ -355,6 +359,24 @@ const el = {
   toggleBookDialogueFormat: document.getElementById('toggleBookDialogueFormat'),
   toggleSwipePageNav: document.getElementById('toggleSwipePageNav'),
   toggleBionicReading: document.getElementById('toggleBionicReading'),
+
+  // RSVP Speed Reader Elements
+  rsvpReaderModal: document.getElementById('rsvpReaderModal'),
+  btnCloseRsvp: document.getElementById('btnCloseRsvp'),
+  rsvpPageTag: document.getElementById('rsvpPageTag'),
+  rsvpWpmBadge: document.getElementById('rsvpWpmBadge'),
+  rsvpStage: document.getElementById('rsvpStage'),
+  rsvpWordDisplay: document.getElementById('rsvpWordDisplay'),
+  rsvpTapHint: document.getElementById('rsvpTapHint'),
+  rsvpWordSlider: document.getElementById('rsvpWordSlider'),
+  rsvpWordCounter: document.getElementById('rsvpWordCounter'),
+  rsvpTimeLeft: document.getElementById('rsvpTimeLeft'),
+  btnRsvpPrevWords: document.getElementById('btnRsvpPrevWords'),
+  btnRsvpTogglePlay: document.getElementById('btnRsvpTogglePlay'),
+  btnRsvpNextWords: document.getElementById('btnRsvpNextWords'),
+  rsvpPlayIcon: document.getElementById('rsvpPlayIcon'),
+  rsvpPauseIcon: document.getElementById('rsvpPauseIcon'),
+  rsvpSpeedPills: document.getElementById('rsvpSpeedPills'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -945,6 +967,7 @@ function openBookInReader(book, targetPage = null) {
 function closeReader() {
   toggleZenMode(false);
   stopReaderSpeech();
+  closeRsvpReader();
   releaseWakeLock();
   terminateTesseractWorker().catch(() => {});
   document.body.classList.remove('reader-open');
@@ -2138,6 +2161,173 @@ function toggleReaderSpeech() {
   playSentenceQueue(0);
 }
 
+/* ==========================================================================
+   RSVP Speed Reader (Biyonik Kelime Akışı Modu)
+   ========================================================================== */
+let rsvpWords = [];
+let rsvpCurrentIndex = 0;
+let rsvpIsPlaying = false;
+let rsvpTimer = null;
+let rsvpWpm = 350;
+
+function openRsvpReader(startIndex = 0) {
+  if (isSpeaking() || isReaderSpeaking) {
+    stopReaderSpeech();
+  }
+  closeMoreMenu();
+
+  let text = '';
+  if (currentActiveBook?.pageParagraphs && currentActiveBook.pageParagraphs[currentReaderPage]) {
+    const paras = currentActiveBook.pageParagraphs[currentReaderPage];
+    text = (Array.isArray(paras) ? paras.join('\n\n') : String(paras));
+  } else {
+    text = el.readerParagraphsContainer?.innerText || '';
+  }
+
+  rsvpWords = extractWordsForRsvp(text);
+  if (rsvpWords.length === 0) {
+    showToast('Bu sayfada hızlı okunacak metin bulunamadı', 'warning');
+    return;
+  }
+
+  rsvpCurrentIndex = Math.max(0, Math.min(rsvpWords.length - 1, startIndex));
+  if (el.rsvpPageTag) {
+    el.rsvpPageTag.textContent = `Sayfa ${currentReaderPage}`;
+  }
+  if (el.rsvpWordSlider) {
+    el.rsvpWordSlider.max = String(Math.max(1, rsvpWords.length - 1));
+    el.rsvpWordSlider.value = String(rsvpCurrentIndex);
+  }
+
+  if (el.rsvpReaderModal) {
+    el.rsvpReaderModal.classList.remove('hidden');
+  }
+
+  renderRsvpWord(rsvpCurrentIndex);
+  startRsvpPlayback();
+}
+
+function closeRsvpReader() {
+  pauseRsvpPlayback();
+  if (el.rsvpReaderModal) {
+    el.rsvpReaderModal.classList.add('hidden');
+  }
+}
+
+function renderRsvpWord(index) {
+  if (!rsvpWords || rsvpWords.length === 0) return;
+  index = Math.max(0, Math.min(rsvpWords.length - 1, index));
+  rsvpCurrentIndex = index;
+
+  const token = rsvpWords[index];
+  const parts = splitWordForRsvp(token);
+
+  if (el.rsvpWordDisplay) {
+    el.rsvpWordDisplay.innerHTML = `
+      <span class="rsvp-part-left">${escapeBookHtml(parts.left)}</span>
+      <span class="rsvp-part-orp">${escapeBookHtml(parts.orp)}</span>
+      <span class="rsvp-part-right">${escapeBookHtml(parts.right)}</span>
+    `;
+  }
+
+  if (el.rsvpWordSlider) {
+    el.rsvpWordSlider.value = String(index);
+  }
+
+  if (el.rsvpWordCounter) {
+    el.rsvpWordCounter.textContent = `${index + 1} / ${rsvpWords.length} kelime`;
+  }
+
+  if (el.rsvpTimeLeft) {
+    const remaining = rsvpWords.length - 1 - index;
+    const mins = Math.max(0.1, remaining / rsvpWpm);
+    el.rsvpTimeLeft.textContent = mins < 1 ? `~${Math.round(mins * 60)} sn kaldı` : `~${mins.toFixed(1)} dk kaldı`;
+  }
+}
+
+function startRsvpPlayback() {
+  if (rsvpWords.length === 0) return;
+  rsvpIsPlaying = true;
+  if (el.rsvpPlayIcon) el.rsvpPlayIcon.classList.add('hidden');
+  if (el.rsvpPauseIcon) el.rsvpPauseIcon.classList.remove('hidden');
+  if (el.rsvpTapHint) el.rsvpTapHint.textContent = 'Duraklatmak için dokunun';
+
+  if (rsvpTimer) clearTimeout(rsvpTimer);
+
+  function scheduleNext() {
+    if (!rsvpIsPlaying) return;
+
+    if (rsvpCurrentIndex >= rsvpWords.length - 1) {
+      pauseRsvpPlayback();
+      showToast('Sayfa hızlı okuması tamamlandı!', 'success');
+      return;
+    }
+
+    const currentToken = rsvpWords[rsvpCurrentIndex];
+    let delay = (60 / rsvpWpm) * 1000;
+
+    // Doğal nefes ritmi: Nokta, soru/ünlem veya virgüllerde akıllı duraklama
+    if (/[.!?…]["”»]?$/.test(currentToken)) {
+      delay += 140;
+    } else if (/[,;:]["”»]?$/.test(currentToken)) {
+      delay += 70;
+    }
+    if (currentToken.length > 9) {
+      delay += 30;
+    }
+
+    rsvpTimer = setTimeout(() => {
+      if (!rsvpIsPlaying) return;
+      rsvpCurrentIndex++;
+      renderRsvpWord(rsvpCurrentIndex);
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
+}
+
+function pauseRsvpPlayback() {
+  rsvpIsPlaying = false;
+  if (rsvpTimer) {
+    clearTimeout(rsvpTimer);
+    rsvpTimer = null;
+  }
+  if (el.rsvpPlayIcon) el.rsvpPlayIcon.classList.remove('hidden');
+  if (el.rsvpPauseIcon) el.rsvpPauseIcon.classList.add('hidden');
+  if (el.rsvpTapHint) el.rsvpTapHint.textContent = 'Devam etmek için dokunun';
+}
+
+function toggleRsvpPlayback() {
+  if (rsvpIsPlaying) {
+    pauseRsvpPlayback();
+  } else {
+    if (rsvpCurrentIndex >= rsvpWords.length - 1) {
+      rsvpCurrentIndex = 0;
+      renderRsvpWord(0);
+    }
+    startRsvpPlayback();
+  }
+}
+
+function stepRsvpWords(offset) {
+  if (rsvpWords.length === 0) return;
+  const newIndex = Math.max(0, Math.min(rsvpWords.length - 1, rsvpCurrentIndex + offset));
+  renderRsvpWord(newIndex);
+}
+
+function setRsvpSpeed(wpm) {
+  rsvpWpm = Number(wpm) || 350;
+  if (el.rsvpWpmBadge) {
+    el.rsvpWpmBadge.textContent = `${rsvpWpm} K/Dk`;
+  }
+  if (el.rsvpSpeedPills) {
+    el.rsvpSpeedPills.querySelectorAll('.rsvp-speed-btn').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.wpm) === rsvpWpm);
+    });
+  }
+}
+
 function setupReaderSwipeNavigation() {
   const scrollContainer = el.readerContentScroll || document.getElementById('readerContentScroll');
   if (!scrollContainer) return;
@@ -2346,8 +2536,31 @@ function setupEventListeners() {
     });
   }
 
-  // Global Escape key controller
+  // Global Escape & RSVP key controller
   document.addEventListener('keydown', (e) => {
+    if (el.rsvpReaderModal && !el.rsvpReaderModal.classList.contains('hidden')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRsvpReader();
+        return;
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        toggleRsvpPlayback();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        stepRsvpWords(-10);
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepRsvpWords(10);
+        return;
+      }
+    }
+
     if (e.key === 'Escape') {
       if (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden')) {
         closeComparisonView();
@@ -2406,6 +2619,13 @@ function setupEventListeners() {
     el.popoverToggleTts.addEventListener('click', () => {
       closeMoreMenu();
       toggleReaderSpeech();
+    });
+  }
+
+  if (el.popoverSpeedReader) {
+    el.popoverSpeedReader.addEventListener('click', () => {
+      closeMoreMenu();
+      openRsvpReader(0);
     });
   }
 
@@ -2521,6 +2741,39 @@ function setupEventListeners() {
       }
 
       playSentenceQueue(idx);
+    });
+  }
+
+  // RSVP Speed Reader Controls
+  if (el.btnCloseRsvp) {
+    el.btnCloseRsvp.addEventListener('click', closeRsvpReader);
+  }
+  if (el.rsvpStage) {
+    el.rsvpStage.addEventListener('click', toggleRsvpPlayback);
+  }
+  if (el.btnRsvpTogglePlay) {
+    el.btnRsvpTogglePlay.addEventListener('click', toggleRsvpPlayback);
+  }
+  if (el.btnRsvpPrevWords) {
+    el.btnRsvpPrevWords.addEventListener('click', () => stepRsvpWords(-10));
+  }
+  if (el.btnRsvpNextWords) {
+    el.btnRsvpNextWords.addEventListener('click', () => stepRsvpWords(10));
+  }
+  if (el.rsvpWordSlider) {
+    el.rsvpWordSlider.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.value, 10);
+      if (!isNaN(idx)) {
+        renderRsvpWord(idx);
+      }
+    });
+  }
+  if (el.rsvpSpeedPills) {
+    el.rsvpSpeedPills.addEventListener('click', (e) => {
+      const btn = e.target.closest('.rsvp-speed-btn');
+      if (btn && btn.dataset.wpm) {
+        setRsvpSpeed(btn.dataset.wpm);
+      }
     });
   }
 

@@ -116,6 +116,72 @@ export function applyBionicReading(htmlText) {
 }
 
 /**
+ * Calculates Optimal Recognition Point (ORP) index for RSVP speed reading.
+ * Pinpoints the letter where the human eye naturally anchors when scanning words.
+ */
+export function calculateOrpIndex(word) {
+  if (!word || typeof word !== 'string') return 0;
+  const len = word.length;
+  if (len <= 1) return 0;
+  if (len <= 5) return 1;
+  if (len <= 9) return 2;
+  if (len <= 13) return 3;
+  return 4;
+}
+
+/**
+ * Decomposes a word token into { left, orp, right } parts for centered RSVP alignment.
+ */
+export function splitWordForRsvp(token) {
+  if (!token || typeof token !== 'string') return { left: '', orp: '', right: '' };
+
+  const leadMatch = token.match(/^([—–―"“«(]*\s*)(.*)$/);
+  const leading = leadMatch ? leadMatch[1] : '';
+  const rest = leadMatch ? leadMatch[2] : token;
+
+  const trailMatch = rest.match(/^(.*?)([.,!?;:…"”»)]*)$/);
+  const core = trailMatch ? trailMatch[1] : rest;
+  const trailing = trailMatch ? trailMatch[2] : '';
+
+  if (!core) {
+    return { left: leading, orp: '', right: trailing };
+  }
+
+  const orpIdx = calculateOrpIndex(core);
+  const left = leading + core.slice(0, orpIdx);
+  const orp = core.charAt(orpIdx);
+  const right = core.slice(orpIdx + 1) + trailing;
+
+  return { left, orp, right };
+}
+
+/**
+ * Extracts clean word tokens from book text for RSVP speed reading.
+ * Attaches dialogue dashes to subsequent speech and cleans headers.
+ */
+export function extractWordsForRsvp(text) {
+  if (!text || typeof text !== 'string') return [];
+  const cleaned = text
+    .replace(/^\s*\d+\s*[|•-]\s*.*$/gm, '')
+    .trim();
+
+  const raw = cleaned.split(/\s+/).filter(Boolean);
+  const words = [];
+
+  for (let i = 0; i < raw.length; i++) {
+    const w = raw[i];
+    if (/^[—–―-]$/.test(w) && i + 1 < raw.length) {
+      i++;
+      words.push(`${w} ${raw[i]}`);
+    } else {
+      words.push(w);
+    }
+  }
+
+  return words;
+}
+
+/**
  * Formats book paragraphs and dialogs with authentic novel typography.
  * - Merges end-of-line hyphens (matbaa heceleme çizgisi) so words are whole.
  * - Never confuses end-of-line hyphens or lowercase continuations with dialogue dashes.

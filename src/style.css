@@ -6360,3 +6360,321 @@ html.keyboard-open #accountModal .auth-notice-text,
 .comparison-screen.theme-sepya .compare-page-slider::-webkit-slider-thumb {
   background: #2e261a;
 }
+
+/* ==========================================================================
+   RSVP Speed Reader (Biyonik Kelime Akışı Modu)
+   ========================================================================== */
+.rsvp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: rsvpFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes rsvpFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.rsvp-modal-content {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-card, #121214);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 24px;
+  padding: 24px 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  user-select: none;
+}
+
+.theme-acik .rsvp-modal-content {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
+}
+
+.theme-sepya .rsvp-modal-content {
+  background: #fbf0d9;
+  border-color: rgba(180, 83, 9, 0.15);
+}
+
+.rsvp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rsvp-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text-primary, #fff);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.theme-acik .rsvp-icon-btn {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111;
+}
+
+.rsvp-header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.rsvp-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+}
+
+.theme-acik .rsvp-title { color: #111; }
+.theme-sepya .rsvp-title { color: #2d241e; }
+
+.rsvp-page-tag {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #8e8e93);
+}
+
+.rsvp-wpm-pill {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 980px;
+  background: rgba(234, 179, 8, 0.18);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+/* Stage & Reticle */
+.rsvp-stage {
+  position: relative;
+  height: 140px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.theme-acik .rsvp-stage {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-sepya .rsvp-stage {
+  background: rgba(180, 83, 9, 0.04);
+  border-color: rgba(180, 83, 9, 0.12);
+}
+
+.rsvp-reticle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rsvp-notch {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 14px;
+  background: rgba(234, 179, 8, 0.65);
+  border-radius: 2px;
+}
+
+.rsvp-notch.top { top: 8px; }
+.rsvp-notch.bottom { bottom: 8px; }
+
+.rsvp-word-display {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  font-size: 2.2rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.rsvp-part-left {
+  flex: 1;
+  text-align: right;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+}
+
+.theme-acik .rsvp-part-left { color: #000000; }
+.theme-sepya .rsvp-part-left { color: #2d241e; }
+
+.rsvp-part-orp {
+  font-weight: 800;
+  color: #eab308;
+  text-align: center;
+  min-width: 0.6em;
+}
+
+.theme-acik .rsvp-part-orp { color: #d97706; }
+.theme-sepya .rsvp-part-orp { color: #b45309; }
+
+.rsvp-part-right {
+  flex: 1;
+  text-align: left;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.theme-acik .rsvp-part-right { color: rgba(0, 0, 0, 0.65); }
+.theme-sepya .rsvp-part-right { color: rgba(45, 36, 30, 0.7); }
+
+.rsvp-tap-hint {
+  position: absolute;
+  bottom: 8px;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #8e8e93);
+  opacity: 0.75;
+}
+
+/* Scrubber */
+.rsvp-scrubber-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rsvp-progress-slider {
+  width: 100%;
+  accent-color: #eab308;
+  height: 5px;
+  border-radius: 4px;
+}
+
+.rsvp-stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8e8e93);
+}
+
+/* Controls */
+.rsvp-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.rsvp-control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 980px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.theme-acik .rsvp-control-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #111;
+}
+
+.theme-sepya .rsvp-control-btn {
+  background: rgba(60, 40, 20, 0.06);
+  border-color: rgba(60, 40, 20, 0.12);
+  color: #2d241e;
+}
+
+.rsvp-play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #0071e3;
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.4);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.rsvp-play-btn:active {
+  transform: scale(0.94);
+}
+
+/* Speed pills */
+.rsvp-speed-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rsvp-speed-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #8e8e93);
+  margin-right: 4px;
+}
+
+.rsvp-speed-btn {
+  padding: 5px 12px;
+  border-radius: 980px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-acik .rsvp-speed-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #222;
+}
+
+.theme-sepya .rsvp-speed-btn {
+  background: rgba(60, 40, 20, 0.06);
+  border-color: rgba(60, 40, 20, 0.12);
+  color: #2d241e;
+}
+
+.rsvp-speed-btn.active {
+  background: #eab308;
+  color: #000;
+  border-color: #eab308;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.35);
+}
