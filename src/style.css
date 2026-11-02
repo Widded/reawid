@@ -7321,10 +7321,13 @@ html.keyboard-open #accountModal .auth-notice-text,
 .book-chat-msg {
   display: flex;
   flex-direction: column;
-  max-width: 84%;
+  max-width: 88%;
   font-size: 0.92rem;
   line-height: 1.5;
+  box-sizing: border-box;
   animation: chatMsgFadeIn 0.2s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @keyframes chatMsgFadeIn {
@@ -7339,6 +7342,7 @@ html.keyboard-open #accountModal .auth-notice-text,
   padding: 10px 14px;
   border-radius: 18px 18px 4px 18px;
   box-shadow: 0 2px 8px rgba(10, 132, 255, 0.25);
+  white-space: pre-wrap;
 }
 
 .theme-acik .book-chat-msg.user {
@@ -7358,8 +7362,8 @@ html.keyboard-open #accountModal .auth-notice-text,
   padding: 12px 16px;
   border-radius: 18px 18px 18px 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: normal;
+  overflow-x: hidden;
 }
 
 .theme-acik .book-chat-msg.assistant {
@@ -7372,6 +7376,131 @@ html.keyboard-open #accountModal .auth-notice-text,
   background: rgba(138, 109, 59, 0.08);
   color: #2c1e12;
   border: 1px solid rgba(138, 109, 59, 0.18);
+}
+
+/* Assistant Markdown Inner Formatting & List Alignment */
+.book-chat-msg.assistant p {
+  margin: 0 0 8px 0;
+  line-height: 1.55;
+}
+
+.book-chat-msg.assistant p:last-child {
+  margin-bottom: 0;
+}
+
+/* Ordered & Unordered Lists: Proper indentation, no overflow */
+.book-chat-msg.assistant ul,
+.book-chat-msg.assistant ol {
+  margin: 6px 0 10px 0;
+  padding-left: 20px;
+  list-style-position: outside;
+  box-sizing: border-box;
+}
+
+.book-chat-msg.assistant ul:last-child,
+.book-chat-msg.assistant ol:last-child {
+  margin-bottom: 0;
+}
+
+.book-chat-msg.assistant li {
+  margin-bottom: 5px;
+  line-height: 1.5;
+  padding-left: 3px;
+}
+
+.book-chat-msg.assistant li:last-child {
+  margin-bottom: 0;
+}
+
+.book-chat-msg.assistant li::marker {
+  color: #0a84ff;
+  font-weight: 600;
+}
+
+.theme-acik .book-chat-msg.assistant li::marker {
+  color: #0071e3;
+}
+
+.theme-sepya .book-chat-msg.assistant li::marker {
+  color: #8e6234;
+}
+
+/* Nested Lists */
+.book-chat-msg.assistant li > ul,
+.book-chat-msg.assistant li > ol {
+  margin-top: 3px;
+  margin-bottom: 3px;
+  padding-left: 18px;
+}
+
+/* Headings in Assistant Messages */
+.book-chat-msg.assistant h1,
+.book-chat-msg.assistant h2,
+.book-chat-msg.assistant h3,
+.book-chat-msg.assistant h4 {
+  margin: 10px 0 6px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.book-chat-msg.assistant h1:first-child,
+.book-chat-msg.assistant h2:first-child,
+.book-chat-msg.assistant h3:first-child,
+.book-chat-msg.assistant h4:first-child {
+  margin-top: 0;
+}
+
+/* Blockquotes, Code & Pre Blocks */
+.book-chat-msg.assistant blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid rgba(10, 132, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0 8px 8px 0;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.theme-acik .book-chat-msg.assistant blockquote {
+  background: rgba(0, 0, 0, 0.04);
+  border-left-color: #0071e3;
+  color: #3a3a3c;
+}
+
+.theme-sepya .book-chat-msg.assistant blockquote {
+  background: rgba(138, 109, 59, 0.06);
+  border-left-color: #8e6234;
+  color: #4a3725;
+}
+
+.book-chat-msg.assistant code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86em;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.theme-acik .book-chat-msg.assistant code {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.theme-sepya .book-chat-msg.assistant code {
+  background: rgba(138, 109, 59, 0.12);
+}
+
+.book-chat-msg.assistant pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.book-chat-msg.assistant pre code {
+  background: transparent;
+  padding: 0;
 }
 
 /* Font Family Integration in Assistant Responses */
