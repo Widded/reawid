@@ -3038,6 +3038,10 @@ function setupEventListeners() {
       updateBookChatSubtitle();
       const isSpoiler = el.toggleSpoilerProtection.checked;
       showToast(isSpoiler ? 'Spoiler koruması açıldı (yalnızca bulunduğunuz sayfa)' : 'Spoiler koruması kapatıldı (tüm kitap açık)', 'info');
+      appendChatMessage('assistant', isSpoiler
+        ? '🛡️ *Spoiler koruması açıldı. Artık yalnızca bulunduğunuz sayfaya kadarki olaylardan bahsedeceğim.*'
+        : '📖 *Spoiler koruması kapatıldı. Artık kitabın tamamı, sonu ve tüm olay örgüsü hakkında serbestçe konuşabiliriz.*'
+      );
     });
   }
   if (el.btnSendBookChat) {
