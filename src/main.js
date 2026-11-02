@@ -58,7 +58,9 @@ import {
   fixSpacedOutLetters,
   mergeAccidentalParagraphSplits,
   formatOcrErrorMessage,
-  getOcrAuditTrail
+  getOcrAuditTrail,
+  prepareBookContext,
+  askBookAi
 } from './services/aiService.js';
 
 if (typeof window !== 'undefined') {
@@ -380,6 +382,21 @@ const el = {
   rsvpPlayIcon: document.getElementById('rsvpPlayIcon'),
   rsvpPauseIcon: document.getElementById('rsvpPauseIcon'),
   rsvpSpeedPills: document.getElementById('rsvpSpeedPills'),
+
+  // Book AI Chat Assistant Elements
+  btnReaderAiChat: document.getElementById('btnReaderAiChat'),
+  popoverBookAiChat: document.getElementById('popoverBookAiChat'),
+  bookAiChatModal: document.getElementById('bookAiChatModal'),
+  bookChatSheet: document.getElementById('bookChatSheet'),
+  btnCloseBookChat: document.getElementById('btnCloseBookChat'),
+  bookChatTitle: document.getElementById('bookChatTitle'),
+  bookChatSubtitle: document.getElementById('bookChatSubtitle'),
+  toggleSpoilerProtection: document.getElementById('toggleSpoilerProtection'),
+  bookChatMessages: document.getElementById('bookChatMessages'),
+  bookChatQuickChips: document.getElementById('bookChatQuickChips'),
+  bookChatTyping: document.getElementById('bookChatTyping'),
+  bookChatInput: document.getElementById('bookChatInput'),
+  btnSendBookChat: document.getElementById('btnSendBookChat'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -1167,6 +1184,11 @@ function applyReaderTheme(theme, save = true) {
     el.rsvpReaderModal.classList.add(`theme-${theme}`);
   }
 
+  if (el.bookAiChatModal) {
+    el.bookAiChatModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
+    el.bookAiChatModal.classList.add(`theme-${theme}`);
+  }
+
   // Update theme swatches UI
   document.querySelectorAll('#themeSwatchesRow .theme-swatch-item').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.theme === theme);
@@ -1208,6 +1230,11 @@ function applyReaderTypography(save = true) {
   if (el.rsvpReaderModal) {
     el.rsvpReaderModal.classList.remove('font-family-serif', 'font-family-sans', 'font-family-mono');
     el.rsvpReaderModal.classList.add(`font-family-${currentReaderFont}`);
+  }
+
+  if (el.bookAiChatModal) {
+    el.bookAiChatModal.classList.remove('font-family-serif', 'font-family-sans', 'font-family-mono');
+    el.bookAiChatModal.classList.add(`font-family-${currentReaderFont}`);
   }
 
   // Margin
@@ -2373,6 +2400,155 @@ function setRsvpSpeed(wpm) {
   }
 }
 
+/* ==========================================================================
+   Book AI Chat Assistant (Yapay Zeka Kitap Sohbet Asistanı)
+   ========================================================================== */
+let bookChatHistory = [];
+let isBookChatSending = false;
+
+function updateBookChatSubtitle() {
+  if (!el.bookChatSubtitle) return;
+  const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
+  el.bookChatSubtitle.textContent = `Sayfa ${currentReaderPage} • ${isSpoiler ? 'Spoiler Korumalı' : 'Tüm Kitap Açık'}`;
+}
+
+function openBookAiChat() {
+  if (isSpeaking() || isReaderSpeaking) {
+    stopReaderSpeech();
+  }
+  closeMoreMenu();
+
+  if (el.bookAiChatModal) {
+    el.bookAiChatModal.className = `book-chat-backdrop theme-${currentReaderTheme || 'koyu'} font-family-${currentReaderFont || 'serif'}`;
+    el.bookAiChatModal.classList.remove('hidden');
+  }
+
+  if (el.bookChatTitle) {
+    el.bookChatTitle.textContent = currentActiveBook?.title || 'Kitap Asistanı';
+  }
+  updateBookChatSubtitle();
+
+  // If this is a fresh session or empty history, append welcome bubble
+  if (bookChatHistory.length === 0 && el.bookChatMessages) {
+    const chipsEl = el.bookChatQuickChips;
+    el.bookChatMessages.innerHTML = '';
+    if (chipsEl) {
+      el.bookChatMessages.appendChild(chipsEl);
+    }
+    const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
+    const bookName = currentActiveBook?.title || 'Kitap';
+    const welcomeText = `Merhaba! **${escapeBookHtml(bookName)}** hakkında aklına takılan her şeyi sorabilirsin.\n\n${isSpoiler ? `🛡️ **Spoiler koruması aktif:** Sadece ${currentReaderPage}. sayfaya kadar olan olayları ve karakterleri referans alırım, sürprizleri bozmam.` : '📖 **Spoiler koruması kapalı:** Kitabın tümünü, sonunu ve felsefesini serbestçe tartışabiliriz.'}`;
+    appendChatMessage('assistant', welcomeText);
+  }
+
+  if (el.bookChatInput) {
+    setTimeout(() => {
+      el.bookChatInput.focus();
+    }, 150);
+  }
+}
+
+function closeBookAiChat() {
+  if (el.bookAiChatModal) {
+    el.bookAiChatModal.classList.add('hidden');
+  }
+}
+
+function appendChatMessage(role, text) {
+  if (!el.bookChatMessages) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `book-chat-msg ${role}`;
+
+  if (role === 'assistant') {
+    try {
+      msgDiv.innerHTML = marked.parse(text);
+    } catch {
+      msgDiv.textContent = text;
+    }
+  } else {
+    msgDiv.textContent = text;
+  }
+
+  el.bookChatMessages.appendChild(msgDiv);
+  el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
+}
+
+async function handleSendBookChatMessage(text) {
+  const question = (text || '').trim();
+  if (!question || isBookChatSending) return;
+
+  appendChatMessage('user', question);
+  bookChatHistory.push({ role: 'user', content: question });
+
+  if (el.bookChatInput) {
+    el.bookChatInput.value = '';
+    el.bookChatInput.style.height = 'auto';
+  }
+  if (el.btnSendBookChat) {
+    el.btnSendBookChat.disabled = true;
+  }
+  if (el.bookChatTyping) {
+    el.bookChatTyping.classList.remove('hidden');
+  }
+  if (el.bookChatMessages) {
+    el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
+  }
+
+  isBookChatSending = true;
+
+  try {
+    const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
+
+    // Prepare pages text context
+    let contextText = '';
+    if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
+      contextText = prepareBookContext({
+        pagesTextMap: currentActiveBook.pageParagraphs,
+        currentPage: currentReaderPage,
+        spoilerProtection: isSpoiler
+      });
+    } else if (currentActiveBook?.content) {
+      contextText = currentActiveBook.content;
+    } else {
+      contextText = el.readerParagraphsContainer?.innerText || '';
+    }
+
+    const res = await askBookAi({
+      bookTitle: currentActiveBook?.title || 'Kitap',
+      bookAuthor: currentActiveBook?.author || '',
+      currentPage: currentReaderPage,
+      totalPages: currentActiveBook?.totalPages || currentPdfNumPages || 1,
+      bookContextText: contextText,
+      question: question,
+      chatHistory: bookChatHistory.slice(0, -1),
+      spoilerProtection: isSpoiler,
+      settings: appSettings
+    });
+
+    if (el.bookChatTyping) {
+      el.bookChatTyping.classList.add('hidden');
+    }
+
+    appendChatMessage('assistant', res.answer);
+    bookChatHistory.push({ role: 'assistant', content: res.answer });
+  } catch (err) {
+    if (el.bookChatTyping) {
+      el.bookChatTyping.classList.add('hidden');
+    }
+    const errPrefix = '⚠️ **Yanıt Alınamadı:** ';
+    appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`);
+  } finally {
+    isBookChatSending = false;
+    if (el.btnSendBookChat) {
+      el.btnSendBookChat.disabled = false;
+    }
+    if (el.bookChatInput) {
+      el.bookChatInput.focus();
+    }
+  }
+}
+
 function setupReaderSwipeNavigation() {
   const scrollContainer = el.readerContentScroll || document.getElementById('readerContentScroll');
   if (!scrollContainer) return;
@@ -2583,6 +2759,14 @@ function setupEventListeners() {
 
   // Global Escape & RSVP key controller
   document.addEventListener('keydown', (e) => {
+    if (el.bookAiChatModal && !el.bookAiChatModal.classList.contains('hidden')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeBookAiChat();
+        return;
+      }
+    }
+
     if (el.rsvpReaderModal && !el.rsvpReaderModal.classList.contains('hidden')) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -2825,6 +3009,55 @@ function setupEventListeners() {
       const btn = e.target.closest('.rsvp-speed-btn');
       if (btn && btn.dataset.wpm) {
         setRsvpSpeed(btn.dataset.wpm);
+      }
+    });
+  }
+
+  // Book AI Chat Assistant Controls
+  if (el.btnReaderAiChat) {
+    el.btnReaderAiChat.addEventListener('click', openBookAiChat);
+  }
+  if (el.popoverBookAiChat) {
+    el.popoverBookAiChat.addEventListener('click', () => {
+      closeMoreMenu();
+      openBookAiChat();
+    });
+  }
+  if (el.btnCloseBookChat) {
+    el.btnCloseBookChat.addEventListener('click', closeBookAiChat);
+  }
+  if (el.bookAiChatModal) {
+    el.bookAiChatModal.addEventListener('click', (e) => {
+      if (e.target === el.bookAiChatModal) {
+        closeBookAiChat();
+      }
+    });
+  }
+  if (el.toggleSpoilerProtection) {
+    el.toggleSpoilerProtection.addEventListener('change', () => {
+      updateBookChatSubtitle();
+      const isSpoiler = el.toggleSpoilerProtection.checked;
+      showToast(isSpoiler ? 'Spoiler koruması açıldı (yalnızca bulunduğunuz sayfa)' : 'Spoiler koruması kapatıldı (tüm kitap açık)', 'info');
+    });
+  }
+  if (el.btnSendBookChat) {
+    el.btnSendBookChat.addEventListener('click', () => {
+      handleSendBookChatMessage(el.bookChatInput?.value);
+    });
+  }
+  if (el.bookChatInput) {
+    el.bookChatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendBookChatMessage(el.bookChatInput.value);
+      }
+    });
+  }
+  if (el.bookChatQuickChips) {
+    el.bookChatQuickChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.book-chat-chip');
+      if (chip && chip.dataset.prompt) {
+        handleSendBookChatMessage(chip.dataset.prompt);
       }
     });
   }

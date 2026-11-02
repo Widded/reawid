@@ -1603,3 +1603,235 @@ Output ONLY the translated text without introductory or concluding remarks.`;
   const data = await res.json();
   return (data?.choices?.[0]?.message?.content || text).trim();
 }
+
+/**
+ * Prepares book context text from pagesTextMap up to maxPage (for spoiler protection)
+ */
+export function prepareBookContext({
+  pagesTextMap = {},
+  currentPage = 1,
+  spoilerProtection = true,
+  maxCharLimit = 48000
+}) {
+  const parts = [];
+  const pageNumbers = Object.keys(pagesTextMap || {})
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  if (pageNumbers.length === 0) {
+    return '';
+  }
+
+  // Filter pages if spoiler protection is ON
+  const eligiblePages = spoilerProtection
+    ? pageNumbers.filter(p => p <= currentPage)
+    : pageNumbers;
+
+  if (eligiblePages.length === 0) {
+    return '';
+  }
+
+  for (const p of eligiblePages) {
+    const raw = pagesTextMap[p];
+    const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+    if (text.trim()) {
+      parts.push(`[Sayfa ${p}]\n${text.trim()}`);
+    }
+  }
+
+  let fullText = parts.join('\n\n---\n\n');
+
+  // If text exceeds character budget, prioritize earliest pages (foundation) + recent pages (immediate context)
+  if (fullText.length > maxCharLimit) {
+    const headParts = [];
+    let headBudget = Math.floor(maxCharLimit * 0.4);
+    for (let i = 0; i < parts.length; i++) {
+      const pLen = parts[i].length + 10;
+      if (headBudget - pLen >= 0) {
+        headParts.push(parts[i]);
+        headBudget -= pLen;
+      } else {
+        if (headParts.length === 0 && headBudget > 50) {
+          headParts.push(parts[i].slice(0, headBudget) + '...');
+        }
+        break;
+      }
+    }
+
+    let tailBudget = maxCharLimit - headParts.join('\n\n---\n\n').length - 120;
+    const tailParts = [];
+    for (let i = parts.length - 1; i >= headParts.length; i--) {
+      const pLen = parts[i].length + 10;
+      if (tailBudget - pLen >= 0) {
+        tailParts.unshift(parts[i]);
+        tailBudget -= pLen;
+      } else {
+        if (tailParts.length === 0 && tailBudget > 50) {
+          tailParts.unshift(parts[i].slice(0, tailBudget) + '...');
+        }
+        break;
+      }
+    }
+
+    fullText = [
+      ...headParts,
+      '...\n[Önceki sayfaların bir kısmı bağlam tasarrufu için özetlendi]\n...',
+      ...tailParts
+    ].join('\n\n---\n\n');
+  }
+
+  return fullText;
+}
+
+/**
+ * AI Tool: Interactive Book Chat Companion with Spoiler Protection
+ */
+export async function askBookAi({
+  bookTitle = 'Kitap',
+  bookAuthor = '',
+  currentPage = 1,
+  totalPages = 1,
+  bookContextText = '',
+  question = '',
+  chatHistory = [],
+  spoilerProtection = true,
+  settings = {}
+}) {
+  if (!question || question.trim() === '') {
+    throw new Error('Soru metni boş olamaz.');
+  }
+
+  const groqKey = (settings.groqApiKey || '').trim();
+  const orKey = (settings.openrouterApiKey || '').trim();
+
+  // Determine provider and model
+  let provider = 'groq';
+  let apiKey = groqKey;
+  let model = 'llama-3.3-70b-versatile';
+
+  if (groqKey) {
+    provider = 'groq';
+    apiKey = groqKey;
+    model = 'llama-3.3-70b-versatile';
+  } else if (orKey) {
+    provider = 'openrouter';
+    apiKey = orKey;
+    model = 'google/gemma-4-26b-a4b-it:free';
+  } else {
+    throw new Error('Yapay zeka asistanını kullanmak için Ayarlar menüsünden ücretsiz Groq veya OpenRouter API anahtarınızı girin.');
+  }
+
+  let systemPrompt = '';
+  if (spoilerProtection) {
+    systemPrompt = `Sen ReaWid akıllı kitap okuma asistanı ve edebi yoldaşısın.
+Okuyucu şu anda "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabının ${currentPage}. sayfasını okuyor (Toplam ${totalPages} sayfa).
+
+ÖNEMLİ KURAL: KULLANICI "SPOILER KORUMASI"NI AÇIK TUTUYOR!
+1. Asla ${currentPage}. sayfadan sonrasına ait olayları, gizemleri, sürprizleri veya sonunu söyleme.
+2. Yalnızca ${currentPage}. sayfaya kadar olan metni ve olayları referans al.
+3. Eğer kullanıcı ilerisi hakkında soru sorarsa ("Katil kim?", "Sonunda ne olacak?" vb.), bunu bozmadan nazikçe: "Şu an ${currentPage}. sayfadasın, bu sır henüz aydınlanmadı. Okumaya devam ettikçe birlikte göreceğiz!" şeklinde açıkla.
+4. Karakterleri, olay örgüsünü ve diyalogları sanki kitabı dikkatle okumuş samimi bir edebiyat dostu gibi açıkla.
+5. Cevabın akıcı, edebi, samimi ve Türkçe olsun.
+
+Kitabın şu ana kadarki metni:
+${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
+  } else {
+    systemPrompt = `Sen ReaWid akıllı kitap okuma asistanı ve edebi yoldaşısın.
+Okuyucu "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabını okuyor. Şu an ${currentPage}. sayfada (Toplam ${totalPages} sayfa).
+
+BİLGİ: KULLANICI "SPOILER KORUMASI"NI KAPATTI.
+1. Kitabın tamamını (sonunu, felsefesini, tüm olay örgüsünü ve karakter gelişimlerini) serbestçe tartışabilirsin.
+2. Derin edebi analizler yapabilir, yazarın vermek istediği mesajları ve tüm kurguyu ele alabilirsin.
+3. Cevabın akıcı, samimi, doyurucu ve Türkçe olsun.
+
+Kitap metni bağlamı:
+${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmaktadır.'}`;
+  }
+
+  // Construct message thread
+  const messages = [
+    { role: 'system', content: systemPrompt }
+  ];
+
+  // Include recent chat history (up to last 6 messages)
+  const safeHistory = Array.isArray(chatHistory) ? chatHistory.slice(-6) : [];
+  for (const msg of safeHistory) {
+    if (msg.role && msg.content) {
+      messages.push({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: String(msg.content)
+      });
+    }
+  }
+
+  // Add the current user question
+  messages.push({ role: 'user', content: question.trim() });
+
+  const payload = {
+    model,
+    messages,
+    temperature: 0.6,
+    max_tokens: 1024
+  };
+
+  const endpoint = provider === 'groq'
+    ? 'https://api.groq.com/openai/v1/chat/completions'
+    : 'https://openrouter.ai/api/v1/chat/completions';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  };
+  if (provider === 'openrouter') {
+    headers['HTTP-Referer'] = typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app';
+    headers['X-Title'] = 'ReaWid Book AI Chat';
+  }
+
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    // If Groq fails and OpenRouter is available, try fallback
+    if (provider === 'groq' && orKey) {
+      console.warn('[Book AI Chat] Groq bağlantı hatası, OpenRouter deneniyor...');
+      const fallbackHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${orKey}`,
+        'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
+        'X-Title': 'ReaWid Book AI Chat'
+      };
+      const fallbackPayload = {
+        model: 'openrouter/free',
+        messages,
+        temperature: 0.6,
+        max_tokens: 1024
+      };
+      res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: fallbackHeaders,
+        body: JSON.stringify(fallbackPayload)
+      });
+    } else {
+      throw new Error(`Ağ bağlantısı kurulamadı: ${err.message}`);
+    }
+  }
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    const msg = errorJson?.error?.message || `Sunucu hatası (HTTP ${res.status})`;
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const answer = (data?.choices?.[0]?.message?.content || '').trim();
+  if (!answer) {
+    throw new Error('Yapay zeka boş bir yanıt döndürdü. Lütfen tekrar deneyin.');
+  }
+
+  return { answer, provider, model };
+}
