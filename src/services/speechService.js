@@ -65,6 +65,9 @@ async function speakWithEdgeTts(text, {
   activeAbortController = new AbortController();
   isFetchingAudio = true;
 
+  // Prime an audio instance synchronously in user click gesture context for iOS/Android
+  const audioEl = new Audio();
+
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
@@ -93,8 +96,9 @@ async function speakWithEdgeTts(text, {
     }
 
     currentAudioUrl = URL.createObjectURL(blob);
-    currentAudio = new Audio(currentAudioUrl);
-    currentAudio.playbackRate = 1.0; // Speed is already synthesized by Edge TTS
+    audioEl.src = currentAudioUrl;
+    audioEl.playbackRate = 1.0;
+    currentAudio = audioEl;
 
     currentAudio.onplay = () => {
       onStart?.();
