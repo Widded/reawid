@@ -1,7 +1,7 @@
 // Unit and Regression Tests for ReaWid Neural TTS Engine
 import assert from 'assert';
 import { EdgeTTS } from '@andresaya/edge-tts';
-import { AVAILABLE_TTS_VOICES, isTtsSupported } from '../src/services/speechService.js';
+import { AVAILABLE_TTS_VOICES, isTtsSupported, cleanTextForSpeech, prefetchSpeech } from '../src/services/speechService.js';
 import { DEFAULT_SETTINGS } from '../src/services/storageService.js';
 
 console.log('================================================================');
@@ -51,6 +51,18 @@ async function runSuite() {
 
   it('DEFAULT_SETTINGS içinde varsayılan hız 1.0 olmalı', () => {
     assert.strictEqual(DEFAULT_SETTINGS.ttsSpeed, 1.0);
+  });
+
+  it('cleanTextForSpeech diyalog çizgisini temizleyerek ses başlangıç duraksamasını önlemeli', () => {
+    const raw = '— Merhaba, nasılsın?';
+    const cleaned = cleanTextForSpeech(raw);
+    assert.strictEqual(cleaned, 'Merhaba, nasılsın?');
+    assert(!cleaned.startsWith(','), 'Başlangıçta virgül duraksaması olmamalı');
+  });
+
+  it('prefetchSpeech fonksiyonu dışa aktarılmış ve boş metinde güvenli olmalı', async () => {
+    const res = await prefetchSpeech('', { voice: 'tr-TR-AhmetNeural' });
+    assert.strictEqual(res, null);
   });
 
   console.log('\n--- 2. Edge Neural TTS Sentezleme & Ses Kalitesi ---');

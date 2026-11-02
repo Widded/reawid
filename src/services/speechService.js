@@ -12,6 +12,23 @@ let currentAudioUrl = null;
 let currentUtterance = null;
 let activeAbortController = null;
 let isFetchingAudio = false;
+let reusableAudioEl = null;
+let currentAdvanceTimer = null;
+
+const audioBlobCache = new Map();
+const MAX_CACHE_SIZE = 40;
+
+function getCacheKey(text, voice, rate) {
+  return `${voice}|${rate}|${text}`;
+}
+
+function getTtsAudioElement() {
+  if (!reusableAudioEl && typeof Audio !== 'undefined') {
+    reusableAudioEl = new Audio();
+    reusableAudioEl.preload = 'auto';
+  }
+  return reusableAudioEl;
+}
 
 let turkishWebVoices = [];
 let voicesLoaded = false;
@@ -35,7 +52,7 @@ export function isTtsSupported() {
 /**
  * Clean and normalize text before reading aloud
  */
-function cleanTextForSpeech(text) {
+export function cleanTextForSpeech(text) {
   if (!text || typeof text !== 'string') return '';
   return text
     // Remove isolated page headers like "16 | Sokak Nöbetçileri"
@@ -47,9 +64,57 @@ function cleanTextForSpeech(text) {
     .replace(/\bvb\./gi, 've benzerleri')
     .replace(/\bDr\./g, 'Doktor')
     .replace(/\bProf\./g, 'Profesör')
-    // Em-dash pause normalization
+    // Remove dialogue dashes at the start of the sentence (prevents leading speech hesitation)
+    .replace(/^[—–―-]\s*/, '')
+    // Em-dash inside sentence pause normalization
     .replace(/[—–]/g, ', ')
     .trim();
+}
+
+/**
+ * Pre-fetches neural TTS audio for a sentence in the background.
+ * Ensures zero-latency gapless playback between sentences.
+ */
+export function prefetchSpeech(text, {
+  voice = 'tr-TR-AhmetNeural',
+  rate = 1.0
+} = {}) {
+  const cleaned = cleanTextForSpeech(text);
+  if (!cleaned) return Promise.resolve(null);
+
+  const key = getCacheKey(cleaned, voice, rate);
+  if (audioBlobCache.has(key)) {
+    return audioBlobCache.get(key);
+  }
+
+  while (audioBlobCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = audioBlobCache.keys().next().value;
+    audioBlobCache.delete(oldestKey);
+  }
+
+  const promise = (async () => {
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: cleaned,
+          voice,
+          rate
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.blob();
+    } catch (err) {
+      audioBlobCache.delete(key);
+      return null;
+    }
+  })();
+
+  audioBlobCache.set(key, promise);
+  return promise;
 }
 
 /**
@@ -65,62 +130,87 @@ async function speakWithEdgeTts(text, {
   activeAbortController = new AbortController();
   isFetchingAudio = true;
 
-  // Prime an audio instance synchronously in user click gesture context for iOS/Android
-  const audioEl = new Audio();
-
-  try {
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
-        voice,
-        rate
-      }),
-      signal: activeAbortController.signal
-    });
-
-    if (!res.ok) {
-      throw new Error(`TTS sunucu hatası (HTTP ${res.status})`);
-    }
-
-    const blob = await res.blob();
-    isFetchingAudio = false;
-
-    if (activeAbortController?.signal?.aborted) return;
-
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
-    }
-
-    currentAudioUrl = URL.createObjectURL(blob);
-    audioEl.src = currentAudioUrl;
-    audioEl.playbackRate = 1.0;
-    currentAudio = audioEl;
-
-    currentAudio.onplay = () => {
-      onStart?.();
-    };
-
-    currentAudio.onended = () => {
-      stopSpeech();
-      onEnd?.();
-    };
-
-    currentAudio.onerror = (err) => {
-      console.warn('[Speech Service] Audio playback error:', err);
-      stopSpeech();
-      onError?.(err);
-    };
-
-    await currentAudio.play();
-  } catch (err) {
-    isFetchingAudio = false;
-    if (err.name === 'AbortError') return;
-    throw err;
+  const key = getCacheKey(text, voice, rate);
+  let blobPromise = audioBlobCache.get(key);
+  if (!blobPromise) {
+    blobPromise = prefetchSpeech(text, { voice, rate });
   }
+
+  let blob = null;
+  try {
+    blob = await blobPromise;
+  } catch (_) {
+    blob = null;
+  }
+
+  isFetchingAudio = false;
+
+  if (activeAbortController?.signal?.aborted) return;
+
+  if (!blob) {
+    throw new Error('TTS ses verisi alınamadı');
+  }
+
+  if (currentAudioUrl) {
+    URL.revokeObjectURL(currentAudioUrl);
+  }
+
+  currentAudioUrl = URL.createObjectURL(blob);
+  const audioEl = getTtsAudioElement();
+  audioEl.src = currentAudioUrl;
+  audioEl.playbackRate = 1.0;
+  currentAudio = audioEl;
+
+  if (currentAdvanceTimer) {
+    clearTimeout(currentAdvanceTimer);
+    currentAdvanceTimer = null;
+  }
+
+  let endTriggered = false;
+  function triggerEnd() {
+    if (endTriggered) return;
+    endTriggered = true;
+    if (currentAdvanceTimer) {
+      clearTimeout(currentAdvanceTimer);
+      currentAdvanceTimer = null;
+    }
+    audioEl.ontimeupdate = null;
+    audioEl.onended = null;
+    audioEl.onerror = null;
+    onEnd?.();
+  }
+
+  audioEl.onplay = () => {
+    onStart?.();
+    // Schedule advance right as the last word completes, trimming the trailing silent MP3 padding
+    if (audioEl.duration && audioEl.duration > 0.35) {
+      const earlyCutMs = Math.min(180, Math.max(90, Math.round(audioEl.duration * 50)));
+      const delay = Math.max(0, (audioEl.duration * 1000) - earlyCutMs);
+      if (currentAdvanceTimer) clearTimeout(currentAdvanceTimer);
+      currentAdvanceTimer = setTimeout(triggerEnd, delay);
+    }
+  };
+
+  audioEl.ontimeupdate = () => {
+    if (audioEl.duration && audioEl.duration > 0.35) {
+      const remaining = audioEl.duration - audioEl.currentTime;
+      if (remaining <= 0.12) {
+        triggerEnd();
+      }
+    }
+  };
+
+  audioEl.onended = () => {
+    triggerEnd();
+  };
+
+  audioEl.onerror = (err) => {
+    console.warn('[Speech Service] Audio playback error:', err);
+    triggerEnd();
+    onError?.(err);
+  };
+
+  await currentAudio.play();
 }
 
 /**
@@ -254,6 +344,10 @@ export async function speakText(text, {
 }
 
 export function pauseSpeech() {
+  if (currentAdvanceTimer) {
+    clearTimeout(currentAdvanceTimer);
+    currentAdvanceTimer = null;
+  }
   if (currentAudio && !currentAudio.paused) {
     currentAudio.pause();
   } else if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
@@ -270,6 +364,10 @@ export function resumeSpeech() {
 }
 
 export function stopSpeech() {
+  if (currentAdvanceTimer) {
+    clearTimeout(currentAdvanceTimer);
+    currentAdvanceTimer = null;
+  }
   if (activeAbortController) {
     activeAbortController.abort();
     activeAbortController = null;
@@ -281,6 +379,7 @@ export function stopSpeech() {
     currentAudio.currentTime = 0;
     currentAudio.onended = null;
     currentAudio.onerror = null;
+    currentAudio.ontimeupdate = null;
     currentAudio = null;
   }
 

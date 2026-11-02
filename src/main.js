@@ -88,6 +88,7 @@ import { perfMonitor } from './services/perfMonitor.js';
 import {
   speakText,
   stopSpeech,
+  prefetchSpeech,
   isSpeaking,
   isTtsSupported
 } from './services/speechService.js';
@@ -2100,6 +2101,21 @@ function playSentenceQueue(index = 0) {
       stopReaderSpeech();
     }
   });
+
+  // Lookahead Pre-buffering: Sonraki 2 cümleyi arka planda önceden indir
+  // Böylece cümle bittiği anda sıradaki cümle 0ms ağ gecikmesiyle başlar!
+  for (let offset = 1; offset <= 2; offset++) {
+    const nextSpan = el.readerParagraphsContainer.querySelector(`.reader-sentence[data-sentence-idx="${index + offset}"]`);
+    if (nextSpan) {
+      const nextText = nextSpan.textContent?.trim();
+      if (nextText) {
+        prefetchSpeech(nextText, {
+          voice: appSettings.ttsVoice || 'tr-TR-AhmetNeural',
+          rate: appSettings.ttsSpeed || 1.0
+        });
+      }
+    }
+  }
 }
 
 /**
