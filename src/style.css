@@ -1550,6 +1550,92 @@ mark.search-highlight.active-match {
   border-color: rgba(60, 40, 20, 0.35);
 }
 
+/* Floating Text Selection Action Pill (Apple Books Floating Action Bar) */
+.reader-selection-pill {
+  position: fixed;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  background: rgba(28, 28, 30, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 4px 6px;
+  gap: 2px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.35);
+  animation: pillPopIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+}
+
+@keyframes pillPopIn {
+  from { opacity: 0; transform: translate(-50%, -90%) scale(0.92); }
+  to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+}
+
+.selection-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-family: var(--font-system);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s ease, transform 0.1s ease;
+}
+
+.selection-pill-btn:hover, .selection-pill-btn:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.selection-pill-btn svg {
+  width: 14px;
+  height: 14px;
+  color: #0a84ff;
+}
+
+/* Light Theme */
+.reader-screen.theme-acik .reader-selection-pill {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.reader-screen.theme-acik .selection-pill-btn {
+  color: #1c1c1e;
+}
+.reader-screen.theme-acik .selection-pill-btn:hover,
+.reader-screen.theme-acik .selection-pill-btn:active {
+  background: rgba(0, 0, 0, 0.07);
+}
+.reader-screen.theme-acik .selection-pill-btn svg {
+  color: #0071e3;
+}
+
+/* Sepia Theme */
+.reader-screen.theme-sepya .reader-selection-pill {
+  background: rgba(246, 238, 222, 0.96);
+  border-color: rgba(138, 109, 59, 0.22);
+  box-shadow: 0 12px 32px rgba(60, 40, 20, 0.22);
+}
+.reader-screen.theme-sepya .selection-pill-btn {
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .selection-pill-btn:hover,
+.reader-screen.theme-sepya .selection-pill-btn:active {
+  background: rgba(60, 40, 20, 0.08);
+}
+.reader-screen.theme-sepya .selection-pill-btn svg {
+  color: #8e6234;
+}
+
 /* Reader Main Content Area */
 .reader-header {
   flex-shrink: 0;

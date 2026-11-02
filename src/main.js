@@ -344,6 +344,11 @@ const el = {
   readerChapterBadge: document.getElementById('readerChapterBadge'),
   readerArticleTitle: document.getElementById('readerArticleTitle'),
   readerParagraphsContainer: document.getElementById('readerParagraphsContainer'),
+  readerTextSelectionPill: document.getElementById('readerTextSelectionPill'),
+  btnSelectionQuote: document.getElementById('btnSelectionQuote'),
+  btnSelectionAskAi: document.getElementById('btnSelectionAskAi'),
+  btnSelectionSpeak: document.getElementById('btnSelectionSpeak'),
+  btnSelectionCopy: document.getElementById('btnSelectionCopy'),
   readerPageSlider: document.getElementById('readerPageSlider'),
   btnReaderPrevPage: document.getElementById('btnReaderPrevPage'),
   btnReaderNextPage: document.getElementById('btnReaderNextPage'),
@@ -2657,6 +2662,223 @@ function setupReaderSwipeNavigation() {
   }, { passive: true });
 }
 
+/* ==========================================================================
+   Apple Books Floating Text Selection Action Pill
+   ========================================================================== */
+function setupTextSelectionPill() {
+  const pill = el.readerTextSelectionPill;
+  if (!pill) return;
+
+  let currentSelectedText = '';
+  let selectionAnchorNode = null;
+
+  const hidePill = () => {
+    if (!pill.classList.contains('hidden')) {
+      pill.classList.add('hidden');
+    }
+  };
+
+  const updatePillPosition = () => {
+    // If modal or chat is open, do not show selection pill
+    if (
+      (el.bookAiChatModal && !el.bookAiChatModal.classList.contains('hidden')) ||
+      (el.readerSettingsBackdrop && !el.readerSettingsBackdrop.classList.contains('hidden')) ||
+      (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden'))
+    ) {
+      hidePill();
+      return;
+    }
+
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      hidePill();
+      return;
+    }
+
+    const text = sel.toString().trim();
+    if (text.length < 2) {
+      hidePill();
+      return;
+    }
+
+    // Must be selected inside #readerParagraphsContainer
+    if (!el.readerParagraphsContainer || !el.readerParagraphsContainer.contains(sel.anchorNode)) {
+      hidePill();
+      return;
+    }
+
+    currentSelectedText = text;
+    selectionAnchorNode = sel.anchorNode;
+
+    try {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        hidePill();
+        return;
+      }
+
+      // Calculate safe coordinates
+      let top = rect.top - 12;
+      let left = rect.left + rect.width / 2;
+
+      // If too close to top bar, place below selection
+      if (top < 74) {
+        top = rect.bottom + 48;
+      }
+
+      // Clamp left within viewport
+      const pillHalfWidth = 145;
+      const minLeft = pillHalfWidth + 12;
+      const maxLeft = window.innerWidth - pillHalfWidth - 12;
+      left = Math.max(minLeft, Math.min(maxLeft, left));
+
+      pill.style.top = `${top}px`;
+      pill.style.left = `${left}px`;
+      pill.classList.remove('hidden');
+    } catch (_) {
+      hidePill();
+    }
+  };
+
+  // Listen to selection events
+  document.addEventListener('selectionchange', () => {
+    requestAnimationFrame(updatePillPosition);
+  });
+
+  // Prevent mousedown on pill buttons from collapsing the selection
+  pill.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+  });
+  pill.addEventListener('touchstart', (e) => {
+    // Keep selection active
+  }, { passive: true });
+
+  // Hide on reader scroll
+  if (el.readerContentScroll) {
+    el.readerContentScroll.addEventListener('scroll', () => {
+      hidePill();
+    }, { passive: true });
+  }
+
+  // Hide on click outside
+  document.addEventListener('click', (e) => {
+    if (!pill.contains(e.target) && !el.readerParagraphsContainer?.contains(e.target)) {
+      hidePill();
+    }
+  });
+
+  // Action 1: Save Quote (Alıntıla)
+  if (el.btnSelectionQuote) {
+    el.btnSelectionQuote.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const textToSave = currentSelectedText;
+      if (!textToSave) return;
+      const book = currentActiveBook || getCurrentBook();
+      saveNote({
+        bookId: book ? book.id : '',
+        bookTitle: book ? book.title : 'Not',
+        bookAuthor: book ? book.author : '',
+        pageNumber: currentReaderPage || 1,
+        type: 'quote',
+        text: textToSave,
+        userNote: ''
+      });
+      showToast('Alıntı notlarınıza eklendi!', 'success');
+      hidePill();
+      window.getSelection()?.removeAllRanges();
+      if (el.notesViewScreen && !el.notesViewScreen.classList.contains('hidden')) {
+        renderNotesScreen();
+      }
+    });
+  }
+
+  // Action 2: Ask AI (AI'ya Sor)
+  if (el.btnSelectionAskAi) {
+    el.btnSelectionAskAi.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const textToAsk = currentSelectedText;
+      if (!textToAsk) return;
+      hidePill();
+      window.getSelection()?.removeAllRanges();
+      openBookAiChat();
+      if (el.bookChatInput) {
+        el.bookChatInput.value = `Bu alıntıyı açıkla ve romandaki önemini belirt:\n\n"${textToAsk}"`;
+        el.bookChatInput.style.height = 'auto';
+        el.bookChatInput.style.height = `${Math.min(120, el.bookChatInput.scrollHeight)}px`;
+        el.bookChatInput.focus();
+      }
+      if (el.btnSendBookChat) {
+        el.btnSendBookChat.disabled = false;
+      }
+    });
+  }
+
+  // Action 3: Read from here (Dinle)
+  if (el.btnSelectionSpeak) {
+    el.btnSelectionSpeak.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const textToSpeak = currentSelectedText;
+      const anchor = selectionAnchorNode;
+      hidePill();
+      window.getSelection()?.removeAllRanges();
+
+      // Find closest sentence span
+      let targetNode = anchor;
+      let sentenceSpan = targetNode?.nodeType === 1 
+        ? targetNode.closest('.reader-sentence') 
+        : targetNode?.parentElement?.closest('.reader-sentence');
+
+      if (sentenceSpan && sentenceSpan.dataset.sentenceIndex !== undefined) {
+        const sentenceIdx = parseInt(sentenceSpan.dataset.sentenceIndex, 10);
+        if (!isNaN(sentenceIdx)) {
+          playSentenceQueue(sentenceIdx);
+          return;
+        }
+      }
+
+      // Fallback: speak selected snippet directly
+      if (textToSpeak) {
+        speakText(textToSpeak, {
+          voice: appSettings.ttsVoice || 'tr-TR-AhmetNeural',
+          rate: appSettings.ttsSpeed || 1.0,
+          onStart: () => {
+            isReaderSpeaking = true;
+            if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';
+          },
+          onEnd: () => stopReaderSpeech(),
+          onError: () => stopReaderSpeech()
+        });
+      }
+    });
+  }
+
+  // Action 4: Copy to clipboard (Kopyala)
+  if (el.btnSelectionCopy) {
+    el.btnSelectionCopy.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const textToCopy = currentSelectedText;
+      hidePill();
+      window.getSelection()?.removeAllRanges();
+      if (!textToCopy) return;
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showToast('Metin kopyalandı', 'success');
+      } catch (_) {
+        const ta = document.createElement('textarea');
+        ta.value = textToCopy;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Metin kopyalandı', 'success');
+      }
+    });
+  }
+}
+
 function setupEventListeners() {
   // 1. Yeni Kitap Ekle
   el.btnNewBookCard.addEventListener('click', () => {
@@ -3199,6 +3421,7 @@ function setupEventListeners() {
 
   // Okuyucu Kaydırma (Swipe) Gezintisini Başlat
   setupReaderSwipeNavigation();
+  setupTextSelectionPill();
 
   // Comparison Studio 10/10 View Controls
   if (el.btnCloseComparison) el.btnCloseComparison.addEventListener('click', closeComparisonView);
