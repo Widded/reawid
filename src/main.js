@@ -2830,7 +2830,7 @@ function setupEventListeners() {
   // Close more menu on background click
   document.addEventListener('click', (e) => {
     if (el.readerMoreMenu && !el.readerMoreMenu.classList.contains('hidden')) {
-      if (!el.readerMoreMenu.contains(e.target) && e.target !== el.btnReaderMore) {
+      if (!el.readerMoreMenu.contains(e.target) && !el.btnReaderMore?.contains(e.target)) {
         closeMoreMenu();
       }
     }

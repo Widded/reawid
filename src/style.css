@@ -824,13 +824,27 @@ body.reader-open {
 .reader-screen.theme-acik .reader-search-nav-btn { color: #3a3a3c; }
 .reader-screen.theme-acik .reader-search-nav-btn:hover { background: rgba(0, 0, 0, 0.08); color: #000000; }
 .reader-screen.theme-acik .reader-context-popover {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
   border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.12);
 }
+.reader-screen.theme-acik .popover-quick-tile {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.reader-screen.theme-acik .popover-quick-tile:hover,
+.reader-screen.theme-acik .popover-quick-tile:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+.reader-screen.theme-acik .quick-tile-label { color: #1c1c1e; }
+.reader-screen.theme-acik .quick-tile-icon svg { color: #007aff; }
+.reader-screen.theme-acik .popover-section-divider { background: rgba(0, 0, 0, 0.07); }
+.reader-screen.theme-acik .popover-section-header { color: rgba(0, 0, 0, 0.45); }
 .reader-screen.theme-acik .popover-item { color: #1c1c1e; }
-.reader-screen.theme-acik .popover-item:hover { background: rgba(0, 0, 0, 0.05); }
-.reader-screen.theme-acik .popover-item svg { color: #636366; }
+.reader-screen.theme-acik .popover-item:hover,
+.reader-screen.theme-acik .popover-item:active { background: rgba(0, 0, 0, 0.06); }
+.reader-screen.theme-acik .popover-item-icon svg { color: #636366; }
+.reader-screen.theme-acik .popover-item:hover .popover-item-icon svg { color: #000000; }
 
 .reader-screen.theme-sepya {
   background: #f5eedb;
@@ -883,13 +897,28 @@ body.reader-open {
 .reader-screen.theme-sepya .reader-search-nav-btn { color: #4a3420; }
 .reader-screen.theme-sepya .reader-search-nav-btn:hover { background: rgba(60, 40, 20, 0.1); color: #1f180e; }
 .reader-screen.theme-sepya .reader-context-popover {
-  background: #eee4ce;
-  border-color: rgba(60, 40, 20, 0.18);
-  box-shadow: 0 16px 40px rgba(60, 40, 20, 0.25);
+  background: rgba(244, 236, 219, 0.96);
+  border-color: rgba(60, 40, 20, 0.16);
+  box-shadow: 0 20px 48px rgba(60, 40, 20, 0.22);
 }
+.reader-screen.theme-sepya .popover-quick-tile {
+  background: rgba(60, 40, 20, 0.06);
+  border-color: rgba(60, 40, 20, 0.1);
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .popover-quick-tile:hover,
+.reader-screen.theme-sepya .popover-quick-tile:active {
+  background: rgba(60, 40, 20, 0.1);
+}
+.reader-screen.theme-sepya .quick-tile-label { color: #2e261a; }
+.reader-screen.theme-sepya .quick-tile-icon svg { color: #9c6c38; }
+.reader-screen.theme-sepya .popover-section-divider { background: rgba(60, 40, 20, 0.1); }
+.reader-screen.theme-sepya .popover-section-header { color: rgba(60, 40, 20, 0.5); }
 .reader-screen.theme-sepya .popover-item { color: #2e261a; }
-.reader-screen.theme-sepya .popover-item:hover { background: rgba(60, 40, 20, 0.08); }
-.reader-screen.theme-sepya .popover-item svg { color: #7d6951; }
+.reader-screen.theme-sepya .popover-item:hover,
+.reader-screen.theme-sepya .popover-item:active { background: rgba(60, 40, 20, 0.08); }
+.reader-screen.theme-sepya .popover-item-icon svg { color: #7d6951; }
+.reader-screen.theme-sepya .popover-item:hover .popover-item-icon svg { color: #2e261a; }
 
 .reader-screen.theme-acik .reader-settings-panel {
   background: #ffffff;
@@ -1156,30 +1185,35 @@ body.reader-open {
   gap: 3px;
 }
 
-/* Floating Context Popover Menu */
+/* Floating Context Popover Menu (Apple Grouped Design) */
 .reader-context-popover {
   position: fixed;
-  top: max(72px, calc(env(safe-area-inset-top, 0px) + 58px));
-  right: 14px;
-  width: 226px;
-  max-width: calc(100vw - 28px);
-  max-height: calc(100vh - 110px);
+  top: max(68px, calc(env(safe-area-inset-top, 0px) + 54px));
+  right: 12px;
+  width: 290px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 84px);
   overflow-y: auto;
-  background: #1c1c1e;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 16px;
-  padding: 6px;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(26, 26, 28, 0.95);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   z-index: 200;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
-  animation: popoverFadeIn 160ms ease-out;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.2);
+  animation: popoverFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  overscroll-behavior: contain;
 }
 
 #libraryHeaderMenu {
   top: max(74px, calc(env(safe-area-inset-top, 0px) + 58px));
   right: 16px;
+  width: 236px;
 }
 
 @keyframes popoverFadeIn {
@@ -1187,31 +1221,136 @@ body.reader-open {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* Quick Action Grid (Top 4 buttons: Ara, Sesli Oku, Hızlı Oku, Not Ekle) */
+.popover-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 2px 2px 4px 2px;
+}
+
+.popover-quick-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 3px 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  user-select: none;
+}
+
+.popover-quick-tile:hover, .popover-quick-tile:active {
+  background: rgba(255, 255, 255, 0.13);
+  transform: scale(0.97);
+}
+
+.quick-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.quick-tile-icon svg {
+  width: 18px;
+  height: 18px;
+  color: #0a84ff;
+}
+
+.quick-tile-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+/* Section Divider */
+.popover-section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 3px 2px;
+}
+
+/* Grouped Sections */
+.popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popover-section-header {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 4px 8px 2px 8px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* Popover Row Item */
 .popover-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
   background: transparent;
   border: none;
   color: #ffffff;
   font-family: var(--font-system);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 450;
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background 0.14s ease, color 0.14s ease;
+  width: 100%;
 }
 
 .popover-item:hover, .popover-item:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
 }
 
-.popover-item svg {
-  width: 17px;
-  height: 17px;
-  color: var(--text-secondary);
+.popover-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.popover-item-icon svg, .popover-item svg {
+  width: 16px;
+  height: 16px;
+  color: #8e8e93;
+}
+
+.popover-item:hover .popover-item-icon svg,
+.popover-item:hover svg {
+  color: #ffffff;
+}
+
+/* Danger Item (Reset) */
+.popover-item-danger {
+  color: #ff453a !important;
+}
+
+.popover-item-danger .popover-item-icon svg,
+.popover-item-danger svg {
+  color: #ff453a !important;
+}
+
+.popover-item-danger:hover, .popover-item-danger:active {
+  background: rgba(255, 69, 58, 0.12) !important;
 }
 
 /* Quick In-Book Search Bar & Highlights */
