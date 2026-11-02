@@ -1284,7 +1284,14 @@ async function callGroqVision({ apiKey, model, systemPrompt, userPrompt, imageUr
   }
 
   const data = await response.json();
-  const text = data?.choices?.[0]?.message?.content || '';
+  const choiceMsg = data?.choices?.[0]?.message;
+  let text = choiceMsg?.content || '';
+  if (!text && choiceMsg?.reasoning) {
+    text = choiceMsg.reasoning;
+  }
+  if (!text && choiceMsg?.reasoning_content) {
+    text = choiceMsg.reasoning_content;
+  }
   return text.trim();
 }
 
@@ -1370,6 +1377,9 @@ async function callOpenRouterVision({ apiKey, model, systemPrompt, userPrompt, i
   // Fallback if model placed output in reasoning field
   if (!text && choiceMsg?.reasoning) {
     text = choiceMsg.reasoning;
+  }
+  if (!text && choiceMsg?.reasoning_content) {
+    text = choiceMsg.reasoning_content;
   }
   return text.trim();
 }
@@ -1611,7 +1621,7 @@ export function prepareBookContext({
   pagesTextMap = {},
   currentPage = 1,
   spoilerProtection = true,
-  maxCharLimit = 48000
+  maxCharLimit = 24000
 }) {
   const parts = [];
   const pageNumbers = Object.keys(pagesTextMap || {})
@@ -1682,6 +1692,43 @@ export function prepareBookContext({
   }
 
   return fullText;
+}
+
+/**
+ * Extracts and cleans AI answer from various model response formats
+ * (including reasoning models, thinking tags, and empty content fallbacks).
+ */
+export function extractBookAiAnswer(data) {
+  if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+    return '';
+  }
+  const choice = data.choices[0];
+  let answer = (choice.message?.content || '').trim();
+
+  // If content is empty, check reasoning or reasoning_content (used by reasoning/thinking models)
+  if (!answer && choice.message?.reasoning) {
+    answer = String(choice.message.reasoning).trim();
+  }
+  if (!answer && choice.message?.reasoning_content) {
+    answer = String(choice.message.reasoning_content).trim();
+  }
+
+  // If answer contains <think>...</think>, extract clean answer after </think>
+  if (answer && answer.includes('</think>')) {
+    const parts = answer.split('</think>');
+    const afterThink = parts[parts.length - 1].trim();
+    if (afterThink) {
+      answer = afterThink;
+    } else {
+      // Model finished thinking right at the end; strip tags
+      answer = answer.replace(/<\/?think>/gi, '').trim();
+    }
+  } else if (answer && answer.startsWith('<think>')) {
+    // Model ran out of tokens before closing </think>; strip open tag
+    answer = answer.replace(/<\/?think>/gi, '').trim();
+  }
+
+  return answer;
 }
 
 /**
@@ -1781,7 +1828,7 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
     model,
     messages,
     temperature: 0.6,
-    max_tokens: 1024
+    max_tokens: 2048
   };
 
   const endpoint = provider === 'groq'
@@ -1797,73 +1844,84 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
     headers['X-Title'] = 'ReaWid Book AI Chat';
   }
 
-  let res;
-  try {
-    res = await fetch(endpoint, {
+  // Robust request runner with error detection
+  const requestCompletion = async (reqEndpoint, reqHeaders, reqPayload) => {
+    const r = await fetch(reqEndpoint, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
+      headers: reqHeaders,
+      body: JSON.stringify(reqPayload)
     });
+    if (!r.ok) {
+      const errorJson = await r.json().catch(() => ({}));
+      const msg = errorJson?.error?.message || `Sunucu hatası (HTTP ${r.status})`;
+      const err = new Error(msg);
+      err.status = r.status;
+      throw err;
+    }
+    const d = await r.json();
+    return { data: d, answer: extractBookAiAnswer(d) };
+  };
+
+  let finalAnswer = '';
+  let finalProvider = provider;
+  let finalModel = model;
+
+  // 1. Attempt primary provider call
+  try {
+    const res = await requestCompletion(endpoint, headers, payload);
+    finalAnswer = res.answer;
   } catch (err) {
-    // If Groq fails and OpenRouter is available, try fallback
-    if (provider === 'groq' && orKey) {
-      console.warn('[Book AI Chat] Groq bağlantı hatası, OpenRouter deneniyor...');
-      const fallbackHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${orKey}`,
-        'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
-        'X-Title': 'ReaWid Book AI Chat'
-      };
-      const fallbackPayload = {
-        model: 'openrouter/free',
-        messages,
-        temperature: 0.6,
-        max_tokens: 1024
-      };
-      res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: fallbackHeaders,
-        body: JSON.stringify(fallbackPayload)
-      });
-    } else {
-      throw new Error(`Ağ bağlantısı kurulamadı: ${err.message}`);
+    console.warn(`[Book AI Chat] ${provider} çağrısı başarısız oldu:`, err.message);
+  }
+
+  // 2. If primary returned empty or threw an error, failover to OpenRouter if available
+  if (!finalAnswer && provider === 'groq' && orKey) {
+    console.info('[Book AI Chat] Groq yanıtı alınamadı veya boş döndü. OpenRouter yedek deneniyor...');
+    const fallbackHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${orKey}`,
+      'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
+      'X-Title': 'ReaWid Book AI Chat'
+    };
+    const fallbackPayload = {
+      model: 'openrouter/free',
+      messages,
+      temperature: 0.6,
+      max_tokens: 2048
+    };
+    try {
+      const fbRes = await requestCompletion('https://openrouter.ai/api/v1/chat/completions', fallbackHeaders, fallbackPayload);
+      if (fbRes.answer) {
+        finalAnswer = fbRes.answer;
+        finalProvider = 'openrouter';
+        finalModel = 'openrouter/free';
+      }
+    } catch (fbErr) {
+      console.warn('[Book AI Chat] OpenRouter yedeği de başarısız oldu:', fbErr.message);
     }
   }
 
-  if (!res.ok) {
-    if (provider === 'groq' && orKey) {
-      console.warn('[Book AI Chat] Groq yanıt hatası, OpenRouter deneniyor...');
-      const fallbackHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${orKey}`,
-        'HTTP-Referer': typeof window !== 'undefined' ? (window.location.origin || 'https://reawid.app') : 'https://reawid.app',
-        'X-Title': 'ReaWid Book AI Chat'
-      };
-      const fallbackPayload = {
-        model: 'openrouter/free',
-        messages,
-        temperature: 0.6,
-        max_tokens: 1024
-      };
-      res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: fallbackHeaders,
-        body: JSON.stringify(fallbackPayload)
-      });
+  // 3. If still empty, attempt 1 silent retry on the primary provider with adjusted temperature
+  if (!finalAnswer) {
+    console.info('[Book AI Chat] Yanıt boş geldi, yeniden deneniyor...');
+    const retryPayload = {
+      ...payload,
+      temperature: 0.7,
+      max_tokens: 2048
+    };
+    try {
+      const retryRes = await requestCompletion(endpoint, headers, retryPayload);
+      if (retryRes.answer) {
+        finalAnswer = retryRes.answer;
+      }
+    } catch (retryErr) {
+      console.warn('[Book AI Chat] Yeniden deneme başarısız:', retryErr.message);
     }
   }
 
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    const msg = errorJson?.error?.message || `Sunucu hatası (HTTP ${res.status})`;
-    throw new Error(msg);
+  if (!finalAnswer) {
+    throw new Error('Yapay zeka bu istek için boş bir yanıt döndürdü. Lütfen sorunuzu farklı bir ifadeyle tekrar deneyin.');
   }
 
-  const data = await res.json();
-  const answer = (data?.choices?.[0]?.message?.content || '').trim();
-  if (!answer) {
-    throw new Error('Yapay zeka boş bir yanıt döndürdü. Lütfen tekrar deneyin.');
-  }
-
-  return { answer, provider, model };
+  return { answer: finalAnswer, provider: finalProvider, model: finalModel };
 }

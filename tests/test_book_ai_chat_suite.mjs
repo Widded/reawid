@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { prepareBookContext, askBookAi } from '../src/services/aiService.js';
+import { prepareBookContext, askBookAi, extractBookAiAnswer } from '../src/services/aiService.js';
 
 console.log('================================================================');
 console.log('ReaWid — Yapay Zeka Kitap Sohbet Asistanı Test Paketi');
@@ -123,6 +123,53 @@ runAsyncTest('API anahtarı bulunmadığında kullanıcı dostu Türkçe hata me
     },
     (err) => err.message.includes('ücretsiz Groq veya OpenRouter API anahtarınızı girin')
   );
+});
+
+// 3. extractBookAiAnswer & Düşünme Modelleri / Boş Yanıt Yönetimi Testleri
+console.log('\n--- 3. extractBookAiAnswer & Düşünme / Boş Yanıt Yönetimi Testleri ---');
+
+runTest('Standart içerik başarıyla ayıklanmalı', () => {
+  const data = { choices: [{ message: { content: '  Bu bir romandır.  ' } }] };
+  assert.equal(extractBookAiAnswer(data), 'Bu bir romandır.');
+});
+
+runTest('Content boşken reasoning alanından yanıt kurtarılmalı', () => {
+  const data = { choices: [{ message: { content: '', reasoning: 'Mantıksal analiz ve cevap.' } }] };
+  assert.equal(extractBookAiAnswer(data), 'Mantıksal analiz ve cevap.');
+});
+
+runTest('Content boşken reasoning_content alanından yanıt kurtarılmalı', () => {
+  const data = { choices: [{ message: { content: '', reasoning_content: 'Qwen reasoning yanıtı.' } }] };
+  assert.equal(extractBookAiAnswer(data), 'Qwen reasoning yanıtı.');
+});
+
+runTest('<think> etiketli yanıtlarda etiket sonrasındaki nihai metin alınmalı', () => {
+  const data = {
+    choices: [{
+      message: {
+        content: '<think>\nKullanıcı 25. sayfayı soruyor.\n</think>\nSayfa 25 henüz okunmadı.'
+      }
+    }]
+  };
+  assert.equal(extractBookAiAnswer(data), 'Sayfa 25 henüz okunmadı.');
+});
+
+runTest('Token sınırı nedeniyle kapanmamış <think> etiketinde metin temizlenerek kurtarılmalı', () => {
+  const data = {
+    choices: [{
+      message: {
+        content: '<think>\nToken bittiği için kapanamadı ama düşünce var.'
+      }
+    }]
+  };
+  assert.equal(extractBookAiAnswer(data), 'Token bittiği için kapanamadı ama düşünce var.');
+});
+
+runTest('Boş veya geçersiz yanıtlarda güvenli boş dize dönmeli', () => {
+  assert.equal(extractBookAiAnswer(null), '');
+  assert.equal(extractBookAiAnswer({}), '');
+  assert.equal(extractBookAiAnswer({ choices: [] }), '');
+  assert.equal(extractBookAiAnswer({ choices: [{ message: { content: '   ' } }] }), '');
 });
 
 console.log('\n================================================================');
