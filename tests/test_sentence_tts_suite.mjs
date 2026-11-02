@@ -1,6 +1,6 @@
 // test_sentence_tts_suite.mjs
 // Verification suite for sentence-level segmentation & tap-to-read TTS formatting
-import { splitIntoSentences, formatBookHtml } from '../src/services/readerFormatter.js';
+import { splitIntoSentences, formatBookHtml, applyBionicReading, getBionicFixationLength } from '../src/services/readerFormatter.js';
 
 let passed = 0;
 let failed = 0;
@@ -68,6 +68,26 @@ console.log('\n--- 4. formatBookHtml ile data-sentence-idx Entegrasyon Testi ---
   assert(html.includes('data-sentence-idx="1"'), `İkinci cümle data-sentence-idx="1" etiketine sahip olmalı`);
   assert(html.includes('reader-sentence'), `reader-sentence CSS sınıfı eklenmiş olmalı`);
   assert(!html.includes('undefined'), `HTML içinde hiçbir "undefined" bulunmamalı`);
+}
+
+console.log('\n--- 5. Biyonik Okuma (Bionic Reading) Testleri ---');
+{
+  assert(getBionicFixationLength(1) === 1, `1 harfli kelime 1 harf vurgulanmalı`);
+  assert(getBionicFixationLength(3) === 2, `3 harfli kelime 2 harf vurgulanmalı`);
+  assert(getBionicFixationLength(5) === 3, `5 harfli kelime 3 harf vurgulanmalı`);
+  assert(getBionicFixationLength(7) === 4, `7 harfli kelime 4 harf vurgulanmalı`);
+  assert(getBionicFixationLength(10) === 5, `10 harfli kelime 5 harf vurgulanmalı`);
+
+  const raw = 'Kapıyı yavaşça araladı.';
+  const bionic = applyBionicReading(raw);
+  assert(bionic.includes('<b class="bionic-fix">Kap</b>ıyı'), `İlk kelime doğru bionic vurgulanmalı`);
+  assert(bionic.includes('<b class="bionic-fix">yava</b>şça'), `İkinci kelime doğru bionic vurgulanmalı`);
+  assert(bionic.endsWith('.'), `Noktalama işareti bozulmadan kalmalı`);
+
+  // formatBookHtml entegrasyonu
+  const bionicHtml = formatBookHtml(['Hızlı okuma odak modundayız.'], { bionicReading: true });
+  assert(bionicHtml.includes('bionic-fix'), `formatBookHtml içinde bionic-fix etiketleri yer almalı`);
+  assert(bionicHtml.includes('data-sentence-idx="0"'), `Biyonik modda da TTS cümle etiketleri eksiksiz korunmalı`);
 }
 
 console.log('\n================================================================');

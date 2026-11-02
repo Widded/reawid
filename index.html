@@ -607,6 +607,26 @@
 
             <div class="settings-row-divider"></div>
 
+            <!-- Biyonik Okuma (Hızlı Odak Modu) -->
+            <div class="settings-ios-row">
+              <div class="settings-row-icon-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
+              <div class="settings-row-text">
+                <span class="settings-row-title">Biyonik Okuma (Odak Modu)</span>
+                <span class="settings-row-desc">Kelimelerin ilk harflerini koyulaştırarak gözün kelimeleri daha hızlı ve yorulmadan kavramasını sağlar.</span>
+              </div>
+              <label class="apple-switch-wrap">
+                <input type="checkbox" id="setBionicReading" class="apple-switch">
+                <span class="apple-slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row-divider"></div>
+
             <!-- Sesli Okuma (TTS) Hızı -->
             <div class="settings-ios-row-stack">
               <div class="settings-row-label-row">
@@ -1137,6 +1157,23 @@
             </div>
             <label class="ios-switch">
               <input type="checkbox" id="toggleSwipePageNav" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Row 6: Biyonik Okuma (Hızlı Odak Modu) Switch -->
+          <div class="settings-toggle-row">
+            <div class="toggle-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="moon-icon">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span class="toggle-text">Biyonik Okuma (Odak Modu)</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="toggleBionicReading">
               <span class="switch-slider"></span>
             </label>
           </div>

@@ -186,6 +186,7 @@ export const DEFAULT_SETTINGS = {
   mergeHyphenatedWords: true, // Matbaa tirelerini birleştir
   ignorePageNumbers: true, // Sayfa numaralarını ve başlıkları gizle
   smartDialogueFormatting: true, // Konuşma ve diyalogları kitaptaki gibi biçimlendir
+  bionicReading: false, // Biyonik okuma (kelimelerin ilk harflerini vurgulayarak hızlı okuma modu)
   swipePageNavigation: true, // Sağa ve sola kaydırarak sayfa değiştirme
   ttsSpeed: 1.0, // 0.8, 1.0, 1.25, 1.5
   ttsVoice: 'tr-TR-AhmetNeural', // 'tr-TR-AhmetNeural' | 'tr-TR-EmelNeural'

@@ -89,17 +89,46 @@ export function splitIntoSentences(text) {
 }
 
 /**
+ * Calculates fixation point length for Bionic Reading
+ */
+export function getBionicFixationLength(len) {
+  if (len <= 1) return 1;
+  if (len <= 2) return 1;
+  if (len <= 4) return 2;
+  if (len <= 6) return 3;
+  if (len <= 8) return 4;
+  return Math.ceil(len * 0.45);
+}
+
+/**
+ * Formats text with Bionic Reading (bolding initial letters of words)
+ * Safely preserves HTML entities, tags, quotes, and punctuation.
+ */
+export function applyBionicReading(htmlText) {
+  if (!htmlText || typeof htmlText !== 'string') return '';
+  return htmlText.replace(/(<[^>]+>|&[a-zA-Z0-9#]+;)|([\p{L}\p{N}]+)/gu, (match, tagOrEntity, word) => {
+    if (tagOrEntity) return tagOrEntity;
+    const fixLen = getBionicFixationLength(word.length);
+    const head = word.slice(0, fixLen);
+    const tail = word.slice(fixLen);
+    return `<b class="bionic-fix">${head}</b>${tail}`;
+  });
+}
+
+/**
  * Formats book paragraphs and dialogs with authentic novel typography.
  * - Merges end-of-line hyphens (matbaa heceleme çizgisi) so words are whole.
  * - Never confuses end-of-line hyphens or lowercase continuations with dialogue dashes.
  * - Groups wrapped lines into full narrative paragraphs.
  * - Formats genuine dialogues with em-dashes and hanging indents.
  * - Wraps every sentence in a clickable .reader-sentence target for tap-to-read TTS.
+ * - Supports Bionic Reading (Biyonik Okuma) fixation point highlighting.
  */
 export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {}) {
   const isEnabled = options.enabled !== false;
   const shouldMergeHyphens = options.mergeHyphens !== false &&
     (appSettings.mergeHyphenatedWords !== false);
+  const isBionic = Boolean(options.bionicReading ?? appSettings.bionicReading);
 
   if (!paragraphsOrText) return '';
 
@@ -125,7 +154,10 @@ export function formatBookHtml(paragraphsOrText, options = {}, appSettings = {})
     if (sentences.length === 0) return '';
     return sentences.map(sentence => {
       const idx = sentenceCounter++;
-      const formatted = formatInlineQuotes(escapeBookHtml(sentence));
+      let formatted = formatInlineQuotes(escapeBookHtml(sentence));
+      if (isBionic) {
+        formatted = applyBionicReading(formatted);
+      }
       return `<span class="reader-sentence" data-sentence-idx="${idx}">${formatted}</span>`;
     }).join(' ');
   }

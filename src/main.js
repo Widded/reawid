@@ -354,6 +354,7 @@ const el = {
   toggleNightMode: document.getElementById('toggleNightMode'),
   toggleBookDialogueFormat: document.getElementById('toggleBookDialogueFormat'),
   toggleSwipePageNav: document.getElementById('toggleSwipePageNav'),
+  toggleBionicReading: document.getElementById('toggleBionicReading'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -445,6 +446,7 @@ const el = {
   setIgnorePageNums: document.getElementById('setIgnorePageNums'),
   setDialogueFormatting: document.getElementById('setDialogueFormatting'),
   setSwipeNavigation: document.getElementById('setSwipeNavigation'),
+  setBionicReading: document.getElementById('setBionicReading'),
   badgeTtsSpeed: document.getElementById('badgeTtsSpeed'),
   settingsTtsSelector: document.getElementById('settingsTtsSelector'),
   badgeTtsVoice: document.getElementById('badgeTtsVoice'),
@@ -1200,6 +1202,9 @@ function openSettingsSheet() {
   }
   if (el.toggleSwipePageNav) {
     el.toggleSwipePageNav.checked = (appSettings.swipePageNavigation !== false);
+  }
+  if (el.toggleBionicReading) {
+    el.toggleBionicReading.checked = Boolean(appSettings.bionicReading);
   }
   closeMoreMenu();
   closeReaderSearch();
@@ -2628,6 +2633,18 @@ function setupEventListeners() {
       saveSettings(appSettings);
       if (el.setSwipeNavigation) el.setSwipeNavigation.checked = e.target.checked;
       showToast(e.target.checked ? 'Kaydırarak sayfa geçişi açıldı' : 'Kaydırarak sayfa geçişi kapatıldı', 'info');
+    });
+  }
+
+  // Biyonik Okuma (Odak Modu) Switch
+  if (el.toggleBionicReading) {
+    el.toggleBionicReading.checked = Boolean(appSettings.bionicReading);
+    el.toggleBionicReading.addEventListener('change', (e) => {
+      appSettings.bionicReading = e.target.checked;
+      saveSettings(appSettings);
+      if (el.setBionicReading) el.setBionicReading.checked = e.target.checked;
+      renderReaderPage(currentReaderPage);
+      showToast(e.target.checked ? 'Biyonik Okuma (Odak Modu) açıldı' : 'Biyonik Okuma kapatıldı', 'info');
     });
   }
 
@@ -4532,6 +4549,7 @@ function renderSettingsScreen() {
   if (el.setIgnorePageNums) el.setIgnorePageNums.checked = appSettings.ignorePageNumbers !== false;
   if (el.setDialogueFormatting) el.setDialogueFormatting.checked = appSettings.smartDialogueFormatting !== false;
   if (el.setSwipeNavigation) el.setSwipeNavigation.checked = appSettings.swipePageNavigation !== false;
+  if (el.setBionicReading) el.setBionicReading.checked = Boolean(appSettings.bionicReading);
   if (el.setOfflineCache) el.setOfflineCache.checked = appSettings.offlineCache !== false;
 
   // 4. TTS Speed & Voice Selector
@@ -4686,6 +4704,19 @@ function setupSettingsScreenEvents() {
       saveSettings(appSettings);
       if (el.toggleSwipePageNav) el.toggleSwipePageNav.checked = e.target.checked;
       showToast(e.target.checked ? 'Kaydırarak sayfa geçişi açıldı' : 'Kaydırarak sayfa geçişi kapatıldı', 'info');
+    });
+  }
+
+  // Biyonik Okuma (Odak Modu)
+  if (el.setBionicReading) {
+    el.setBionicReading.addEventListener('change', (e) => {
+      appSettings.bionicReading = e.target.checked;
+      saveSettings(appSettings);
+      if (el.toggleBionicReading) el.toggleBionicReading.checked = e.target.checked;
+      if (!el.inAppReaderView.classList.contains('hidden') && currentReaderPage) {
+        renderReaderPage(currentReaderPage);
+      }
+      showToast(e.target.checked ? 'Biyonik Okuma (Odak Modu) açıldı' : 'Biyonik Okuma kapatıldı', 'info');
     });
   }
 

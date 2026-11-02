@@ -1636,6 +1636,30 @@ mark.search-highlight.active-match {
   box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.4);
 }
 
+/* ==========================================================================
+   Bionic Reading (Biyonik Okuma / Hızlı Odak Modu)
+   ========================================================================== */
+.bionic-fix {
+  font-weight: 700 !important;
+  letter-spacing: -0.005em;
+}
+
+.theme-koyu .bionic-fix {
+  color: #ffffff;
+}
+
+.theme-acik .bionic-fix {
+  color: #09090b;
+}
+
+.theme-sepya .bionic-fix {
+  color: #1f160e;
+}
+
+.theme-paper .bionic-fix {
+  color: #1a1a1a;
+}
+
 /* THEME SPECIFIC DIALOGUE ACCENTS */
 
 /* Koyu (OLED) Tema */
