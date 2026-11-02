@@ -2040,6 +2040,13 @@ function toggleReaderSpeech() {
   speakText(textToRead, {
     voice: appSettings.ttsVoice || 'tr-TR-AhmetNeural',
     rate: appSettings.ttsSpeed || 1.0,
+    onEngineSelected: (engine) => {
+      if (engine === 'edge') {
+        showToast(`🎙️ Doğal ${voiceName} Sesi (Edge Neural) oynatılıyor`, 'success');
+      } else {
+        showToast('⚠️ Edge TTS sunucusuna erişilemedi, yerel tarayıcı sesi kullanılıyor. Sayfayı Ctrl+F5 ile yenileyin.', 'warning');
+      }
+    },
     onStart: () => {
       isReaderSpeaking = true;
       if (el.popoverTtsLabel) el.popoverTtsLabel.textContent = 'Okumayı Durdur';

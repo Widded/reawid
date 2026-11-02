@@ -208,6 +208,7 @@ function speakWithWebSpeech(text, {
 export async function speakText(text, {
   voice = 'tr-TR-AhmetNeural',
   rate = 1.0,
+  onEngineSelected,
   onStart,
   onEnd,
   onError
@@ -222,12 +223,16 @@ export async function speakText(text, {
     await speakWithEdgeTts(cleaned, {
       voice,
       rate,
-      onStart,
+      onStart: () => {
+        onEngineSelected?.('edge');
+        onStart?.();
+      },
       onEnd,
       onError
     });
   } catch (err) {
     console.warn('[Speech Service] Edge TTS kullanılamadı, Web Speech API fallback devreye giriyor:', err.message);
+    onEngineSelected?.('fallback', err);
     try {
       // 2. Fallback: Local browser Web Speech API
       speakWithWebSpeech(cleaned, {
