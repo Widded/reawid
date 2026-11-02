@@ -1695,8 +1695,9 @@ export function prepareBookContext({
 }
 
 /**
- * Extracts and cleans AI answer from various model response formats
- * (including reasoning models, thinking tags, and empty content fallbacks).
+ * Extracts and cleans AI answer from model response.
+ * Strictly strips internal thoughts, reasoning blocks, and <think>...</think> scratchpads
+ * so the user ONLY sees the final conversational response.
  */
 export function extractBookAiAnswer(data) {
   if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
@@ -1705,27 +1706,19 @@ export function extractBookAiAnswer(data) {
   const choice = data.choices[0];
   let answer = (choice.message?.content || '').trim();
 
-  // If content is empty, check reasoning or reasoning_content (used by reasoning/thinking models)
-  if (!answer && choice.message?.reasoning) {
-    answer = String(choice.message.reasoning).trim();
-  }
-  if (!answer && choice.message?.reasoning_content) {
-    answer = String(choice.message.reasoning_content).trim();
+  // Strip complete <think>...</think> blocks entirely
+  if (answer.includes('</think>')) {
+    answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   }
 
-  // If answer contains <think>...</think>, extract clean answer after </think>
-  if (answer && answer.includes('</think>')) {
-    const parts = answer.split('</think>');
-    const afterThink = parts[parts.length - 1].trim();
-    if (afterThink) {
-      answer = afterThink;
-    } else {
-      // Model finished thinking right at the end; strip tags
-      answer = answer.replace(/<\/?think>/gi, '').trim();
-    }
-  } else if (answer && answer.startsWith('<think>')) {
-    // Model ran out of tokens before closing </think>; strip open tag
-    answer = answer.replace(/<\/?think>/gi, '').trim();
+  // If answer still contains an unclosed <think> tag, discard anything inside it
+  if (answer.includes('<think>')) {
+    answer = answer.split('<think>')[0].trim();
+  }
+
+  // Remove leaked thinking headers like "Thinking Process:\n..." or "Thought:\n..."
+  if (/^(?:thinking process|internal thought|thought|reasoning):\s*/i.test(answer)) {
+    answer = answer.replace(/^(?:thinking process|internal thought|thought|reasoning):\s*/i, '').trim();
   }
 
   return answer;
@@ -1779,6 +1772,7 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 2. Kitap dışı herhangi bir soru veya talep geldiğinde (örneğin hava durumu, kod yazma, alakasız genel kültür, güncel siyaset, yemek tarifi vb.), kesinlikle ve nazikçe şunu söyle: "Ben yalnızca '${bookTitle}' kitabına odaklanmış bir yapay zeka okuma asistanıyım. Kitap, karakterler, yazar veya olay örgüsüyle ilgili sorularınızı yanıtlayabilirim."
 3. Selamlaşmalarda ("sa", "merhaba", "selam" vb.) bir yapay zeka kitap asistanı kimliğiyle yanıt ver: "Merhaba. Ben '${bookTitle}' kitap asistanıyım. Kitapla ilgili merak ettiğiniz veya sormak istediğiniz bir konu var mı?"
 4. CEVAPLARINDA KESİNLİKLE HİÇBİR EMOJİ KULLANMA. Sade, duru, ciddi ve edebi bir Türkçe kullan.
+5. DÜŞÜNME VE İÇ MONOLOG KULLANMA: Yanıtından önce veya içinde kesinlikle iç düşünme süreci (thinking process), akıl yürütme veya <think> blokları yazma. Doğrudan kullanıcıya hitap eden nihai cevabını ver.
 
 SPOILER KORUMASI (AÇIK):
 1. Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olayları, gizemlerin çözümünü veya kitabın sonunu ASLA açık etme.
@@ -1796,6 +1790,7 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 2. Kitap dışı herhangi bir soru veya talep geldiğinde (örneğin hava durumu, kod yazma, alakasız genel kültür, güncel siyaset, yemek tarifi vb.), kesinlikle ve nazikçe şunu söyle: "Ben yalnızca '${bookTitle}' kitabına odaklanmış bir yapay zeka okuma asistanıyım. Kitap, karakterler, yazar veya olay örgüsüyle ilgili sorularınızı yanıtlayabilirim."
 3. Selamlaşmalarda ("sa", "merhaba", "selam" vb.) bir yapay zeka kitap asistanı kimliğiyle yanıt ver: "Merhaba. Ben '${bookTitle}' kitap asistanıyım. Kitapla ilgili merak ettiğiniz veya sormak istediğiniz bir konu var mı?"
 4. CEVAPLARINDA KESİNLİKLE HİÇBİR EMOJİ KULLANMA. Sade, duru, ciddi ve edebi bir Türkçe kullan.
+5. DÜŞÜNME VE İÇ MONOLOG KULLANMA: Yanıtından önce veya içinde kesinlikle iç düşünme süreci (thinking process), akıl yürütme veya <think> blokları yazma. Doğrudan kullanıcıya hitap eden nihai cevabını ver.
 
 SPOILER KORUMASI (KAPALI - TÜM KİTAP AÇIK):
 1. Spoiler koruması KAPALI olduğu için kitabın tamamını, sonunu, tüm olay örgüsünü, karakterlerin akıbetini ve felsefi arka planını serbestçe tartışabilirsin.

@@ -133,36 +133,42 @@ runTest('Standart içerik başarıyla ayıklanmalı', () => {
   assert.equal(extractBookAiAnswer(data), 'Bu bir romandır.');
 });
 
-runTest('Content boşken reasoning alanından yanıt kurtarılmalı', () => {
-  const data = { choices: [{ message: { content: '', reasoning: 'Mantıksal analiz ve cevap.' } }] };
-  assert.equal(extractBookAiAnswer(data), 'Mantıksal analiz ve cevap.');
-});
-
-runTest('Content boşken reasoning_content alanından yanıt kurtarılmalı', () => {
-  const data = { choices: [{ message: { content: '', reasoning_content: 'Qwen reasoning yanıtı.' } }] };
-  assert.equal(extractBookAiAnswer(data), 'Qwen reasoning yanıtı.');
-});
-
-runTest('<think> etiketli yanıtlarda etiket sonrasındaki nihai metin alınmalı', () => {
+runTest('<think> etiketli yanıtlarda düşünme süreci atılmalı ve nihai metin alınmalı', () => {
   const data = {
     choices: [{
       message: {
-        content: '<think>\nKullanıcı 25. sayfayı soruyor.\n</think>\nSayfa 25 henüz okunmadı.'
+        content: '<think>\nKullanıcı 25. sayfayı soruyor. Kuralları kontrol ediyorum...\n</think>\nSayfa 25 henüz okunmadı.'
       }
     }]
   };
   assert.equal(extractBookAiAnswer(data), 'Sayfa 25 henüz okunmadı.');
 });
 
-runTest('Token sınırı nedeniyle kapanmamış <think> etiketinde metin temizlenerek kurtarılmalı', () => {
+runTest('Sadece <think> bloğu olan (cevapsız) yanıtlarda boş dönmeli (kullanıcıya sızmamalı)', () => {
   const data = {
     choices: [{
       message: {
-        content: '<think>\nToken bittiği için kapanamadı ama düşünce var.'
+        content: '<think>\nSadece iç düşünme yapıldı ama kullanıcıya cevap verilmedi.\n</think>'
       }
     }]
   };
-  assert.equal(extractBookAiAnswer(data), 'Token bittiği için kapanamadı ama düşünce var.');
+  assert.equal(extractBookAiAnswer(data), '');
+});
+
+runTest('Kapanmamış <think> etiketinde yarım kalan düşünce kullanıcıya basılmamalı', () => {
+  const data = {
+    choices: [{
+      message: {
+        content: '<think>\nToken bittiği için düşünce yarım kaldı...'
+      }
+    }]
+  };
+  assert.equal(extractBookAiAnswer(data), '');
+});
+
+runTest('Content boşken dahili reasoning alanı kullanıcıya doğrudan sızdırılmamalı', () => {
+  const data = { choices: [{ message: { content: '', reasoning: 'Internal thinking process.' } }] };
+  assert.equal(extractBookAiAnswer(data), '');
 });
 
 runTest('Boş veya geçersiz yanıtlarda güvenli boş dize dönmeli', () => {
