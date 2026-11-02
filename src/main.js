@@ -2408,8 +2408,7 @@ let isBookChatSending = false;
 
 function updateBookChatSubtitle() {
   if (!el.bookChatSubtitle) return;
-  const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
-  el.bookChatSubtitle.textContent = `Sayfa ${currentReaderPage} • ${isSpoiler ? 'Spoiler Korumalı' : 'Tüm Kitap Açık'}`;
+  el.bookChatSubtitle.textContent = `Sayfa ${currentReaderPage}`;
 }
 
 function openBookAiChat() {
@@ -2437,7 +2436,7 @@ function openBookAiChat() {
     }
     const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
     const bookName = currentActiveBook?.title || 'Kitap';
-    const welcomeText = `Merhaba! **${escapeBookHtml(bookName)}** hakkında aklına takılan her şeyi sorabilirsin.\n\n${isSpoiler ? `🛡️ **Spoiler koruması aktif:** Sadece ${currentReaderPage}. sayfaya kadar olan olayları ve karakterleri referans alırım, sürprizleri bozmam.` : '📖 **Spoiler koruması kapalı:** Kitabın tümünü, sonunu ve felsefesini serbestçe tartışabiliriz.'}`;
+    const welcomeText = `Merhaba. **${escapeBookHtml(bookName)}** hakkında merak ettiğiniz her şeyi sorabilirsiniz.\n\n${isSpoiler ? `Spoiler koruması açık: Yalnızca ${currentReaderPage}. sayfaya kadarki kısımları ele alırım.` : 'Spoiler koruması kapalı: Kitabın tamamı hakkında konuşabiliriz.'}`;
     appendChatMessage('assistant', welcomeText);
   }
 
@@ -2471,6 +2470,15 @@ function appendChatMessage(role, text) {
   }
 
   el.bookChatMessages.appendChild(msgDiv);
+  el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
+}
+
+function appendChatSystemNote(text) {
+  if (!el.bookChatMessages) return;
+  const noteDiv = document.createElement('div');
+  noteDiv.className = 'book-chat-system-note';
+  noteDiv.textContent = text;
+  el.bookChatMessages.appendChild(noteDiv);
   el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
 }
 
@@ -3037,10 +3045,9 @@ function setupEventListeners() {
     el.toggleSpoilerProtection.addEventListener('change', () => {
       updateBookChatSubtitle();
       const isSpoiler = el.toggleSpoilerProtection.checked;
-      showToast(isSpoiler ? 'Spoiler koruması açıldı (yalnızca bulunduğunuz sayfa)' : 'Spoiler koruması kapatıldı (tüm kitap açık)', 'info');
-      appendChatMessage('assistant', isSpoiler
-        ? '🛡️ *Spoiler koruması açıldı. Artık yalnızca bulunduğunuz sayfaya kadarki olaylardan bahsedeceğim.*'
-        : '📖 *Spoiler koruması kapatıldı. Artık kitabın tamamı, sonu ve tüm olay örgüsü hakkında serbestçe konuşabiliriz.*'
+      appendChatSystemNote(isSpoiler
+        ? 'Spoiler koruması açıldı (bulunulan sayfaya kadar).'
+        : 'Spoiler koruması kapatıldı (tüm kitap açık).'
       );
     });
   }
