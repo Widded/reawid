@@ -10,7 +10,8 @@ import {
   formatBookHtml as formatBookHtmlEngine,
   calculateOrpIndex,
   splitWordForRsvp,
-  extractWordsForRsvp
+  extractWordsForRsvp,
+  splitIntoSentences
 } from './services/readerFormatter.js';
 
 import {
@@ -363,10 +364,12 @@ const el = {
   // RSVP Speed Reader Elements
   rsvpReaderModal: document.getElementById('rsvpReaderModal'),
   btnCloseRsvp: document.getElementById('btnCloseRsvp'),
+  rsvpBookTitle: document.getElementById('rsvpBookTitle'),
   rsvpPageTag: document.getElementById('rsvpPageTag'),
   rsvpWpmBadge: document.getElementById('rsvpWpmBadge'),
   rsvpStage: document.getElementById('rsvpStage'),
   rsvpWordDisplay: document.getElementById('rsvpWordDisplay'),
+  rsvpContextPreview: document.getElementById('rsvpContextPreview'),
   rsvpTapHint: document.getElementById('rsvpTapHint'),
   rsvpWordSlider: document.getElementById('rsvpWordSlider'),
   rsvpWordCounter: document.getElementById('rsvpWordCounter'),
@@ -1159,6 +1162,11 @@ function applyReaderTheme(theme, save = true) {
   el.inAppReaderView.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
   el.inAppReaderView.classList.add(`theme-${theme}`);
 
+  if (el.rsvpReaderModal) {
+    el.rsvpReaderModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
+    el.rsvpReaderModal.classList.add(`theme-${theme}`);
+  }
+
   // Update theme swatches UI
   document.querySelectorAll('#themeSwatchesRow .theme-swatch-item').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.theme === theme);
@@ -1196,6 +1204,11 @@ function applyReaderTypography(save = true) {
   el.readerArticleBody.classList.add(`font-family-${currentReaderFont}`);
   const fontNames = { serif: 'Serif', sans: 'Sans-Serif', mono: 'Monospace' };
   el.currentFontLabel.textContent = fontNames[currentReaderFont] || 'Serif';
+
+  if (el.rsvpReaderModal) {
+    el.rsvpReaderModal.classList.remove('font-family-serif', 'font-family-sans', 'font-family-mono');
+    el.rsvpReaderModal.classList.add(`font-family-${currentReaderFont}`);
+  }
 
   // Margin
   el.readerArticleBody.classList.remove('margin-narrow', 'margin-standard', 'margin-wide');
@@ -2165,6 +2178,7 @@ function toggleReaderSpeech() {
    RSVP Speed Reader (Biyonik Kelime Akışı Modu)
    ========================================================================== */
 let rsvpWords = [];
+let rsvpWordSentenceMap = [];
 let rsvpCurrentIndex = 0;
 let rsvpIsPlaying = false;
 let rsvpTimer = null;
@@ -2184,13 +2198,33 @@ function openRsvpReader(startIndex = 0) {
     text = el.readerParagraphsContainer?.innerText || '';
   }
 
-  rsvpWords = extractWordsForRsvp(text);
+  const sentences = splitIntoSentences(text);
+  rsvpWords = [];
+  rsvpWordSentenceMap = [];
+  if (sentences && sentences.length > 0) {
+    sentences.forEach(sentence => {
+      const sWords = extractWordsForRsvp(sentence);
+      sWords.forEach(w => {
+        rsvpWords.push(w);
+        rsvpWordSentenceMap.push(sentence);
+      });
+    });
+  }
+
+  if (rsvpWords.length === 0) {
+    rsvpWords = extractWordsForRsvp(text);
+    rsvpWordSentenceMap = new Array(rsvpWords.length).fill(text);
+  }
+
   if (rsvpWords.length === 0) {
     showToast('Bu sayfada hızlı okunacak metin bulunamadı', 'warning');
     return;
   }
 
   rsvpCurrentIndex = Math.max(0, Math.min(rsvpWords.length - 1, startIndex));
+  if (el.rsvpBookTitle) {
+    el.rsvpBookTitle.textContent = currentActiveBook?.title || 'Kitap';
+  }
   if (el.rsvpPageTag) {
     el.rsvpPageTag.textContent = `Sayfa ${currentReaderPage}`;
   }
@@ -2200,7 +2234,8 @@ function openRsvpReader(startIndex = 0) {
   }
 
   if (el.rsvpReaderModal) {
-    el.rsvpReaderModal.classList.remove('hidden');
+    el.rsvpReaderModal.classList.remove('hidden', 'theme-koyu', 'theme-acik', 'theme-sepya', 'font-family-serif', 'font-family-sans', 'font-family-mono');
+    el.rsvpReaderModal.classList.add(`theme-${currentReaderTheme || 'koyu'}`, `font-family-${currentReaderFont || 'serif'}`);
   }
 
   renderRsvpWord(rsvpCurrentIndex);
@@ -2211,6 +2246,9 @@ function closeRsvpReader() {
   pauseRsvpPlayback();
   if (el.rsvpReaderModal) {
     el.rsvpReaderModal.classList.add('hidden');
+  }
+  if (el.rsvpStage) {
+    el.rsvpStage.classList.remove('is-playing');
   }
 }
 
@@ -2228,6 +2266,11 @@ function renderRsvpWord(index) {
       <span class="rsvp-part-orp">${escapeBookHtml(parts.orp)}</span>
       <span class="rsvp-part-right">${escapeBookHtml(parts.right)}</span>
     `;
+  }
+
+  if (el.rsvpContextPreview) {
+    const currentSentence = rsvpWordSentenceMap[index] || '';
+    el.rsvpContextPreview.textContent = currentSentence;
   }
 
   if (el.rsvpWordSlider) {
@@ -2251,6 +2294,7 @@ function startRsvpPlayback() {
   if (el.rsvpPlayIcon) el.rsvpPlayIcon.classList.add('hidden');
   if (el.rsvpPauseIcon) el.rsvpPauseIcon.classList.remove('hidden');
   if (el.rsvpTapHint) el.rsvpTapHint.textContent = 'Duraklatmak için dokunun';
+  if (el.rsvpStage) el.rsvpStage.classList.add('is-playing');
 
   if (rsvpTimer) clearTimeout(rsvpTimer);
 
@@ -2296,6 +2340,7 @@ function pauseRsvpPlayback() {
   if (el.rsvpPlayIcon) el.rsvpPlayIcon.classList.remove('hidden');
   if (el.rsvpPauseIcon) el.rsvpPauseIcon.classList.add('hidden');
   if (el.rsvpTapHint) el.rsvpTapHint.textContent = 'Devam etmek için dokunun';
+  if (el.rsvpStage) el.rsvpStage.classList.remove('is-playing');
 }
 
 function toggleRsvpPlayback() {
@@ -2745,6 +2790,13 @@ function setupEventListeners() {
   }
 
   // RSVP Speed Reader Controls
+  if (el.rsvpReaderModal) {
+    el.rsvpReaderModal.addEventListener('click', (e) => {
+      if (e.target === el.rsvpReaderModal) {
+        closeRsvpReader();
+      }
+    });
+  }
   if (el.btnCloseRsvp) {
     el.btnCloseRsvp.addEventListener('click', closeRsvpReader);
   }

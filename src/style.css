@@ -6362,19 +6362,20 @@ html.keyboard-open #accountModal .auth-notice-text,
 }
 
 /* ==========================================================================
-   RSVP Speed Reader (Biyonik Kelime Akışı Modu)
+   RSVP Speed Reader (Biyonik Kelime Akışı Modu - Apple Minimalist UI/UX)
    ========================================================================== */
 .rsvp-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
   animation: rsvpFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -6386,51 +6387,88 @@ html.keyboard-open #accountModal .auth-notice-text,
 .rsvp-modal-content {
   width: 100%;
   max-width: 520px;
-  background: var(--bg-card, #121214);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
-  border-radius: 24px;
-  padding: 24px 20px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  padding: 16px 20px 24px 20px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   user-select: none;
+  box-sizing: border-box;
 }
 
-.theme-acik .rsvp-modal-content {
+/* THEME: AÇIK (Light / White) */
+.rsvp-modal-backdrop.theme-acik {
+  background: rgba(245, 245, 247, 0.85);
+}
+
+.rsvp-modal-backdrop.theme-acik .rsvp-modal-content {
   background: #ffffff;
   border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.12);
 }
 
-.theme-sepya .rsvp-modal-content {
+/* THEME: SEPYA (Warm Book Paper) */
+.rsvp-modal-backdrop.theme-sepya {
+  background: rgba(244, 235, 219, 0.88);
+}
+
+.rsvp-modal-backdrop.theme-sepya .rsvp-modal-content {
   background: #fbf0d9;
-  border-color: rgba(180, 83, 9, 0.15);
+  border-color: rgba(180, 83, 9, 0.18);
+  box-shadow: 0 24px 64px rgba(70, 45, 20, 0.14);
 }
 
+/* Header */
 .rsvp-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 2px;
 }
 
 .rsvp-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: var(--text-primary, #fff);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+}
+
+.rsvp-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.rsvp-icon-btn:active {
+  transform: scale(0.92);
 }
 
 .theme-acik .rsvp-icon-btn {
-  background: rgba(0, 0, 0, 0.06);
-  color: #111;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #111111;
+}
+
+.theme-acik .rsvp-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.09);
+}
+
+.theme-sepya .rsvp-icon-btn {
+  background: rgba(60, 40, 20, 0.06);
+  border-color: rgba(60, 40, 20, 0.12);
+  color: #2e261a;
+}
+
+.theme-sepya .rsvp-icon-btn:hover {
+  background: rgba(60, 40, 20, 0.12);
 }
 
 .rsvp-header-center {
@@ -6438,51 +6476,78 @@ html.keyboard-open #accountModal .auth-notice-text,
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  max-width: 60%;
+  text-align: center;
 }
 
 .rsvp-title {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  color: var(--text-primary, #fff);
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-.theme-acik .rsvp-title { color: #111; }
-.theme-sepya .rsvp-title { color: #2d241e; }
+.theme-acik .rsvp-title { color: #111111; }
+.theme-sepya .rsvp-title { color: #2e261a; }
 
 .rsvp-page-tag {
-  font-size: 0.75rem;
-  color: var(--text-secondary, #8e8e93);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #8e8e93;
 }
 
+.theme-acik .rsvp-page-tag { color: #636366; }
+.theme-sepya .rsvp-page-tag { color: #7d6951; }
+
 .rsvp-wpm-pill {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 980px;
-  background: rgba(234, 179, 8, 0.18);
+  background: rgba(234, 179, 8, 0.16);
   color: #eab308;
   border: 1px solid rgba(234, 179, 8, 0.35);
 }
 
-/* Stage & Reticle */
+.theme-acik .rsvp-wpm-pill {
+  background: rgba(0, 113, 227, 0.1);
+  color: #0071e3;
+  border-color: rgba(0, 113, 227, 0.25);
+}
+
+.theme-sepya .rsvp-wpm-pill {
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+/* Stage & Spritz/Bionic Reticle */
 .rsvp-stage {
   position: relative;
-  height: 140px;
-  background: rgba(0, 0, 0, 0.35);
+  height: 130px;
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 8px 12px;
+}
+
+.rsvp-stage:active {
+  transform: scale(0.99);
 }
 
 .theme-acik .rsvp-stage {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.07);
 }
 
 .theme-sepya .rsvp-stage {
@@ -6501,34 +6566,60 @@ html.keyboard-open #accountModal .auth-notice-text,
   left: 50%;
   transform: translateX(-50%);
   width: 2px;
-  height: 14px;
-  background: rgba(234, 179, 8, 0.65);
+  height: 12px;
+  background: #eab308;
   border-radius: 2px;
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);
 }
 
-.rsvp-notch.top { top: 8px; }
-.rsvp-notch.bottom { bottom: 8px; }
+.theme-acik .rsvp-notch {
+  background: #d97706;
+  box-shadow: 0 0 6px rgba(217, 119, 6, 0.3);
+}
 
+.theme-sepya .rsvp-notch {
+  background: #b45309;
+  box-shadow: 0 0 6px rgba(180, 83, 9, 0.3);
+}
+
+.rsvp-notch.top { top: 6px; }
+.rsvp-notch.bottom { bottom: 6px; }
+
+/* Word Display */
 .rsvp-word-display {
   display: flex;
   align-items: center;
   width: 100%;
   padding: 0 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  font-size: 2.2rem;
+  font-size: clamp(2rem, 7.5vw, 2.75rem);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  box-sizing: border-box;
+}
+
+/* Font Families for RSVP Word Display */
+.rsvp-modal-backdrop.font-family-serif .rsvp-word-display {
+  font-family: 'Lora', 'Georgia', 'Charter', 'Times New Roman', serif;
+}
+
+.rsvp-modal-backdrop.font-family-sans .rsvp-word-display {
+  font-family: -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'SF Pro Display', 'Helvetica Neue', sans-serif;
+}
+
+.rsvp-modal-backdrop.font-family-mono .rsvp-word-display {
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
 }
 
 .rsvp-part-left {
   flex: 1;
   text-align: right;
   font-weight: 700;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff;
 }
 
 .theme-acik .rsvp-part-left { color: #000000; }
-.theme-sepya .rsvp-part-left { color: #2d241e; }
+.theme-sepya .rsvp-part-left { color: #2e261a; }
 
 .rsvp-part-orp {
   font-weight: 800;
@@ -6544,25 +6635,55 @@ html.keyboard-open #accountModal .auth-notice-text,
   flex: 1;
   text-align: left;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.65);
 }
 
-.theme-acik .rsvp-part-right { color: rgba(0, 0, 0, 0.65); }
-.theme-sepya .rsvp-part-right { color: rgba(45, 36, 30, 0.7); }
+.theme-acik .rsvp-part-right { color: rgba(0, 0, 0, 0.6); }
+.theme-sepya .rsvp-part-right { color: rgba(46, 38, 26, 0.65); }
 
 .rsvp-tap-hint {
   position: absolute;
-  bottom: 8px;
-  font-size: 0.72rem;
-  color: var(--text-secondary, #8e8e93);
-  opacity: 0.75;
+  bottom: 6px;
+  font-size: 0.7rem;
+  color: #8e8e93;
+  opacity: 0.8;
 }
+
+.theme-acik .rsvp-tap-hint { color: #636366; }
+.theme-sepya .rsvp-tap-hint { color: #7d6951; }
+
+/* Context Sentence Preview Bar */
+.rsvp-context-preview {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  min-height: 38px;
+  max-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  opacity: 0.9;
+  transition: opacity 0.25s ease;
+}
+
+.rsvp-stage.is-playing ~ .rsvp-context-preview {
+  opacity: 0.35;
+}
+
+.theme-acik .rsvp-context-preview { color: rgba(0, 0, 0, 0.65); }
+.theme-sepya .rsvp-context-preview { color: rgba(46, 38, 26, 0.75); }
 
 /* Scrubber */
 .rsvp-scrubber-area {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 0 4px;
 }
 
 .rsvp-progress-slider {
@@ -6570,111 +6691,172 @@ html.keyboard-open #accountModal .auth-notice-text,
   accent-color: #eab308;
   height: 5px;
   border-radius: 4px;
+  cursor: pointer;
 }
+
+.theme-acik .rsvp-progress-slider { accent-color: #0071e3; }
+.theme-sepya .rsvp-progress-slider { accent-color: #b45309; }
 
 .rsvp-stats-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.78rem;
-  color: var(--text-secondary, #8e8e93);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8e8e93;
 }
 
-/* Controls */
+.theme-acik .rsvp-stats-row { color: #636366; }
+.theme-sepya .rsvp-stats-row { color: #7d6951; }
+
+/* Controls Toolbar */
 .rsvp-controls-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 24px;
+  margin: 2px 0;
 }
 
 .rsvp-control-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 14px;
-  border-radius: 980px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-primary, #fff);
-  font-size: 0.82rem;
-  font-weight: 600;
+  justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rsvp-control-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.rsvp-control-btn:active {
+  transform: scale(0.92);
 }
 
 .theme-acik .rsvp-control-btn {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.08);
-  color: #111;
+  color: #111111;
+}
+
+.theme-acik .rsvp-control-btn:hover {
+  background: rgba(0, 0, 0, 0.09);
 }
 
 .theme-sepya .rsvp-control-btn {
   background: rgba(60, 40, 20, 0.06);
   border-color: rgba(60, 40, 20, 0.12);
-  color: #2d241e;
+  color: #2e261a;
+}
+
+.theme-sepya .rsvp-control-btn:hover {
+  background: rgba(60, 40, 20, 0.11);
 }
 
 .rsvp-play-btn {
-  width: 56px;
-  height: 56px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   background: #0071e3;
-  color: #fff;
+  color: #ffffff;
   border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.4);
-  transition: transform 0.12s ease, background 0.15s ease;
+  box-shadow: 0 6px 20px rgba(0, 113, 227, 0.45);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
+}
+
+.rsvp-play-btn:hover {
+  background: #0077ed;
 }
 
 .rsvp-play-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.92);
 }
 
-/* Speed pills */
+.theme-sepya .rsvp-play-btn {
+  background: #b45309;
+  box-shadow: 0 6px 20px rgba(180, 83, 9, 0.38);
+}
+
+.theme-sepya .rsvp-play-btn:hover {
+  background: #9a4408;
+}
+
+/* Speed Pills */
 .rsvp-speed-pills {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .rsvp-speed-label {
-  font-size: 0.8rem;
-  color: var(--text-secondary, #8e8e93);
-  margin-right: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #8e8e93;
+}
+
+.theme-acik .rsvp-speed-label { color: #636366; }
+.theme-sepya .rsvp-speed-label { color: #7d6951; }
+
+.rsvp-speed-segmented {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 980px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.theme-acik .rsvp-speed-segmented {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-sepya .rsvp-speed-segmented {
+  background: rgba(60, 40, 20, 0.06);
+  border-color: rgba(60, 40, 20, 0.12);
 }
 
 .rsvp-speed-btn {
-  padding: 5px 12px;
+  padding: 4px 12px;
   border-radius: 980px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-primary, #fff);
-  font-size: 0.8rem;
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.theme-acik .rsvp-speed-btn {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.08);
-  color: #222;
-}
-
-.theme-sepya .rsvp-speed-btn {
-  background: rgba(60, 40, 20, 0.06);
-  border-color: rgba(60, 40, 20, 0.12);
-  color: #2d241e;
-}
+.theme-acik .rsvp-speed-btn { color: #636366; }
+.theme-sepya .rsvp-speed-btn { color: #7d6951; }
 
 .rsvp-speed-btn.active {
   background: #eab308;
-  color: #000;
-  border-color: #eab308;
+  color: #000000;
+  font-weight: 700;
   box-shadow: 0 2px 8px rgba(234, 179, 8, 0.35);
+}
+
+.theme-acik .rsvp-speed-btn.active {
+  background: #0071e3;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+}
+
+.theme-sepya .rsvp-speed-btn.active {
+  background: #b45309;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.3);
 }
