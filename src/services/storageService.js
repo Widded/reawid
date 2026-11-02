@@ -188,6 +188,7 @@ export const DEFAULT_SETTINGS = {
   smartDialogueFormatting: true, // Konuşma ve diyalogları kitaptaki gibi biçimlendir
   swipePageNavigation: true, // Sağa ve sola kaydırarak sayfa değiştirme
   ttsSpeed: 1.0, // 0.8, 1.0, 1.25, 1.5
+  ttsVoice: 'tr-TR-AhmetNeural', // 'tr-TR-AhmetNeural' | 'tr-TR-EmelNeural'
   offlineCache: true, // Çevrimdışı sayfa önbelleği
   renderDpi: 2.0, // PDF render scale for ultra sharpness
   ocrEngine: 'auto', // 'auto' | 'tesseract' | 'vision_ai'

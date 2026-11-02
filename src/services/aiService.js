@@ -570,8 +570,18 @@ export function healTurkishOcrArtifacts(text) {
   s = s.replace(/(^|[^\p{L}\p{N}])ayni(?=\s+[a-zçğıöşüA-ZÇĞİÖŞÜ]+)/giu, '$1aynı');
   s = s.replace(/(^|[^\p{L}\p{N}])nasil(?=[^\p{L}\p{N}]|$)/giu, '$1nasıl');
 
-  // 14. Noise dots inside words caused by dust/faint paper flecks
+  // 14. Noise dots inside words caused by dust/faint paper flecks (with or without space)
   s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,})\.([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,})/gu, '$1$2');
+  const SUFFIX_FRAGMENTS = /^(r[ıiuü]nde|r[ıiuü]nda|ler[ıiuü]nde|lar[ıiuü]nda|l[ae]nd[ıiuü][kmn]?|l[ae]n[ıiuü]r|l[ae]nm[ıiuü]ş|l[ae]n[a-e]r[a-e]k|d[ıiuü][kğ][ıiuü][kmn]?|t[ıiuü][kğ][ıiuü][kmn]?|m[ae]s[ıiuü]n[ae]|m[ae]s[ıiuü]nd[ae]|m[ae]kt[ae]|m[ae]d[ae]n|c[ıiuü]k|c[ıiuü]ğ[ıiuü]m?|s[ıiuü]zl[ıiuü]k|l[ıiuü]ğ[ıiuü][a-zçğıöşü]*)$/i;
+  s = s.replace(
+    /(^|[^\p{L}\p{N}])([a-zçğıöşüA-ZÇĞİÖŞÜ]{2,})\.\s+([a-zçğıöşü]{2,})(?=[^\p{L}\p{N}]|$)/gu,
+    (match, prefix, before, after) => {
+      if (SUFFIX_FRAGMENTS.test(after)) {
+        return `${prefix}${before}${after}`;
+      }
+      return match;
+    }
+  );
 
   // 15. Reconnect floating apostrophes
   s = s.replace(/([a-zçğıöşüA-ZÇĞİÖŞÜ]+)\s+['’]\s+([a-zçğıöşüA-ZÇĞİÖŞÜ]+)/gu, "$1'$2");
@@ -660,6 +670,23 @@ export function healTurkishOcrArtifacts(text) {
   s = s.replace(/(^|[^\p{L}\p{N}])sa[s5]l([ıi]k|[ıi]ğ[ıi][a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1sağl$2');
   s = s.replace(/(^|[^\p{L}\p{N}])ba[s5]lant([ıi][a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1bağlant$2');
   s = s.replace(/(^|[^\p{L}\p{N}])de[s5ğ]i[s5ş]ik([a-zçğıöşü]*)(?=[^\p{L}\p{N}]|$)/giu, '$1değişik$2');
+
+  // 17. Contextual repairs for OCR glyph confusions in book text:
+  // e.g. "Nöbeteileri" -> "Nöbetçileri", "Nöbetcileri" -> "Nöbetçileri"
+  s = s.replace(/(^|[^\p{L}\p{N}])([nN])öbet[ec]i([a-zçğıöşü]*)/gu, '$1$2öbetçi$3');
+  // "© isa" or "@ isa" / "© ise" -> "o ise"
+  s = s.replace(/(^|[^\p{L}\p{N}])[©@]\s*is[ae](?=[^\p{L}\p{N}]|$)/giu, '$1o ise');
+
+  // 18. Strip isolated scanner edge artifact lines with gibberish consonants (e.g. "ŞERRRKGERRCR KR")
+  s = s.replace(/(?:^|\n)([ŞÇĞIİÖÜA-Z\s]{6,})(?:\n|$)/gu, (match, line) => {
+    const letters = (line.match(/[ŞÇĞIİÖÜA-Z]/gu) || []).length;
+    if (letters < 6) return match;
+    const vowels = (line.match(/[EIİÖÜAIOU]/gu) || []).length;
+    if (vowels / letters < 0.15) {
+      return '\n';
+    }
+    return match;
+  });
 
   return s;
 }
