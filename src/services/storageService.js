@@ -36,7 +36,8 @@ import {
   getNextTargetPage,
   getBookContentVersion,
   getBookPageOffset,
-  estimatePdfPageFromPrinted
+  estimatePdfPageFromPrinted,
+  flushPendingMemoryWrites
 } from './bookMemoryService.js';
 
 export {
@@ -54,6 +55,7 @@ export {
   getBookContentVersion,
   getBookPageOffset,
   estimatePdfPageFromPrinted,
+  flushPendingMemoryWrites,
   detectPrintedPageNumber,
   recordRetrievalAudit,
   getRetrievalAuditTrail,
@@ -347,7 +349,9 @@ function cleanLegacyMockDataOnce() {
       }
 
       // Purge temporary session & history storage
-      sessionStorage.clear();
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+      }
       localStorage.removeItem(HISTORY_KEY);
       localStorage.removeItem('reawid_mock_cleaned_v1');
       localStorage.removeItem('reawid_mock_cleaned_v2');
@@ -616,6 +620,85 @@ export function setCurrentBook(bookId) {
   }
 }
 
+// Debounced and Batched Cloud Sync Queue
+const pendingCloudSyncs = new Map(); // bookId -> { book, timer, seq }
+let cloudSyncSeq = 0;
+const lastSyncedSeqs = new Map(); // bookId -> seq
+
+export function queueBookCloudSync(book, delayMs = 3000) {
+  if (!book || !book.id) return;
+  const bookId = String(book.id);
+  const seq = ++cloudSyncSeq;
+
+  if (pendingCloudSyncs.has(bookId)) {
+    clearTimeout(pendingCloudSyncs.get(bookId).timer);
+  }
+
+  const timer = setTimeout(async () => {
+    pendingCloudSyncs.delete(bookId);
+    await executeCloudSync(book, seq);
+  }, delayMs);
+
+  pendingCloudSyncs.set(bookId, { book, timer, seq });
+}
+
+async function executeCloudSync(book, seq) {
+  if (!book || !book.id) return;
+  const lastSeq = lastSyncedSeqs.get(book.id) || 0;
+  if (seq < lastSeq) return; // Stale check
+
+  try {
+    await syncBookToCloud(book);
+    lastSyncedSeqs.set(book.id, seq);
+  } catch (err) {
+    console.warn('executeCloudSync warning:', err);
+  }
+}
+
+export async function flushPendingCloudSyncs() {
+  const promises = [];
+  for (const [bookId, item] of pendingCloudSyncs.entries()) {
+    clearTimeout(item.timer);
+    pendingCloudSyncs.delete(bookId);
+    promises.push(executeCloudSync(item.book, item.seq));
+  }
+  await Promise.all(promises);
+}
+
+// Debounced localStorage persist to avoid blocking Main Thread during fast OCR or page-turning
+let pendingBooksSaveTimer = null;
+let latestBooksToSave = null;
+
+export function debouncedSaveBooks(books, delayMs = 500) {
+  latestBooksToSave = books;
+  if (pendingBooksSaveTimer) return;
+  pendingBooksSaveTimer = setTimeout(() => {
+    pendingBooksSaveTimer = null;
+    if (latestBooksToSave) {
+      try {
+        localStorage.setItem(BOOKS_KEY, JSON.stringify(latestBooksToSave));
+      } catch (err) {
+        console.warn('localStorage save warning:', err);
+      }
+    }
+  }, delayMs);
+}
+
+export function flushPendingStorageWrites() {
+  if (pendingBooksSaveTimer) {
+    clearTimeout(pendingBooksSaveTimer);
+    pendingBooksSaveTimer = null;
+  }
+  if (latestBooksToSave) {
+    try {
+      localStorage.setItem(BOOKS_KEY, JSON.stringify(latestBooksToSave));
+    } catch (err) {
+      console.warn('localStorage flush warning:', err);
+    }
+    latestBooksToSave = null;
+  }
+}
+
 export function updateBookProgress(bookId, progressPercent, currentPage) {
   try {
     const books = getBooks();
@@ -632,12 +715,12 @@ export function updateBookProgress(bookId, progressPercent, currentPage) {
       }
       return { ...b, isCurrent: false };
     });
-    localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
+    debouncedSaveBooks(updated, 400);
     localStorage.setItem(CURRENT_BOOK_KEY, bookId);
 
-    // Background cloud sync
+    // Queued batch cloud sync
     if (updatedBook) {
-      syncBookToCloud(updatedBook).catch(() => {});
+      queueBookCloudSync(updatedBook, 2500);
     }
 
     return true;
@@ -656,6 +739,7 @@ export function deleteBook(bookId) {
   try {
     const books = getBooks();
     const filtered = books.filter(b => b.id !== bookId);
+    flushPendingStorageWrites();
     localStorage.setItem(BOOKS_KEY, JSON.stringify(filtered));
 
     // Delete cached PDF blob from IndexedDB
@@ -695,19 +779,13 @@ export function updateBookPageParagraphs(bookId, pageNum, paragraphs, rawText = 
       }
       return b;
     });
-    localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
 
-    // Atomic persistence to Book Memory (IndexedDB + L1)
-    savePageOcrMemory(bookId, pageNum, {
-      pageNumber: pageNum,
-      paragraphs: safeParagraphs,
-      rawText,
-      ocrStatus: 'completed'
-    }).catch(() => {});
+    // Debounced localStorage commit to prevent synchronous JSON serialization freeze
+    debouncedSaveBooks(updated, 800);
 
-    // Background cloud sync
+    // Controlled debounced cloud sync (No continuous whole-book flooding)
     if (updatedBook) {
-      syncBookToCloud(updatedBook).catch(() => {});
+      queueBookCloudSync(updatedBook, 3500);
     }
 
     return true;

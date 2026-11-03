@@ -48,7 +48,10 @@ import {
   findBookMemoryByFingerprint,
   deleteBookMemory,
   hydrateBookFromMemory,
-  getNextTargetPage as calculateNextTargetPage
+  getNextTargetPage as calculateNextTargetPage,
+  flushPendingStorageWrites,
+  flushPendingCloudSyncs,
+  flushPendingMemoryWrites
 } from './services/storageService.js';
 
 import {
@@ -650,6 +653,27 @@ function init() {
 
   // Handle global paste (Ctrl+V)
   window.addEventListener('paste', handleGlobalPaste);
+
+  // Ensure pending writes & cloud syncs are flushed on tab close or navigation
+  window.addEventListener('beforeunload', () => {
+    try {
+      flushPendingStorageWrites();
+      flushPendingCloudSyncs();
+      if (currentActiveBook?.id) {
+        flushPendingMemoryWrites(currentActiveBook.id);
+      }
+    } catch (_) {}
+  });
+
+  window.addEventListener('pagehide', () => {
+    try {
+      flushPendingStorageWrites();
+      flushPendingCloudSyncs();
+      if (currentActiveBook?.id) {
+        flushPendingMemoryWrites(currentActiveBook.id);
+      }
+    } catch (_) {}
+  });
 }
 
 /* ==========================================================================
@@ -1039,6 +1063,15 @@ function closeReader() {
   closeSettingsSheet();
   closeBookCardActionSheet();
 
+  // Commit any pending debounced book updates, cloud syncs, and memory writes
+  try {
+    flushPendingStorageWrites();
+    flushPendingCloudSyncs();
+    if (currentActiveBook?.id) {
+      flushPendingMemoryWrites(currentActiveBook.id);
+    }
+  } catch (_) {}
+
   switchBottomTab(previousActiveTab || 'home');
 }
 
@@ -1123,9 +1156,13 @@ function renderReaderPage(pageNum, turnDirection = null) {
   // Akıcı Sayfa Geçiş Animasyonu & Dokunmatik Hissiyat (Haptic)
   if (prevPage !== currentReaderPage && el.readerParagraphsContainer) {
     const direction = turnDirection || (currentReaderPage > prevPage ? 'next' : 'prev');
+    const animClass = direction === 'next' ? 'page-turn-next' : 'page-turn-prev';
     el.readerParagraphsContainer.classList.remove('page-turn-next', 'page-turn-prev');
-    void el.readerParagraphsContainer.offsetWidth; // Force reflow
-    el.readerParagraphsContainer.classList.add(direction === 'next' ? 'page-turn-next' : 'page-turn-prev');
+    requestAnimationFrame(() => {
+      if (el.readerParagraphsContainer) {
+        el.readerParagraphsContainer.classList.add(animClass);
+      }
+    });
 
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try { navigator.vibrate(10); } catch (_) {}

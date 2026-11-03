@@ -1839,7 +1839,8 @@ mark.search-highlight.active-match {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  contain: paint;
   box-sizing: border-box;
   touch-action: pan-y;
 }
@@ -1906,6 +1907,8 @@ mark.search-highlight.active-match {
 .reader-paragraphs {
   display: flex;
   flex-direction: column;
+  contain: content;
+  will-change: transform, opacity;
 }
 
 .reader-paragraphs p,
@@ -1919,9 +1922,11 @@ mark.search-highlight.active-match {
   text-wrap: pretty;
   font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   font-kerning: normal;
-  text-rendering: optimizeLegibility;
+  text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 75px;
   /* Sığmayan kelimeler: Kelime satıra sığmıyorsa alt satıra kaydırılır veya tire ile hecelenir */
   overflow-wrap: break-word;
   word-break: normal;

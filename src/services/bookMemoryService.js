@@ -189,27 +189,49 @@ export function initBookMemory({
   return memory;
 }
 
-// Per-book serialization queue to prevent parallel IndexedDB transaction aborts
-const idbWriteQueues = new Map();
+// Per-book serialization queue & write coalescing to prevent parallel IndexedDB transaction aborts
+const inFlightMemoryWrites = new Set();
+const pendingMemoryWrites = new Map(); // bookId -> { memory, resolves: Function[], rejects: Function[] }
 
 /**
- * Persists a full memory record to IndexedDB asynchronously with serialization and quota protection.
+ * Persists a full memory record to IndexedDB asynchronously with serialization, write coalescing and quota protection.
  */
-async function persistMemoryToIdb(memory) {
+export async function persistMemoryToIdb(memory) {
   if (!memory || !memory.bookId) return false;
   const key = String(memory.bookId);
 
-  const prevWrite = idbWriteQueues.get(key) || Promise.resolve();
-  let releaseWrite;
-  const currentWrite = new Promise(resolve => { releaseWrite = resolve; });
-  idbWriteQueues.set(key, currentWrite);
+  // If a write is already in flight for this book, coalesce into pending queue.
+  // When in-flight transaction completes, it will write the latest memory snapshot once.
+  if (inFlightMemoryWrites.has(key)) {
+    return new Promise((resolve, reject) => {
+      const existing = pendingMemoryWrites.get(key);
+      if (existing) {
+        existing.memory = memory;
+        existing.resolves.push(resolve);
+        existing.rejects.push(reject);
+      } else {
+        pendingMemoryWrites.set(key, {
+          memory,
+          resolves: [resolve],
+          rejects: [reject]
+        });
+      }
+    });
+  }
+
+  inFlightMemoryWrites.add(key);
 
   try {
-    await prevWrite;
     const db = await getBookMemoryDb();
     if (!db) return false;
 
-    return await new Promise((resolve, reject) => {
+    // Strip internal non-persistent memory caches before saving to IndexedDB
+    const toStore = { ...memory };
+    delete toStore._scannedSet;
+    delete toStore._offsetVotes;
+    delete toStore._maxOffsetVotes;
+
+    await new Promise((resolve, reject) => {
       try {
         const tx = db.transaction(IDB_STORE_MEMORIES, 'readwrite');
         tx.onabort = () => {
@@ -223,11 +245,12 @@ async function persistMemoryToIdb(memory) {
         tx.oncomplete = () => resolve(true);
 
         const store = tx.objectStore(IDB_STORE_MEMORIES);
-        store.put(memory);
+        store.put(toStore);
       } catch (txErr) {
         reject(txErr);
       }
     });
+    return true;
   } catch (err) {
     if (err?.name === 'QuotaExceededError') {
       console.error(`[BookMemory] IndexedDB Depolama Kotası Doldu (QuotaExceededError) [${key}]:`, err);
@@ -236,9 +259,36 @@ async function persistMemoryToIdb(memory) {
     }
     return false;
   } finally {
-    releaseWrite();
-    if (idbWriteQueues.get(key) === currentWrite) {
-      idbWriteQueues.delete(key);
+    inFlightMemoryWrites.delete(key);
+    // Execute coalesced write with the latest state if new pages arrived during transaction
+    if (pendingMemoryWrites.has(key)) {
+      const pending = pendingMemoryWrites.get(key);
+      pendingMemoryWrites.delete(key);
+      persistMemoryToIdb(pending.memory)
+        .then(res => {
+          pending.resolves.forEach(r => r(res));
+        })
+        .catch(err => {
+          pending.rejects.forEach(rej => rej(err));
+        });
+    }
+  }
+}
+
+/**
+ * Flushes any pending coalesced IndexedDB memory writes immediately (e.g. on unload/book switch).
+ */
+export async function flushPendingMemoryWrites(bookId) {
+  if (!bookId) return;
+  const key = String(bookId);
+  if (pendingMemoryWrites.has(key)) {
+    const pending = pendingMemoryWrites.get(key);
+    pendingMemoryWrites.delete(key);
+    try {
+      const res = await persistMemoryToIdb(pending.memory);
+      pending.resolves.forEach(r => r(res));
+    } catch (err) {
+      pending.rejects.forEach(rej => rej(err));
     }
   }
 }
@@ -404,6 +454,18 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
   const rawPageText = pageData.rawText || incomingParagraphs.join('\n\n');
   const detectedPrinted = detectPrintedPageNumber(rawPageText);
 
+  // 1. Incremental Scanned Set Tracking
+  if (!memory._scannedSet) {
+    memory._scannedSet = new Set();
+    if (memory.scannedPages) {
+      for (const [k, v] of Object.entries(memory.scannedPages)) {
+        if (v && v.ocrStatus === 'completed' && Array.isArray(v.paragraphs) && v.paragraphs.length > 0) {
+          memory._scannedSet.add(Number(k));
+        }
+      }
+    }
+  }
+
   if (incomingStatus === 'completed' && incomingParagraphs.length > 0) {
     memory.scannedPages[pNum] = {
       pageNumber: pNum,
@@ -416,11 +478,13 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
       timestamp: now,
       error: null
     };
+    memory._scannedSet.add(pNum);
     delete memory.failedAttempts[pNum];
     memory.lastOcrDate = new Date(now).toISOString();
   } else if (incomingStatus === 'failed') {
     const currentFails = (memory.failedAttempts[pNum] || 0) + 1;
     memory.failedAttempts[pNum] = currentFails;
+    memory._scannedSet.delete(pNum);
 
     memory.scannedPages[pNum] = {
       pageNumber: pNum,
@@ -446,43 +510,50 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
       timestamp: now,
       error: pageData.error || null
     };
-  }
-
-  // Recalculate stats
-  const scannedKeys = Object.keys(memory.scannedPages)
-    .map(Number)
-    .filter(n => {
-      const p = memory.scannedPages[n];
-      return p && p.ocrStatus === 'completed' && Array.isArray(p.paragraphs) && p.paragraphs.length > 0;
-    });
-
-  // Calculate consensus page offset (pdfPage - printedPage)
-  const offsetVotes = new Map();
-  for (const [pStr, pageObj] of Object.entries(memory.scannedPages)) {
-    const p = Number(pStr);
-    const pr = pageObj.printedPage;
-    if (typeof pr === 'number' && p >= pr) {
-      const diff = p - pr;
-      offsetVotes.set(diff, (offsetVotes.get(diff) || 0) + 1);
+    if (incomingParagraphs.length > 0) {
+      memory._scannedSet.add(pNum);
     }
   }
-  let maxOffsetVotes = 0;
-  let consensusOffset = null;
-  for (const [diff, votes] of offsetVotes.entries()) {
-    if (votes > maxOffsetVotes) {
-      maxOffsetVotes = votes;
-      consensusOffset = diff;
+
+  // 2. Incremental Consensus Page Offset
+  if (!memory._offsetVotes) {
+    memory._offsetVotes = new Map();
+    memory._maxOffsetVotes = 0;
+    if (memory.scannedPages) {
+      for (const [pStr, pageObj] of Object.entries(memory.scannedPages)) {
+        const p = Number(pStr);
+        const pr = pageObj?.printedPage;
+        if (typeof pr === 'number' && p >= pr) {
+          const diff = p - pr;
+          const votes = (memory._offsetVotes.get(diff) || 0) + 1;
+          memory._offsetVotes.set(diff, votes);
+          if (votes > memory._maxOffsetVotes) {
+            memory._maxOffsetVotes = votes;
+            memory.pageOffset = diff;
+          }
+        }
+      }
     }
   }
-  memory.pageOffset = consensusOffset;
 
-  const total = Math.max(memory.totalPages || 1, ...scannedKeys, pNum);
+  if (typeof detectedPrinted === 'number' && pNum >= detectedPrinted) {
+    const diff = pNum - detectedPrinted;
+    const votes = (memory._offsetVotes.get(diff) || 0) + 1;
+    memory._offsetVotes.set(diff, votes);
+    if (votes > (memory._maxOffsetVotes || 0)) {
+      memory._maxOffsetVotes = votes;
+      memory.pageOffset = diff;
+    }
+  }
+
+  // 3. Incremental Total & Statistics
+  const total = Math.max(memory.totalPages || 1, pNum);
   memory.totalPages = total;
 
-  const scannedCount = scannedKeys.length;
-  const failedCount = Object.keys(memory.failedAttempts).length;
+  const scannedCount = memory._scannedSet.size;
+  const failedCount = Object.keys(memory.failedAttempts || {}).length;
   const unscannedCount = Math.max(0, total - scannedCount);
-  const isComplete = (scannedCount === total && total > 0);
+  const isComplete = (scannedCount >= total && total > 0);
 
   memory.ocrStats = {
     totalPages: total,
@@ -493,21 +564,24 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
   };
   memory.updatedAt = new Date(now).toISOString();
 
-  // Monotonically increment content version so RAG retrieval cache is invalidated
+  // 4. Content Version & RAG Cache Invalidation (Once per page)
   memory.contentVersion = (memory.contentVersion || 0) + 1;
-
-  // Invalidate RAG index and retrieval cache so it rebuilds with fresh page data on next retrieval
   memory.ragIndex = null;
   invalidateBookRetrievalCache(memory.bookId);
 
-  // Auto-update chapter outline if new headings detected
-  try {
-    const simpleMap = {};
-    for (const p of scannedKeys) {
-      simpleMap[p] = memory.scannedPages[p].paragraphs;
-    }
-    memory.chapterOutline = extractBookOutlineIndex(simpleMap);
-  } catch (_) {}
+  // 5. Incremental Chapter Outline Extraction (Targeted & Scalable)
+  const hasHeadingIndicators = pNum <= 25 || /(?:içindekiler|bölüm\s*\d+|sayfa\s*\d+|chapter\s*\d+)/i.test(rawPageText);
+  if (!memory.chapterOutline || hasHeadingIndicators || isComplete) {
+    try {
+      const simpleMap = {};
+      for (const p of memory._scannedSet) {
+        if (p <= 35 || isComplete) {
+          simpleMap[p] = memory.scannedPages[p]?.paragraphs;
+        }
+      }
+      memory.chapterOutline = extractBookOutlineIndex(simpleMap);
+    } catch (_) {}
+  }
 
   // Commit to L1 cache & wait for IndexedDB persistence
   l1MemoryCache.set(memory.bookId, memory);

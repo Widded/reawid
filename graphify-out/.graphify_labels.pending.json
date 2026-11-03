@@ -5,13 +5,9 @@
   "6": "tesseractService.js",
   "7": "package.json",
   "8": "readerFormatter.js",
-  "10": "vite.config.js",
+  "10": "test_post_ocr_performance_suite.mjs",
   "11": "startPdfBatchOcr",
-  "12": "scripts",
   "13": "storageService.js",
   "14": "performOcr",
-  "16": "vite",
-  "21": "startBackgroundPdfAnalysis",
-  "26": "test_root_cause_suite.mjs",
-  "31": "isModelStrictlyFree"
+  "21": "startBackgroundPdfAnalysis"
 }

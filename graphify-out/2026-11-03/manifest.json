@@ -24,15 +24,15 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793724165.8515136,
-    "seen": 1793724834.7905345,
-    "ast_hash": "bf4dd215c9cb35577a3c812a4c5d72fe",
+    "mtime": 1793725750.4195502,
+    "seen": 1793726552.717069,
+    "ast_hash": "faf110e70a28ab7d5669a5b1309ea1a6",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793724052.3878067,
-    "seen": 1793724834.7905366,
-    "ast_hash": "b6740b2ba57a3329a1926994197d860c",
+    "mtime": 1793726417.8926897,
+    "seen": 1793726552.7170715,
+    "ast_hash": "079db011b77d2f3580dcc2d956bbcb5a",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -72,9 +72,9 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793723979.9150746,
-    "seen": 1793724834.7914453,
-    "ast_hash": "c034f2ac467a680c8c6af92144aef064",
+    "mtime": 1793726526.0737226,
+    "seen": 1793726552.7180374,
+    "ast_hash": "527f7d058eb806f2d607f9ccd2e3ca42",
     "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
@@ -216,15 +216,15 @@
     "semantic_hash": ""
   },
   "public/icon-192.png": {
-    "mtime": 1793692605.7302637,
-    "seen": 1793692823.0604532,
-    "ast_hash": "0c1142fc6c3687af79808dcd29aac869",
+    "mtime": 1793726528.1928346,
+    "seen": 1793726552.7214823,
+    "ast_hash": "c26c9ba5137a8e031f137197ec426fe6",
     "semantic_hash": ""
   },
   "public/icon-512.png": {
-    "mtime": 1793692605.7302637,
-    "seen": 1793692823.0604548,
-    "ast_hash": "c177e386c95c326f822dfc6f3b2f3990",
+    "mtime": 1793726528.1928346,
+    "seen": 1793726552.7214842,
+    "ast_hash": "0aacb77a4b043b450be987bdf0d7bee7",
     "semantic_hash": ""
   },
   "public/icon.jpg": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "src/services/bookMemoryService.js": {
-    "mtime": 1793724587.8294837,
-    "seen": 1793724834.7905383,
-    "ast_hash": "53c1e105a111eb831922b192f673d8b4",
+    "mtime": 1793725680.5924718,
+    "seen": 1793726552.717074,
+    "ast_hash": "8088e3670d2ad8ba52a4461aec6a0595",
     "semantic_hash": ""
   },
   "tests/test_book_memory_suite.mjs": {
@@ -297,6 +297,12 @@
     "mtime": 1793724666.246163,
     "seen": 1793724834.7925322,
     "ast_hash": "e83e576fc376a3bba024b90440cc6c65",
+    "semantic_hash": ""
+  },
+  "tests/test_rag_grounding_audit_suite.mjs": {
+    "mtime": 1793726453.3079412,
+    "seen": 1793726552.7196813,
+    "ast_hash": "c762ab71f9aade17263d834290ee4e25",
     "semantic_hash": ""
   },
   "package-lock.json": {
