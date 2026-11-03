@@ -1,5 +1,7 @@
 {
-  "6": "renderReaderPage",
+  "3": "PerformanceMonitor",
+  "6": "main.js",
   "8": "readerFormatter.js",
-  "13": "test_root_cause_suite.mjs"
+  "14": "test_root_cause_suite.mjs",
+  "16": "isModelStrictlyFree"
 }

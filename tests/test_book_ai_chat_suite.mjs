@@ -4,7 +4,8 @@ import {
   askBookAi,
   extractBookAiAnswer,
   extractBookOutlineIndex,
-  retrieveRelevantPages
+  retrieveRelevantPages,
+  extractEvidenceParagraphs
 } from '../src/services/aiService.js';
 
 console.log('================================================================');
@@ -133,6 +134,18 @@ runTest('retrieveRelevantPages: Soruya en uygun sayfaları doğru puanlayıp cı
   });
   assert.ok(retrieved.length > 0, 'En az 1 alakalı sayfa dönmeli');
   assert.equal(retrieved[0].page, 3, 'Sayfa 3 cinayet kelimesi nedeniyle 1. sırada olmalı');
+});
+
+runTest('extractEvidenceParagraphs: Soruya en doğrudan kanıt olan paragrafları ayıklamalı', () => {
+  const pages = [
+    {
+      page: 7,
+      text: 'Büyük Salonda açılış ziyafeti başladı.\n\nHarry başını kaldırdığında Profesör Snape ile göz göze geldi. Tam o anda alnındaki yara izinde keskin bir acı hissetti.\n\nMasadaki yemekler nefisti.'
+    }
+  ];
+  const ev = extractEvidenceParagraphs(pages, 'Harry yara izi Snape acı');
+  assert.ok(ev.length > 0, 'Kanıt paragrafı bulunmalı');
+  assert.ok(ev[0].text.includes('yara izinde keskin bir acı'), 'Doğru paragraf seçilmeli');
 });
 
 runTest('prepareBookContext (RAG): Soru verildiğinde kitap haritası ve ilgili sayfayı bağlama eklemeli', () => {

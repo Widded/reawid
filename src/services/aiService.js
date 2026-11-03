@@ -1756,10 +1756,51 @@ export function retrieveRelevantPages({
 }
 
 /**
+ * Extracts top-scoring individual paragraphs as direct textual evidence for the user's question.
+ */
+export function extractEvidenceParagraphs(relevantPages = [], question = '', maxParagraphs = 4) {
+  if (!relevantPages || relevantPages.length === 0 || !question) return [];
+
+  const qRaw = question.toLocaleLowerCase('tr-TR');
+  const words = qRaw
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 2 && !TURKISH_STOPWORDS.has(w));
+
+  if (words.length === 0) return [];
+
+  const scoredParagraphs = [];
+
+  for (const item of relevantPages) {
+    const rawParagraphs = item.text.split(/\n{2,}/).map(p => p.trim()).filter(p => p.length >= 25);
+    for (const para of rawParagraphs) {
+      const lower = para.toLocaleLowerCase('tr-TR');
+      let score = 0;
+      for (const w of words) {
+        if (lower.includes(w)) {
+          score += 12;
+        } else if (w.length >= 4) {
+          const stem = w.slice(0, Math.min(w.length - 1, 5));
+          if (lower.includes(stem)) score += 5;
+        }
+      }
+      if (score >= 10) {
+        scoredParagraphs.push({ page: item.page, text: para, score });
+      }
+    }
+  }
+
+  scoredParagraphs.sort((a, b) => b.score - a.score);
+  return scoredParagraphs.slice(0, maxParagraphs);
+}
+
+/**
  * Prepares book context text from pagesTextMap with hybrid RAG:
  * 1. Book Chapter & Outline Index (Table of contents)
- * 2. Current Reader Page context
- * 3. Smart Question-Aware Retrieved Pages (Client RAG)
+ * 2. Question-Aware Direct Textual Evidence Paragraphs
+ * 3. Current Reader Page context
+ * 4. Relevant Scanned Pages
  */
 export function prepareBookContext({
   pagesTextMap = {},
@@ -1800,6 +1841,9 @@ export function prepareBookContext({
 
     const relevantPageNums = new Set(relevant.map(r => r.page));
 
+    // Extract exact evidence paragraphs
+    const evidenceParagraphs = extractEvidenceParagraphs(relevant, question, 4);
+
     // Immediate reading context: currentPage, currentPage - 1, currentPage + 1 (if eligible)
     const immediateNums = [currentPage - 1, currentPage, currentPage + 1]
       .filter(p => eligiblePages.includes(p) && !relevantPageNums.has(p));
@@ -1821,6 +1865,10 @@ export function prepareBookContext({
     const sections = [];
     if (outlineIndex) {
       sections.push(outlineIndex);
+    }
+    if (evidenceParagraphs.length > 0) {
+      const evList = evidenceParagraphs.map(ev => `- [Sayfa ${ev.page} Kanıtı]: "${ev.text}"`).join('\n\n');
+      sections.push(`[SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ (Doğrudan Orijinal Alıntılar)]\n${evList}`);
     }
     if (immediateParts.length > 0) {
       sections.push(`[OKUYUCUNUN ŞU ANKİ SAYFASI VE YAKIN ÇEVRESİ]\n${immediateParts.join('\n\n---\n\n')}`);
@@ -1977,11 +2025,20 @@ export async function askBookAi({
     systemPrompt = `Sen ReaWid Kitap Asistanısın.
 Kullanıcı şu anda "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabının ${currentPage}. sayfasını okuyor (Toplam ${totalPages} sayfa).
 
-GÖREVİN VE YANIT KURALLARI:
-1. DOĞRUDAN SORUYA ODAKLAN: Kullanıcı neyi sorduysa doğrudan, net ve duru bir dille yalnızca onu anlat.
-2. BOŞ LAF VE GEREKSİZ AKADEMİK DETAYLARDAN KAÇIN: Kullanıcı özellikle sormadığı sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu maddelerine ve gereksiz teorik analizlere KESİNLİKLE GİRME.
-3. BÖLÜM VE OLAY ANLATIMI: Bir bölüm veya olay sorulduğunda; olayın ne olduğunu, kimlerin yer aldığını ve nasıl geliştiğini sürükleyici, net ve derli toplu (genellikle 2-3 net paragrafta) özetle.
-4. CEVABI EKSİKSİZ VE TAMAMLAYARAK BİTİR: Gereksiz uzatmalardan kaçınarak yanıtını her zaman sonuca ulaştır ve tam bir cümleyle bitir; asla yarım veya havada bırakma.
+GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
+1. BİRİNCİL KAYNAK KİTAP METNİDİR:
+   - Cevabını öncelikle sana sunulan [SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ], sayfa parçaları ve kitap fihristine dayandır.
+   - İddialarını ilgili sayfa numaralarıyla ([Sayfa X]) destekle.
+2. SIFIR SAHTE ALINTI VE MEKANİZMA YASAĞI (HALÜSİNASYON ENGELİ):
+   - Kitapta açıkça geçmeyen hiçbir cümleyi veya diyalogu tırnak içinde yazar/karakter sözü gibi ASLA UYDURMA.
+   - Kitapta tanımlanmamış büyü/teknoloji mekanizmaları, bağlantılar veya fan teorilerini (örn. "Snape'in Legilimency yeteneği yara izini tetikledi", "iki karanlık büyü akımı çarpıştı" vb.) gerçek kuralmış gibi KESİNLİKLE UYDURMA.
+   - Kitaptaki olay bir şüphe veya yanlış yönlendirme (red herring) ise bunu kanonik doğrulukla açıkla; karakterin yanılgısını büyü kuralı zannetme.
+3. FİLM VE KİTAP AYRIMI:
+   - Kullanıcı özellikle sormadığı sürece filmdeki sahneleri veya görsel detayları kitap kurgusuyla karıştırma.
+4. DOĞRUDAN SORUYA ODAKLAN VE BOŞ LAF YAPMA:
+   - Kullanıcı ne sorduysa doğrudan ve net biçimde onu anlat.
+   - Kullanıcı özellikle istemediği sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu laflarına KESİNLİKLE GİRME.
+   - Cevabını sürükleyici, net ve derli toplu (2-3 net paragrafta) sonuca ulaştırarak eksiksiz bitir; asla havada bırakma.
 5. SPOILER KORUMASI (AÇIK - ${currentPage}. SAYFAYA KADAR):
    - Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olay örgüsünü, katili/suçluyu veya kitabın sonunu açık etme. İleriki sayfalar sorulursa "Henüz ${currentPage}. sayfadasınız; okuma heyecanını kaçırmamak için o kısımları şimdi paylaşmıyorum." de.
    - ${currentPage}. sayfaya kadar olan kısımları serbestçe, net şekilde yanıtla.
@@ -1994,11 +2051,20 @@ ${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
     systemPrompt = `Sen ReaWid Kitap Asistanısın.
 Kullanıcı "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabını okuyor. Şu an ${currentPage}. sayfada (Toplam ${totalPages} sayfa).
 
-GÖREVİN VE YANIT KURALLARI:
-1. DOĞRUDAN SORUYA ODAKLAN: Kullanıcı neyi sorduysa doğrudan, net ve duru bir dille yalnızca onu anlat.
-2. BOŞ LAF VE GEREKSİZ AKADEMİK DETAYLARDAN KAÇIN: Kullanıcı özellikle sormadığı sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu maddelerine ve gereksiz teorik analizlere KESİNLİKLE GİRME.
-3. BÖLÜM VE OLAY ANLATIMI: Bir bölüm veya olay sorulduğunda; olayın ne olduğunu, kimlerin yer aldığını ve nasıl geliştiğini sürükleyici, net ve derli toplu (genellikle 2-4 net paragrafta) özetle.
-4. CEVABI EKSİKSİZ VE TAMAMLAYARAK BİTİR: Gereksiz uzatmalardan kaçınarak yanıtını her zaman sonuca ulaştır ve tam bir cümleyle bitir; asla yarım veya havada bırakma.
+GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
+1. BİRİNCİL KAYNAK KİTAP METNİDİR:
+   - Cevabını öncelikle sana sunulan [SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ], sayfa parçaları ve kitap fihristine dayandır.
+   - İddialarını ilgili sayfa numaralarıyla ([Sayfa X]) destekle.
+2. SIFIR SAHTE ALINTI VE MEKANİZMA YASAĞI (HALÜSİNASYON ENGELİ):
+   - Kitapta açıkça geçmeyen hiçbir cümleyi veya diyalogu tırnak içinde yazar/karakter sözü gibi ASLA UYDURMA.
+   - Kitapta tanımlanmamış büyü/teknoloji mekanizmaları, bağlantılar veya fan teorilerini (örn. "Snape'in Legilimency yeteneği yara izini tetikledi", "iki karanlık büyü akımı çarpıştı" vb.) gerçek kuralmış gibi KESİNLİKLE UYDURMA.
+   - Kitaptaki olay bir şüphe veya yanlış yönlendirme (red herring) ise (örneğin Harry'nin yara izinin acımasında Snape'ten şüphelenmesi ama gerçek tehdidin sarığındaki Voldemort ile Quirrell olması gibi) bunu kanonik doğrulukla açıkla; karakterin yanılgısını büyü kuralı zannetme.
+3. FİLM VE KİTAP AYRIMI:
+   - Kullanıcı özellikle sormadığı sürece filmdeki sahneleri veya görsel detayları kitap kurgusuyla karıştırma.
+4. DOĞRUDAN SORUYA ODAKLAN VE BOŞ LAF YAPMA:
+   - Kullanıcı ne sorduysa doğrudan ve net biçimde onu anlat.
+   - Kullanıcı özellikle istemediği sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu laflarına KESİNLİKLE GİRME.
+   - Cevabını sürükleyici, net ve derli toplu (2-4 net paragrafta) sonuca ulaştırarak eksiksiz bitir; asla havada bırakma.
 5. SPOILER KORUMASI (KAPALI - TÜM KİTAP SERBEST):
    - Kitabın tamamını, tüm olay örgüsünü, karakterlerin akıbetini ve kitabın sonunu hiçbir kısıtlama olmadan doğrudan ve eksiksiz açıkla.
 6. SAYFA VE BÖLÜM NUMARALARI: Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda kitap haritasına ve fihriste bakarak sayfa numarasını doğrudan söyle.
