@@ -2592,15 +2592,26 @@ mark.search-highlight.active-match {
 /* iOS Switch */
 .ios-switch {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 44px;
   height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  vertical-align: middle;
 }
 
 .ios-switch input {
+  position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
 }
 
 .switch-slider {
@@ -2608,27 +2619,29 @@ mark.search-highlight.active-match {
   cursor: pointer;
   inset: 0;
   background-color: #39393d;
-  transition: .24s ease;
-  border-radius: 34px;
+  transition: background-color .24s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 9999px;
 }
 
 .switch-slider:before {
   position: absolute;
   content: "";
-  height: 20px;
-  width: 20px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .24s ease;
+  top: 2px;
+  left: 2px;
+  bottom: auto;
+  height: 22px;
+  width: 22px;
+  background-color: #ffffff;
+  transition: transform .24s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
-input:checked + .switch-slider {
+.ios-switch input:checked + .switch-slider {
   background-color: #34c759;
 }
 
-input:checked + .switch-slider:before {
+.ios-switch input:checked + .switch-slider:before {
   transform: translateX(18px);
 }
 
@@ -4875,39 +4888,100 @@ input:checked + .switch-slider:before {
   line-height: 1.35;
 }
 
-/* Apple Switch */
-.apple-switch {
+/* Apple Switch (Settings Grouped Rows) */
+.apple-switch-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  vertical-align: middle;
+}
+
+.apple-switch-wrap input.apple-switch {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.apple-slider {
+  position: absolute;
+  inset: 0;
+  background-color: #39393d;
+  border-radius: 9999px;
+  transition: background-color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.apple-slider::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  bottom: auto;
+  width: 22px;
+  height: 22px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-switch-wrap input.apple-switch:checked + .apple-slider {
+  background-color: #30d158;
+}
+
+.apple-switch-wrap input.apple-switch:checked + .apple-slider::before {
+  transform: translateX(18px);
+}
+
+/* Fallback if apple-switch is rendered standalone */
+input.apple-switch:not(:has(+ .apple-slider)) {
   appearance: none;
   -webkit-appearance: none;
   width: 44px;
   height: 26px;
   background: #39393d;
-  border-radius: 13px;
+  border: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 9999px;
   position: relative;
   outline: none;
   cursor: pointer;
   transition: background 200ms ease;
   flex-shrink: 0;
+  vertical-align: middle;
 }
 
-.apple-switch::after {
+input.apple-switch:not(:has(+ .apple-slider))::after {
   content: '';
   position: absolute;
   top: 2px;
   left: 2px;
+  bottom: auto;
   width: 22px;
   height: 22px;
   background: #ffffff;
   border-radius: 50%;
   transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
-.apple-switch:checked {
+input.apple-switch:not(:has(+ .apple-slider)):checked {
   background: #30d158;
 }
 
-.apple-switch:checked::after {
+input.apple-switch:not(:has(+ .apple-slider)):checked::after {
   transform: translateX(18px);
 }
 
@@ -8395,44 +8469,30 @@ html.keyboard-open #accountModal .auth-notice-text,
 .theme-acik .spoiler-toggle-label { color: #636366; }
 .theme-sepya .spoiler-toggle-label { color: #7d6951; }
 
-/* Genuine Apple iOS Toggle Switch */
-.ios-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 40px;
-  height: 22px;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.ios-switch input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  margin: 0;
-}
-
+/* Book Chat Spoiler Switch Track */
 .ios-switch-track {
   position: absolute;
   inset: 0;
   background-color: rgba(120, 120, 128, 0.28);
-  border-radius: 999px;
-  transition: background-color 0.25s ease;
+  border-radius: 9999px;
+  transition: background-color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.theme-acik .ios-switch-track { background-color: rgba(0, 0, 0, 0.12); }
+.theme-sepya .ios-switch-track { background-color: rgba(60, 40, 20, 0.18); }
 
 .ios-switch-track::after {
   content: "";
   position: absolute;
   left: 2px;
   top: 2px;
-  width: 18px;
-  height: 18px;
+  bottom: auto;
+  width: 22px;
+  height: 22px;
   background-color: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ios-switch input:checked + .ios-switch-track {
