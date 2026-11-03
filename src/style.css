@@ -8567,12 +8567,15 @@ html.keyboard-open #accountModal .auth-notice-text,
 /* Messages Area */
 .book-chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  scroll-behavior: smooth;
 }
 
 .book-chat-msg {
@@ -8585,6 +8588,7 @@ html.keyboard-open #accountModal .auth-notice-text,
   animation: chatMsgFadeIn 0.2s ease;
   overflow-wrap: break-word;
   word-break: break-word;
+  overflow: visible;
 }
 
 @keyframes chatMsgFadeIn {
@@ -8620,7 +8624,7 @@ html.keyboard-open #accountModal .auth-notice-text,
   border-radius: 18px 18px 18px 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   white-space: normal;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 .theme-acik .book-chat-msg.assistant {

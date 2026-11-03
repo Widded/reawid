@@ -24,9 +24,9 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793691315.914418,
-    "seen": 1793691376.2865946,
-    "ast_hash": "82ea178e8a35263c159781baee72772c",
+    "mtime": 1793692602.4186616,
+    "seen": 1793692823.0569258,
+    "ast_hash": "efedb85a7852e1c03baed1dfa7f1622f",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
@@ -216,14 +216,14 @@
     "semantic_hash": ""
   },
   "public/icon-192.png": {
-    "mtime": 1793691873.8924837,
-    "seen": 1793692024.913669,
+    "mtime": 1793692605.7302637,
+    "seen": 1793692823.0604532,
     "ast_hash": "0c1142fc6c3687af79808dcd29aac869",
     "semantic_hash": ""
   },
   "public/icon-512.png": {
-    "mtime": 1793691873.8935359,
-    "seen": 1793692024.913671,
+    "mtime": 1793692605.7302637,
+    "seen": 1793692823.0604548,
     "ast_hash": "c177e386c95c326f822dfc6f3b2f3990",
     "semantic_hash": ""
   },

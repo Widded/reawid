@@ -2469,12 +2469,13 @@ function openBookAiChat() {
     const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
     const bookName = currentActiveBook?.title || 'Kitap';
     const welcomeText = `Merhaba. **${escapeBookHtml(bookName)}** hakkında merak ettiğiniz her şeyi sorabilirsiniz.\n\n${isSpoiler ? `Spoiler koruması açık: Yalnızca ${currentReaderPage}. sayfaya kadarki kısımları ele alırım.` : 'Spoiler koruması kapalı: Kitabın tamamı hakkında konuşabiliriz.'}`;
-    appendChatMessage('assistant', welcomeText);
+    appendChatMessage('assistant', welcomeText, false);
+    el.bookChatMessages.scrollTop = 0;
   }
 
   if (el.bookChatInput) {
     setTimeout(() => {
-      el.bookChatInput.focus();
+      el.bookChatInput.focus({ preventScroll: true });
     }, 150);
   }
 }
@@ -2485,7 +2486,19 @@ function closeBookAiChat() {
   }
 }
 
-function appendChatMessage(role, text) {
+function scrollBookChatToBottom(force = false) {
+  if (!el.bookChatMessages) return;
+  const container = el.bookChatMessages;
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  const isNearBottom = distanceFromBottom < 120;
+  if (force || isNearBottom) {
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+  }
+}
+
+function appendChatMessage(role, text, shouldScroll = true) {
   if (!el.bookChatMessages) return;
 
   const msgDiv = document.createElement('div');
@@ -2502,7 +2515,9 @@ function appendChatMessage(role, text) {
   }
 
   el.bookChatMessages.appendChild(msgDiv);
-  el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
+  if (shouldScroll) {
+    scrollBookChatToBottom(role === 'user');
+  }
 }
 
 function appendChatSystemNote(text) {
@@ -2511,14 +2526,14 @@ function appendChatSystemNote(text) {
   noteDiv.className = 'book-chat-system-note';
   noteDiv.textContent = text;
   el.bookChatMessages.appendChild(noteDiv);
-  el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
+  scrollBookChatToBottom(false);
 }
 
 async function handleSendBookChatMessage(text) {
   const question = (text || '').trim();
   if (!question || isBookChatSending) return;
 
-  appendChatMessage('user', question);
+  appendChatMessage('user', question, true);
   bookChatHistory.push({ role: 'user', content: question });
 
   if (el.bookChatInput) {
@@ -2531,9 +2546,7 @@ async function handleSendBookChatMessage(text) {
   if (el.bookChatTyping) {
     el.bookChatTyping.classList.remove('hidden');
   }
-  if (el.bookChatMessages) {
-    el.bookChatMessages.scrollTop = el.bookChatMessages.scrollHeight;
-  }
+  scrollBookChatToBottom(true);
 
   isBookChatSending = true;
 
@@ -2570,21 +2583,21 @@ async function handleSendBookChatMessage(text) {
       el.bookChatTyping.classList.add('hidden');
     }
 
-    appendChatMessage('assistant', res.answer);
+    appendChatMessage('assistant', res.answer, true);
     bookChatHistory.push({ role: 'assistant', content: res.answer });
   } catch (err) {
     if (el.bookChatTyping) {
       el.bookChatTyping.classList.add('hidden');
     }
     const errPrefix = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>**Yanıt Alınamadı:** ';
-    appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`);
+    appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`, true);
   } finally {
     isBookChatSending = false;
     if (el.btnSendBookChat) {
       el.btnSendBookChat.disabled = false;
     }
     if (el.bookChatInput) {
-      el.bookChatInput.focus();
+      el.bookChatInput.focus({ preventScroll: true });
     }
   }
 }
@@ -2833,7 +2846,7 @@ function setupTextSelectionPill() {
         el.bookChatInput.value = `Bu alıntıyı açıkla ve romandaki önemini belirt:\n\n"${textToAsk}"`;
         el.bookChatInput.style.height = 'auto';
         el.bookChatInput.style.height = `${Math.min(120, el.bookChatInput.scrollHeight)}px`;
-        el.bookChatInput.focus();
+        el.bookChatInput.focus({ preventScroll: true });
       }
       if (el.btnSendBookChat) {
         el.btnSendBookChat.disabled = false;
@@ -3306,6 +3319,10 @@ function setupEventListeners() {
     });
   }
   if (el.bookChatInput) {
+    el.bookChatInput.addEventListener('input', () => {
+      el.bookChatInput.style.height = 'auto';
+      el.bookChatInput.style.height = `${Math.min(120, el.bookChatInput.scrollHeight)}px`;
+    });
     el.bookChatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
