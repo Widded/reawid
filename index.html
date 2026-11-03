@@ -556,50 +556,56 @@
                 </div>
               </div>
 
-              <!-- Visual Font Specimen Grid -->
-              <div class="settings-font-cards-grid" id="settingsFontSelector">
+              <!-- Visual Font Specimen List (Full-Width Unsquished Cards) -->
+              <div class="settings-font-cards-list" id="settingsFontSelector">
                 <!-- Kitap Serifi -->
-                <button type="button" class="font-specimen-box segmented-pill font-serif active" data-font="serif">
-                  <div class="font-preview-body">
-                    <span class="font-glyph">Aa</span>
-                    <span class="font-sample-quote">"Klasik roman zarafeti"</span>
-                  </div>
-                  <div class="font-meta-bar">
-                    <div class="font-title-wrap">
-                      <span class="font-title">Kitap Serifi</span>
-                      <span class="font-subtitle">Merriweather / Georgia</span>
+                <button type="button" class="font-specimen-card segmented-pill font-serif active" data-font="serif">
+                  <div class="font-card-left">
+                    <span class="font-specimen-glyph">Aa</span>
+                    <div class="font-specimen-info">
+                      <div class="font-title-row">
+                        <span class="font-title">Kitap Serifi</span>
+                        <span class="font-subtitle">Merriweather / Georgia</span>
+                      </div>
+                      <p class="font-sample-quote">"Klasik roman zarafeti ve akıcı edebi harf anatomisi."</p>
                     </div>
-                    <span class="font-check-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  </div>
+                  <div class="font-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
 
                 <!-- Modern Sans -->
-                <button type="button" class="font-specimen-box segmented-pill font-sans" data-font="sans">
-                  <div class="font-preview-body">
-                    <span class="font-glyph">Aa</span>
-                    <span class="font-sample-quote">"Net ve çağdaş okunurluk"</span>
-                  </div>
-                  <div class="font-meta-bar">
-                    <div class="font-title-wrap">
-                      <span class="font-title">Modern Sans</span>
-                      <span class="font-subtitle">Inter / San Francisco</span>
+                <button type="button" class="font-specimen-card segmented-pill font-sans" data-font="sans">
+                  <div class="font-card-left">
+                    <span class="font-specimen-glyph">Aa</span>
+                    <div class="font-specimen-info">
+                      <div class="font-title-row">
+                        <span class="font-title">Modern Sans</span>
+                        <span class="font-subtitle">Inter / SF Pro</span>
+                      </div>
+                      <p class="font-sample-quote">"Net, çağdaş ve ekranda göz yormayan geometrik dizilim."</p>
                     </div>
-                    <span class="font-check-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  </div>
+                  <div class="font-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
 
                 <!-- Monospace -->
-                <button type="button" class="font-specimen-box segmented-pill font-mono" data-font="mono">
-                  <div class="font-preview-body">
-                    <span class="font-glyph">&lt;Aa&gt;</span>
-                    <span class="font-sample-quote">"Tekdüze daktilo odağı"</span>
-                  </div>
-                  <div class="font-meta-bar">
-                    <div class="font-title-wrap">
-                      <span class="font-title">Monospace</span>
-                      <span class="font-subtitle">JetBrains Mono</span>
+                <button type="button" class="font-specimen-card segmented-pill font-mono" data-font="mono">
+                  <div class="font-card-left">
+                    <span class="font-specimen-glyph">&lt;Aa&gt;</span>
+                    <div class="font-specimen-info">
+                      <div class="font-title-row">
+                        <span class="font-title">Monospace</span>
+                        <span class="font-subtitle">JetBrains Mono</span>
+                      </div>
+                      <p class="font-sample-quote">"Tekdüze karakter genişliği ve daktilo odağı."</p>
                     </div>
-                    <span class="font-check-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  </div>
+                  <div class="font-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
               </div>
@@ -666,46 +672,62 @@
                 <span class="settings-live-pill" id="badgeOcrEngine">Tesseract (Yerel)</span>
               </div>
 
-              <div class="settings-engine-grid" id="settingsOcrEngineSelector">
+              <!-- Visual OCR Engine List (Full-Width Unsquished Cards) -->
+              <div class="settings-engine-list" id="settingsOcrEngineSelector">
                 <!-- Tesseract (Tavsiye Edilen & Varsayılan) -->
-                <button type="button" class="engine-card-box segmented-pill active" data-engine="tesseract">
-                  <div class="engine-card-top">
+                <button type="button" class="engine-row-card segmented-pill active" data-engine="tesseract">
+                  <div class="engine-card-left">
                     <div class="engine-badge-icon badge-local">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     </div>
-                    <span class="engine-chip chip-recommended">Tavsiye Edilen · Çevrimdışı</span>
+                    <div class="engine-card-info">
+                      <div class="engine-title-row">
+                        <span class="engine-name">Tesseract OCR</span>
+                        <span class="engine-chip chip-recommended">Tavsiye Edilen · Çevrimdışı</span>
+                      </div>
+                      <p class="engine-explanation">Tamamen cihaz içinde %100 internetsiz çalışır, kota veya veri sınırı yoktur.</p>
+                    </div>
                   </div>
-                  <div class="engine-card-text">
-                    <span class="engine-name">Tesseract OCR</span>
-                    <span class="engine-explanation">Tamamen cihaz içinde %100 internetsiz çalışır, kota veya veri sınırı yoktur.</span>
+                  <div class="engine-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
 
                 <!-- Otomatik Hibrit -->
-                <button type="button" class="engine-card-box segmented-pill" data-engine="auto">
-                  <div class="engine-card-top">
+                <button type="button" class="engine-row-card segmented-pill" data-engine="auto">
+                  <div class="engine-card-left">
                     <div class="engine-badge-icon badge-auto">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                     </div>
-                    <span class="engine-chip">Hibrit</span>
+                    <div class="engine-card-info">
+                      <div class="engine-title-row">
+                        <span class="engine-name">Otomatik Hibrit</span>
+                        <span class="engine-chip">Hibrit</span>
+                      </div>
+                      <p class="engine-explanation">Normal PDF'lerde anlık çıkarım, taranmış fotoğraflarda akıllı geçiş yapar.</p>
+                    </div>
                   </div>
-                  <div class="engine-card-text">
-                    <span class="engine-name">Otomatik Hibrit</span>
-                    <span class="engine-explanation">Normal PDF'lerde anlık çıkarım, taranmış fotoğraflarda akıllı geçiş yapar.</span>
+                  <div class="engine-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
 
                 <!-- Vision AI -->
-                <button type="button" class="engine-card-box segmented-pill" data-engine="vision_ai">
-                  <div class="engine-card-top">
+                <button type="button" class="engine-row-card segmented-pill" data-engine="vision_ai">
+                  <div class="engine-card-left">
                     <div class="engine-badge-icon badge-cloud">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
                     </div>
-                    <span class="engine-chip">Bulut AI</span>
+                    <div class="engine-card-info">
+                      <div class="engine-title-row">
+                        <span class="engine-name">Vision AI (Bulut)</span>
+                        <span class="engine-chip">Bulut AI</span>
+                      </div>
+                      <p class="engine-explanation">Eski, yıpranmış veya zorlu fontlu kitaplarda en yüksek doğrulukla okur.</p>
+                    </div>
                   </div>
-                  <div class="engine-card-text">
-                    <span class="engine-name">Vision AI (Bulut)</span>
-                    <span class="engine-explanation">Eski, yıpranmış veya zorlu fontlu kitaplarda en yüksek doğrulukla okur.</span>
+                  <div class="engine-check-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
                 </button>
               </div>
@@ -840,42 +862,57 @@
                 <span class="settings-live-pill" id="badgeTtsVoice">Ahmet</span>
               </div>
 
-              <div class="settings-voice-grid" id="settingsTtsVoiceSelector">
+              <!-- Acoustic Voice Persona List (Full-Width Unsquished Cards) -->
+              <div class="settings-voice-list" id="settingsTtsVoiceSelector">
                 <!-- Ahmet -->
-                <button type="button" class="voice-persona-card segmented-pill active" data-voice="tr-TR-AhmetNeural">
-                  <div class="voice-avatar-box voice-male">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  </div>
-                  <div class="voice-text-info">
-                    <div class="voice-title-row">
-                      <span class="voice-name">Ahmet</span>
-                      <span class="voice-tag">Erkek · Neural</span>
+                <button type="button" class="voice-row-card segmented-pill active" data-voice="tr-TR-AhmetNeural">
+                  <div class="voice-card-left">
+                    <div class="voice-avatar-box voice-male">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     </div>
-                    <span class="voice-desc">Doğal tonlama ve akıcı roman anlatımı</span>
+                    <div class="voice-text-info">
+                      <div class="voice-title-row">
+                        <span class="voice-name">Ahmet</span>
+                        <span class="voice-tag">Erkek · Neural</span>
+                      </div>
+                      <p class="voice-desc">Doğal tonlama ve akıcı roman anlatımı</p>
+                    </div>
                   </div>
-                  <div class="voice-eq-waves">
-                    <span class="eq-bar eq-1"></span>
-                    <span class="eq-bar eq-2"></span>
-                    <span class="eq-bar eq-3"></span>
+                  <div class="voice-card-right">
+                    <div class="voice-eq-waves">
+                      <span class="eq-bar eq-1"></span>
+                      <span class="eq-bar eq-2"></span>
+                      <span class="eq-bar eq-3"></span>
+                    </div>
+                    <div class="voice-check-circle">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
                   </div>
                 </button>
 
                 <!-- Emel -->
-                <button type="button" class="voice-persona-card segmented-pill" data-voice="tr-TR-EmelNeural">
-                  <div class="voice-avatar-box voice-female">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  </div>
-                  <div class="voice-text-info">
-                    <div class="voice-title-row">
-                      <span class="voice-name">Emel</span>
-                      <span class="voice-tag">Kadın · Neural</span>
+                <button type="button" class="voice-row-card segmented-pill" data-voice="tr-TR-EmelNeural">
+                  <div class="voice-card-left">
+                    <div class="voice-avatar-box voice-female">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     </div>
-                    <span class="voice-desc">Berrak diksiyon ve yumuşak anlatıcı tonu</span>
+                    <div class="voice-text-info">
+                      <div class="voice-title-row">
+                        <span class="voice-name">Emel</span>
+                        <span class="voice-tag">Kadın · Neural</span>
+                      </div>
+                      <p class="voice-desc">Berrak diksiyon ve yumuşak anlatıcı tonu</p>
+                    </div>
                   </div>
-                  <div class="voice-eq-waves">
-                    <span class="eq-bar eq-1"></span>
-                    <span class="eq-bar eq-2"></span>
-                    <span class="eq-bar eq-3"></span>
+                  <div class="voice-card-right">
+                    <div class="voice-eq-waves">
+                      <span class="eq-bar eq-1"></span>
+                      <span class="eq-bar eq-2"></span>
+                      <span class="eq-bar eq-3"></span>
+                    </div>
+                    <div class="voice-check-circle">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
                   </div>
                 </button>
               </div>
