@@ -5393,50 +5393,53 @@ function renderSettingsScreen() {
   }
 }
 
-function openSettingsSubpage(subpageId) {
-  if (!el.settingsHubView || !el.settingsSubView) return;
+function switchSettingsCategoryTab(tabId) {
+  if (!el.settingsViewScreen) return;
 
-  const titles = {
-    appearance: 'Okuma & Görünüm',
-    analysis: 'Akıllı Okuyucu & OCR',
-    tts: 'Sesli Okuma (TTS)',
-    storage: 'Depolama & Yedekleme',
-    about: 'Hakkında & Gizlilik'
-  };
+  // 1. Update tab buttons
+  const tabs = el.settingsViewScreen.querySelectorAll('.settings-cat-tab');
+  tabs.forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabId);
+  });
 
-  if (el.settingsSubpageTitle) {
-    el.settingsSubpageTitle.textContent = titles[subpageId] || 'Ayarlar';
-  }
+  // 2. Update category panels
+  const panels = el.settingsViewScreen.querySelectorAll('.settings-category-panel');
+  panels.forEach(panel => {
+    if (panel.id === `subpage_${tabId}`) {
+      panel.classList.remove('hidden');
+      panel.classList.add('active');
+    } else {
+      panel.classList.add('hidden');
+      panel.classList.remove('active');
+    }
+  });
 
-  const allSubpages = el.settingsSubView.querySelectorAll('.settings-subpage-panel');
-  allSubpages.forEach(p => p.classList.add('hidden'));
-
-  const targetPanel = document.getElementById(`subpage_${subpageId}`);
-  if (targetPanel) {
-    targetPanel.classList.remove('hidden');
-  }
-
-  el.settingsHubView.classList.add('hidden');
-  el.settingsSubView.classList.remove('hidden');
-
-  const scrollContainer = el.settingsSubView.querySelector('.settings-subpage-scroll');
+  const scrollContainer = el.settingsViewScreen.querySelector('.settings-page-scroll');
   if (scrollContainer) scrollContainer.scrollTop = 0;
 }
 
+function openSettingsSubpage(subpageId) {
+  switchSettingsCategoryTab(subpageId);
+}
+
 function closeSettingsSubpage() {
-  if (!el.settingsHubView || !el.settingsSubView) return;
-  el.settingsSubView.classList.add('hidden');
-  el.settingsHubView.classList.remove('hidden');
-  renderSettingsScreen();
+  switchSettingsCategoryTab('appearance');
 }
 
 function setupSettingsScreenEvents() {
-  // Nested Sub-Menu Navigation (Apple iOS Menu Inside Menu)
+  // Category tabs navigation (Instant 1-tap switching)
   if (el.settingsViewScreen) {
+    el.settingsViewScreen.querySelectorAll('.settings-cat-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.dataset.tab;
+        if (targetTab) switchSettingsCategoryTab(targetTab);
+      });
+    });
+
     el.settingsViewScreen.querySelectorAll('.settings-nav-row').forEach(row => {
       row.addEventListener('click', () => {
         const subpage = row.dataset.subpage;
-        if (subpage) openSettingsSubpage(subpage);
+        if (subpage) switchSettingsCategoryTab(subpage);
       });
     });
   }

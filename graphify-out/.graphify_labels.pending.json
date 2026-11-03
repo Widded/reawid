@@ -1,4 +1,6 @@
 {
   "3": "PerformanceMonitor",
-  "6": "openBookInReader"
+  "6": "setupEventListeners",
+  "8": "readerFormatter.js",
+  "13": "renderReaderPage"
 }
