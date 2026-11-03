@@ -1211,6 +1211,16 @@ function applyReaderTheme(theme, save = true) {
     el.bookAiChatModal.classList.add(`theme-${theme}`);
   }
 
+  if (el.comparisonViewModal) {
+    el.comparisonViewModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
+    el.comparisonViewModal.classList.add(`theme-${theme}`);
+  }
+
+  if (el.addNoteModal) {
+    el.addNoteModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
+    el.addNoteModal.classList.add(`theme-${theme}`);
+  }
+
   // Update theme swatches UI
   document.querySelectorAll('#themeSwatchesRow .theme-swatch-item').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.theme === theme);

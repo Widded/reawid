@@ -24,9 +24,9 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793660711.5025434,
-    "seen": 1793660780.1364384,
-    "ast_hash": "57483f23f674d96e9c00e0d7bb5d16f1",
+    "mtime": 1793691315.914418,
+    "seen": 1793691376.2865946,
+    "ast_hash": "82ea178e8a35263c159781baee72772c",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
@@ -72,10 +72,10 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793651091.8081727,
-    "seen": 1793659305.0426514,
-    "ast_hash": "56782af1e2afdca1453c38e8ee3374cc",
-    "semantic_hash": "56782af1e2afdca1453c38e8ee3374cc"
+    "mtime": 1793691246.9619615,
+    "seen": 1793691376.2879574,
+    "ast_hash": "2fd114cf93cafa70a921a661f626f032",
+    "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
     "mtime": 1792964811.7320993,
@@ -150,9 +150,9 @@
     "semantic_hash": ""
   },
   "tests/test_tesseract_tur_suite.mjs": {
-    "mtime": 1793659783.2557442,
-    "seen": 1793659927.0412114,
-    "ast_hash": "d4c6f4d4091b1e5d9ac6dc2068d46225",
+    "mtime": 1793691253.7586138,
+    "seen": 1793691376.2896848,
+    "ast_hash": "3c026648182fc311c7042173a9da3e0c",
     "semantic_hash": ""
   },
   "vercel.json": {
@@ -168,9 +168,9 @@
     "semantic_hash": "07a60e8e0e0e7bd7067b04e6ed23e64c"
   },
   "index.html": {
-    "mtime": 1793660524.5667117,
-    "seen": 1793660780.1395602,
-    "ast_hash": "926f7cd80be85fa1cd8fbfeb295e7b6a",
+    "mtime": 1793691873.0519722,
+    "seen": 1793692024.9127831,
+    "ast_hash": "459cebf84cd6ca2fd1846e267aff7ce1",
     "semantic_hash": ""
   },
   "public/cover-1.jpg": {
@@ -216,15 +216,15 @@
     "semantic_hash": ""
   },
   "public/icon-192.png": {
-    "mtime": 1792968416.4709568,
-    "seen": 1793659927.0414958,
-    "ast_hash": "b61a2716a8d0191b919a101eeb31598c",
+    "mtime": 1793691873.8924837,
+    "seen": 1793692024.913669,
+    "ast_hash": "0c1142fc6c3687af79808dcd29aac869",
     "semantic_hash": ""
   },
   "public/icon-512.png": {
-    "mtime": 1792968416.471889,
-    "seen": 1793659927.0414968,
-    "ast_hash": "0660cff88b2d3ed8b1b469e5c9c66b64",
+    "mtime": 1793691873.8935359,
+    "seen": 1793692024.913671,
+    "ast_hash": "c177e386c95c326f822dfc6f3b2f3990",
     "semantic_hash": ""
   },
   "public/icon.jpg": {

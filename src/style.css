@@ -782,12 +782,26 @@ body.reader-open {
   color: #ffffff;
 }
 
+/* Text Selection Themes */
+.reader-screen.theme-koyu ::selection {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+.reader-screen.theme-acik ::selection {
+  background: rgba(0, 113, 227, 0.2);
+  color: #000000;
+}
+.reader-screen.theme-sepya ::selection {
+  background: rgba(140, 74, 30, 0.22);
+  color: #2e261a;
+}
+
+/* THEME: AÇIK (Apple Books White / Light Paper) */
 .reader-screen.theme-acik {
   background: #f7f7f9;
   color: #1a1a1c;
 }
 .reader-screen.theme-acik .reader-header,
-.reader-screen.theme-acik .reader-settings-panel,
 .reader-screen.theme-acik .reader-scrubber-bar {
   background: rgba(255, 255, 255, 0.96);
   color: #1a1a1c;
@@ -796,6 +810,23 @@ body.reader-open {
 .reader-screen.theme-acik .reader-article { color: #1c1c1e; }
 .reader-screen.theme-acik .reader-article-title { color: #000000; }
 .reader-screen.theme-acik .reader-header-icon-btn { color: #1c1c1e; }
+.reader-screen.theme-acik .reader-header-icon-btn:hover { background: rgba(0, 0, 0, 0.06); }
+.reader-screen.theme-acik .reader-header-icon-btn.active {
+  background: rgba(0, 0, 0, 0.1);
+  color: #000000;
+}
+.reader-screen.theme-acik .btn-compare-highlight {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #1c1c1e;
+}
+.reader-screen.theme-acik .btn-compare-highlight:hover {
+  background: rgba(0, 0, 0, 0.09);
+}
+.reader-screen.theme-acik .compare-btn-badge {
+  background: #000000;
+  color: #ffffff;
+}
 .reader-screen.theme-acik .reader-header-title { color: #000000; }
 .reader-screen.theme-acik .reader-header-author { color: #636366; }
 .reader-screen.theme-acik .reader-chapter-badge { color: #0071e3; }
@@ -803,6 +834,36 @@ body.reader-open {
 .reader-screen.theme-acik .page-nav-arrow { color: #1c1c1e; }
 .reader-screen.theme-acik .page-nav-arrow:hover { color: #0071e3; }
 .reader-screen.theme-acik .reader-page-slider { background: rgba(0, 0, 0, 0.14); }
+.reader-screen.theme-acik .reader-page-slider::-webkit-slider-thumb {
+  background: #000000;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.reader-screen.theme-acik .scrubber-btn-settings {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #000000;
+}
+.reader-screen.theme-acik .scrubber-btn-settings.active {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+}
+.reader-screen.theme-acik .scrubber-btn-settings.active .settings-btn-hint {
+  color: rgba(255, 255, 255, 0.75);
+}
+.reader-screen.theme-acik .scrubber-btn-settings:not(.active) .settings-btn-hint {
+  color: #636366;
+}
+.reader-screen.theme-acik .reader-page-analyzing-card {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.reader-screen.theme-acik .reader-page-analyzing-card h4 {
+  color: #000000;
+}
+.reader-screen.theme-acik .reader-page-analyzing-card p {
+  color: #636366;
+}
 .reader-screen.theme-acik .reader-search-wrap {
   background: rgba(255, 255, 255, 0.98);
   border-color: rgba(0, 0, 0, 0.08);
@@ -816,6 +877,7 @@ body.reader-open {
   border-color: #0071e3;
 }
 .reader-screen.theme-acik .reader-search-input { color: #1c1c1e; }
+.reader-screen.theme-acik .reader-search-input::placeholder { color: #8e8e93; }
 .reader-screen.theme-acik .reader-search-box-icon { color: #8e8e93; }
 .reader-screen.theme-acik .reader-search-count {
   background: rgba(0, 0, 0, 0.08);
@@ -831,6 +893,7 @@ body.reader-open {
 .reader-screen.theme-acik .popover-quick-tile {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.08);
+  color: #1c1c1e;
 }
 .reader-screen.theme-acik .popover-quick-tile:hover,
 .reader-screen.theme-acik .popover-quick-tile:active {
@@ -839,13 +902,59 @@ body.reader-open {
 .reader-screen.theme-acik .quick-tile-label { color: #1c1c1e; }
 .reader-screen.theme-acik .quick-tile-icon svg { color: #007aff; }
 .reader-screen.theme-acik .popover-section-divider { background: rgba(0, 0, 0, 0.07); }
-.reader-screen.theme-acik .popover-section-header { color: rgba(0, 0, 0, 0.45); }
+.reader-screen.theme-acik .popover-section-header { color: #636366; font-weight: 600; }
 .reader-screen.theme-acik .popover-item { color: #1c1c1e; }
 .reader-screen.theme-acik .popover-item:hover,
 .reader-screen.theme-acik .popover-item:active { background: rgba(0, 0, 0, 0.06); }
 .reader-screen.theme-acik .popover-item-icon svg { color: #636366; }
 .reader-screen.theme-acik .popover-item:hover .popover-item-icon svg { color: #000000; }
 
+/* Açık Tema - Okuyucu Ayarlar Çekmecesi (Tam Kontrast Desteği) */
+.reader-screen.theme-acik .reader-settings-panel {
+  background: #ffffff;
+  color: #000000;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+}
+.reader-screen.theme-acik .sheet-handle-pill { background: rgba(0, 0, 0, 0.2); }
+.reader-screen.theme-acik .sheet-panel-title { color: #000000; font-weight: 700; }
+.reader-screen.theme-acik .sheet-panel-close-btn { background: rgba(0, 0, 0, 0.06); color: #000000; }
+.reader-screen.theme-acik .sheet-panel-close-btn:hover { background: rgba(0, 0, 0, 0.12); }
+.reader-screen.theme-acik .settings-label { color: #48484a; font-weight: 600; }
+.reader-screen.theme-acik .stepped-segmented-pill {
+  background: #f2f2f7;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.reader-screen.theme-acik .btn-step {
+  color: #636366;
+}
+.reader-screen.theme-acik .btn-step:hover:not(.active) {
+  color: #000000;
+  background: rgba(0, 0, 0, 0.04);
+}
+.reader-screen.theme-acik .btn-step.active {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.reader-screen.theme-acik .font-picker-pill {
+  background: #f2f2f7;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #000000;
+}
+.reader-screen.theme-acik .font-picker-pill svg { color: #636366; }
+.reader-screen.theme-acik .font-picker-pill:hover { background: #e5e5ea; }
+.reader-screen.theme-acik .settings-divider { background: rgba(0, 0, 0, 0.08); }
+.reader-screen.theme-acik .theme-swatch-item .swatch-name { color: #636366; }
+.reader-screen.theme-acik .theme-swatch-item.active .swatch-name { color: #000000; font-weight: 700; }
+.reader-screen.theme-acik .theme-swatch-item.active .swatch-circle { outline: 2px solid #000000; outline-offset: 2px; }
+.reader-screen.theme-acik .settings-toggle-row .toggle-text { color: #000000; font-weight: 500; }
+.reader-screen.theme-acik .settings-toggle-row .moon-icon { color: #636366; }
+.reader-screen.theme-acik .switch-slider { background-color: #e5e5ea; }
+.reader-screen.theme-acik .ios-switch input:checked + .switch-slider { background-color: #0071e3; }
+
+/* THEME: SEPYA (Warm Book Paper & Amber Accents) */
 .reader-screen.theme-sepya {
   background: #f5eedb;
   color: #2e261a;
@@ -856,19 +965,26 @@ body.reader-open {
   color: #2e261a;
   border-color: rgba(60, 40, 20, 0.12);
 }
-.reader-screen.theme-sepya .reader-settings-panel {
-  background: #eee4ce;
-  color: #2e261a;
-  border-color: rgba(60, 40, 20, 0.15);
-  box-shadow: 0 -10px 40px rgba(60, 40, 20, 0.25);
-}
-.reader-screen.theme-sepya .sheet-handle-pill { background: rgba(60, 40, 20, 0.3); }
-.reader-screen.theme-sepya .sheet-panel-title { color: #2e261a; }
-.reader-screen.theme-sepya .sheet-panel-close-btn { background: rgba(60, 40, 20, 0.08); color: #2e261a; }
-.reader-screen.theme-sepya .scrubber-btn-settings { background: rgba(60, 40, 20, 0.08); border-color: rgba(60, 40, 20, 0.15); color: #2e261a; }
 .reader-screen.theme-sepya .reader-article { color: #2e261a; }
 .reader-screen.theme-sepya .reader-article-title { color: #1f180e; }
 .reader-screen.theme-sepya .reader-header-icon-btn { color: #2e261a; }
+.reader-screen.theme-sepya .reader-header-icon-btn:hover { background: rgba(60, 40, 20, 0.08); }
+.reader-screen.theme-sepya .reader-header-icon-btn.active {
+  background: rgba(60, 40, 20, 0.14);
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .btn-compare-highlight {
+  background: rgba(60, 40, 20, 0.07);
+  border: 1px solid rgba(60, 40, 20, 0.16);
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .btn-compare-highlight:hover {
+  background: rgba(60, 40, 20, 0.12);
+}
+.reader-screen.theme-sepya .compare-btn-badge {
+  background: #2e261a;
+  color: #f5eedb;
+}
 .reader-screen.theme-sepya .reader-header-title { color: #1f180e; }
 .reader-screen.theme-sepya .reader-header-author { color: #7d6951; }
 .reader-screen.theme-sepya .reader-chapter-badge { color: #8c4a1e; }
@@ -876,6 +992,36 @@ body.reader-open {
 .reader-screen.theme-sepya .page-nav-arrow { color: #2e261a; }
 .reader-screen.theme-sepya .page-nav-arrow:hover { color: #8c4a1e; }
 .reader-screen.theme-sepya .reader-page-slider { background: rgba(60, 40, 20, 0.2); }
+.reader-screen.theme-sepya .reader-page-slider::-webkit-slider-thumb {
+  background: #2e261a;
+  box-shadow: 0 1px 4px rgba(60, 40, 20, 0.3);
+}
+.reader-screen.theme-sepya .scrubber-btn-settings {
+  background: rgba(60, 40, 20, 0.08);
+  border-color: rgba(60, 40, 20, 0.15);
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .scrubber-btn-settings.active {
+  background: #2e261a;
+  color: #f5eedb;
+  border-color: #2e261a;
+}
+.reader-screen.theme-sepya .scrubber-btn-settings.active .settings-btn-hint {
+  color: rgba(245, 238, 219, 0.8);
+}
+.reader-screen.theme-sepya .scrubber-btn-settings:not(.active) .settings-btn-hint {
+  color: #7d6951;
+}
+.reader-screen.theme-sepya .reader-page-analyzing-card {
+  background: rgba(60, 40, 20, 0.04);
+  border-color: rgba(60, 40, 20, 0.18);
+}
+.reader-screen.theme-sepya .reader-page-analyzing-card h4 {
+  color: #1f180e;
+}
+.reader-screen.theme-sepya .reader-page-analyzing-card p {
+  color: #7d6951;
+}
 .reader-screen.theme-sepya .reader-search-wrap {
   background: rgba(243, 233, 214, 0.98);
   border-color: rgba(60, 40, 20, 0.12);
@@ -889,6 +1035,7 @@ body.reader-open {
   border-color: #8c4a1e;
 }
 .reader-screen.theme-sepya .reader-search-input { color: #2e261a; }
+.reader-screen.theme-sepya .reader-search-input::placeholder { color: #7d6951; }
 .reader-screen.theme-sepya .reader-search-box-icon { color: #7d6951; }
 .reader-screen.theme-sepya .reader-search-count {
   background: rgba(60, 40, 20, 0.1);
@@ -896,6 +1043,7 @@ body.reader-open {
 }
 .reader-screen.theme-sepya .reader-search-nav-btn { color: #4a3420; }
 .reader-screen.theme-sepya .reader-search-nav-btn:hover { background: rgba(60, 40, 20, 0.1); color: #1f180e; }
+.reader-screen.theme-sepya .btn-close-search { color: #8c4a1e; }
 .reader-screen.theme-sepya .reader-context-popover {
   background: rgba(244, 236, 219, 0.96);
   border-color: rgba(60, 40, 20, 0.16);
@@ -911,25 +1059,59 @@ body.reader-open {
   background: rgba(60, 40, 20, 0.1);
 }
 .reader-screen.theme-sepya .quick-tile-label { color: #2e261a; }
-.reader-screen.theme-sepya .quick-tile-icon svg { color: #9c6c38; }
+.reader-screen.theme-sepya .quick-tile-icon svg { color: #8c4a1e; }
 .reader-screen.theme-sepya .popover-section-divider { background: rgba(60, 40, 20, 0.1); }
-.reader-screen.theme-sepya .popover-section-header { color: rgba(60, 40, 20, 0.5); }
+.reader-screen.theme-sepya .popover-section-header { color: #7d6951; font-weight: 600; }
 .reader-screen.theme-sepya .popover-item { color: #2e261a; }
 .reader-screen.theme-sepya .popover-item:hover,
 .reader-screen.theme-sepya .popover-item:active { background: rgba(60, 40, 20, 0.08); }
 .reader-screen.theme-sepya .popover-item-icon svg { color: #7d6951; }
 .reader-screen.theme-sepya .popover-item:hover .popover-item-icon svg { color: #2e261a; }
 
-.reader-screen.theme-acik .reader-settings-panel {
-  background: #ffffff;
-  color: #000000;
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+/* Sepya Tema - Okuyucu Ayarlar Çekmecesi (Tam Kontrast Desteği) */
+.reader-screen.theme-sepya .reader-settings-panel {
+  background: #eee4ce;
+  color: #2e261a;
+  border-color: rgba(60, 40, 20, 0.15);
+  box-shadow: 0 -10px 40px rgba(60, 40, 20, 0.25);
 }
-.reader-screen.theme-acik .sheet-handle-pill { background: rgba(0, 0, 0, 0.2); }
-.reader-screen.theme-acik .sheet-panel-title { color: #000000; }
-.reader-screen.theme-acik .sheet-panel-close-btn { background: rgba(0, 0, 0, 0.06); color: #000000; }
-.reader-screen.theme-acik .scrubber-btn-settings { background: rgba(0, 0, 0, 0.06); border-color: rgba(0, 0, 0, 0.1); color: #000000; }
+.reader-screen.theme-sepya .sheet-handle-pill { background: rgba(60, 40, 20, 0.3); }
+.reader-screen.theme-sepya .sheet-panel-title { color: #2e261a; font-weight: 700; }
+.reader-screen.theme-sepya .sheet-panel-close-btn { background: rgba(60, 40, 20, 0.08); color: #2e261a; }
+.reader-screen.theme-sepya .sheet-panel-close-btn:hover { background: rgba(60, 40, 20, 0.16); }
+.reader-screen.theme-sepya .settings-label { color: #634b35; font-weight: 600; }
+.reader-screen.theme-sepya .stepped-segmented-pill {
+  background: #e4d8be;
+  border: 1px solid rgba(60, 40, 20, 0.15);
+}
+.reader-screen.theme-sepya .btn-step {
+  color: #7d6951;
+}
+.reader-screen.theme-sepya .btn-step:hover:not(.active) {
+  color: #2e261a;
+  background: rgba(60, 40, 20, 0.06);
+}
+.reader-screen.theme-sepya .btn-step.active {
+  background: #fbf0d9;
+  color: #2e261a;
+  border: 1px solid rgba(60, 40, 20, 0.2);
+  box-shadow: 0 1px 4px rgba(60, 40, 20, 0.12);
+}
+.reader-screen.theme-sepya .font-picker-pill {
+  background: #e4d8be;
+  border: 1px solid rgba(60, 40, 20, 0.15);
+  color: #2e261a;
+}
+.reader-screen.theme-sepya .font-picker-pill svg { color: #7d6951; }
+.reader-screen.theme-sepya .font-picker-pill:hover { background: #dcceb1; }
+.reader-screen.theme-sepya .settings-divider { background: rgba(60, 40, 20, 0.12); }
+.reader-screen.theme-sepya .theme-swatch-item .swatch-name { color: #7d6951; }
+.reader-screen.theme-sepya .theme-swatch-item.active .swatch-name { color: #2e261a; font-weight: 700; }
+.reader-screen.theme-sepya .theme-swatch-item.active .swatch-circle { outline: 2px solid #2e261a; outline-offset: 2px; }
+.reader-screen.theme-sepya .settings-toggle-row .toggle-text { color: #2e261a; font-weight: 500; }
+.reader-screen.theme-sepya .settings-toggle-row .moon-icon { color: #7d6951; }
+.reader-screen.theme-sepya .switch-slider { background-color: #dcd0b8; }
+.reader-screen.theme-sepya .ios-switch input:checked + .switch-slider { background-color: #8c4a1e; }
 
 /* Reader Header */
 .reader-header {
@@ -1905,11 +2087,11 @@ mark.search-highlight.active-match {
 /* Açık (Light) Tema */
 .theme-acik .reader-paragraphs .reader-dialogue,
 .theme-acik .reader-quote-speech {
-  border-left-color: #0071e3;
-  background: rgba(0, 113, 227, 0.035);
+  border-left-color: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.025);
 }
 .theme-acik .dialogue-dash {
-  color: #0071e3;
+  color: #1c1c1e;
 }
 .theme-acik .reader-inline-quote {
   color: #1d1d1f;
@@ -6482,6 +6664,95 @@ input:checked + .switch-slider:before {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Note Modal Theme Adaptations */
+#addNoteModal.theme-acik .add-note-drawer-panel {
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  color: #000000;
+}
+#addNoteModal.theme-acik .drawer-title { color: #000000; }
+#addNoteModal.theme-acik .drawer-close-btn { background: rgba(0, 0, 0, 0.06); color: #000000; }
+#addNoteModal.theme-acik .drawer-close-btn:hover { background: rgba(0, 0, 0, 0.12); }
+#addNoteModal.theme-acik .note-quote-preview {
+  background: #f2f2f7;
+  border-left-color: #000000;
+}
+#addNoteModal.theme-acik .note-quote-preview-content { color: #1c1c1e; }
+#addNoteModal.theme-acik .note-quote-preview-label { color: #636366; }
+#addNoteModal.theme-acik .note-type-chip {
+  background: #f2f2f7;
+  color: #636366;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+#addNoteModal.theme-acik .note-type-chip.active {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+}
+#addNoteModal.theme-acik .note-modal-textarea {
+  background: #f2f2f7;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #000000;
+}
+#addNoteModal.theme-acik .note-modal-textarea:focus {
+  border-color: rgba(0, 0, 0, 0.3);
+  background: #ffffff;
+}
+#addNoteModal.theme-acik .add-note-drawer-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+#addNoteModal.theme-acik .btn-sheet-secondary {
+  background: #f2f2f7;
+  color: #000000;
+}
+#addNoteModal.theme-acik .btn-sheet-secondary:hover {
+  background: #e5e5ea;
+}
+
+#addNoteModal.theme-sepya .add-note-drawer-panel {
+  background: #fbf0d9;
+  border-top: 1px solid rgba(60, 40, 20, 0.15);
+  color: #2e261a;
+}
+#addNoteModal.theme-sepya .drawer-title { color: #2e261a; }
+#addNoteModal.theme-sepya .drawer-close-btn { background: rgba(60, 40, 20, 0.08); color: #2e261a; }
+#addNoteModal.theme-sepya .drawer-close-btn:hover { background: rgba(60, 40, 20, 0.15); }
+#addNoteModal.theme-sepya .note-quote-preview {
+  background: #eee4ce;
+  border-left-color: #8c4a1e;
+}
+#addNoteModal.theme-sepya .note-quote-preview-content { color: #2e261a; }
+#addNoteModal.theme-sepya .note-quote-preview-label { color: #7d6951; }
+#addNoteModal.theme-sepya .note-type-chip {
+  background: #eee4ce;
+  color: #7d6951;
+  border-color: rgba(60, 40, 20, 0.15);
+}
+#addNoteModal.theme-sepya .note-type-chip.active {
+  background: #2e261a;
+  color: #fbf0d9;
+  border-color: #2e261a;
+}
+#addNoteModal.theme-sepya .note-modal-textarea {
+  background: #eee4ce;
+  border-color: rgba(60, 40, 20, 0.18);
+  color: #2e261a;
+}
+#addNoteModal.theme-sepya .note-modal-textarea:focus {
+  border-color: rgba(60, 40, 20, 0.4);
+  background: #f5eedb;
+}
+#addNoteModal.theme-sepya .add-note-drawer-footer {
+  border-top-color: rgba(60, 40, 20, 0.12);
+}
+#addNoteModal.theme-sepya .btn-sheet-secondary {
+  background: #eee4ce;
+  color: #2e261a;
+}
+#addNoteModal.theme-sepya .btn-sheet-secondary:hover {
+  background: #e4d8be;
+}
+
 /* ==========================================================================
    SUPABASE CLOUD SYNC & ACCOUNT STYLES
    ========================================================================== */
@@ -7318,6 +7589,13 @@ html.keyboard-open #accountModal .auth-notice-text,
 .comparison-screen.theme-acik .compare-page-num {
   color: #1c1c1e;
 }
+.comparison-screen.theme-acik .comparison-split-handle {
+  background: #e5e5ea;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+.comparison-screen.theme-acik .handle-pill {
+  background: rgba(0, 0, 0, 0.35);
+}
 .comparison-screen.theme-acik .compare-page-slider {
   background: rgba(0, 0, 0, 0.15);
 }
@@ -7404,6 +7682,13 @@ html.keyboard-open #accountModal .auth-notice-text,
 }
 .comparison-screen.theme-sepya .compare-page-num {
   color: #2e261a;
+}
+.comparison-screen.theme-sepya .comparison-split-handle {
+  background: #ded0b5;
+  border-color: rgba(60, 40, 20, 0.15);
+}
+.comparison-screen.theme-sepya .handle-pill {
+  background: rgba(60, 40, 20, 0.4);
 }
 .comparison-screen.theme-sepya .compare-page-slider {
   background: rgba(60, 40, 20, 0.2);
