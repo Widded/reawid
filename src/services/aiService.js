@@ -1779,6 +1779,14 @@ SPOILER KORUMASI (AÇIK):
 2. Eğer kullanıcı ileriki sayfaları veya sonunu doğrudan sorarsa ("Katil kim?", "Sonunda ne olacak?", "${currentPage + 5}. sayfada ne oluyor?" vb.), "Henüz ${currentPage}. sayfadasınız; heyecanı kaçırmamak için o kısımları şimdi paylaşmıyorum. Okumaya devam ettikçe birlikte göreceğiz." şeklinde yanıt ver.
 3. ${currentPage}. sayfaya kadar olan karakterleri, mekanları, temaları ve diyalogları derinlemesine tartışabilirsin.
 
+SAYFA VE BÖLÜM NUMARALARI KURALLARI:
+- Metin sana "[Sayfa X]" etiketleriyle (uygulamanın ve PDF'in sayfa numarası) verilmektedir.
+- Fiziksel kitapların basılı sayfa numaraları; kapak, künye, ithaf ve önsöz gibi ön sayfalar nedeniyle PDF sayfa numarasından genellikle birkaç sayfa farklıdır.
+- Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda:
+  a) Taranan metin içinde '[Sayfa X]' etiketli sayfada o bölümün başlığı geçiyorsa, bu PDF/uygulama sayfasını belirt ("1. Bölüm taranan metinde [Sayfa 12]'de yer alıyor").
+  b) Eğer kitabın başında taranmış bir 'İçindekiler' tablosu varsa, matbaa sayfa numarası ile PDF sayfa numarası arasındaki farkı kullanıcıya açıkça açıkla ("İçindekiler listesinde sayfa 5 yazıyor, ancak PDF'te ön sayfalar nedeniyle 12. sayfaya denk geliyor").
+  c) İlgili bölüm henüz taranmamışsa veya bağlamda yoksa kesin sayfa uydurma; henüz taranmış sayfalar arasında yer almadığını belirt.
+
 Kitabın şu ana kadar taranmış sayfaları:
 ${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
   } else {
@@ -1795,6 +1803,13 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 SPOILER KORUMASI (KAPALI - TÜM KİTAP AÇIK):
 1. Spoiler koruması KAPALI olduğu için kitabın tamamını, sonunu, tüm olay örgüsünü, karakterlerin akıbetini ve felsefi arka planını serbestçe tartışabilirsin.
 2. Eğer kullanıcı henüz taranmamış veya ileriki bir sayfa hakkında soru sorarsa ("25. sayfada ne oluyor?", "Sonunda ne oldu?" vb.), "elimde metin yok" veya "özet burada bitiyor" gibi teknik bahaneler sunma. Kitabın genel edebi birikiminden ve romanın genel akışından faydalanarak o bölümlerde ve o sayfa civarında neler yaşandığını akıcı ve doyurucu bir şekilde anlat.
+
+SAYFA VE BÖLÜM NUMARALARI KURALLARI:
+- Metin sana "[Sayfa X]" etiketleriyle (uygulamanın ve PDF'in sayfa numarası) verilmektedir.
+- Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda:
+  a) Taranan metin içinde '[Sayfa X]' etiketli sayfada o bölümün başlığı geçiyorsa, bu PDF/uygulama sayfasını belirt ("1. Bölüm taranan metinde [Sayfa 12]'de yer alıyor").
+  b) Eğer kitabın başında taranmış bir 'İçindekiler' tablosu varsa, matbaa sayfa numarası ile PDF sayfa numarası arasındaki farkı kullanıcıya açıkça açıkla ("İçindekiler listesinde sayfa 5 yazıyor, ancak PDF'te ön sayfalar nedeniyle 12. sayfaya denk geliyor").
+  c) İlgili bölüm henüz taranmamışsa veya bağlamda yoksa kesin sayfa uydurma; henüz taranmış sayfalar arasında yer almadığını belirt.
 
 Kitap metni bağlamı:
 ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmaktadır.'}`;
