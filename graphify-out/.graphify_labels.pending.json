@@ -5,9 +5,17 @@
   "6": "tesseractService.js",
   "7": "package.json",
   "8": "readerFormatter.js",
-  "10": "test_post_ocr_performance_suite.mjs",
-  "11": "startPdfBatchOcr",
+  "10": "init",
+  "11": "startOcrProcess",
+  "12": "setupEventListeners",
   "13": "storageService.js",
-  "14": "performOcr",
-  "21": "startBackgroundPdfAnalysis"
+  "14": "test_audit_verification.mjs",
+  "16": "openBookInReader",
+  "17": "showToast",
+  "18": "renderReaderPage",
+  "19": "goToSearchMatch",
+  "21": "handleSendBookChatMessage",
+  "25": "renderNotesScreen",
+  "27": "normalizeHyphensAndText",
+  "33": "isModelStrictlyFree"
 }

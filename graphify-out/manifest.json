@@ -24,9 +24,9 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793728941.1863406,
-    "seen": 1793729377.621953,
-    "ast_hash": "2691a6c3ed6a13bbb28a1e890ad9b925",
+    "mtime": 1793733722.3239079,
+    "seen": 1793734224.556685,
+    "ast_hash": "1090b9d3a8224e7200a838d90ff2a59d",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
@@ -72,9 +72,9 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793729255.5430636,
-    "seen": 1793729377.625193,
-    "ast_hash": "70b3865f95d4ece3f4573ec51cc1a4c8",
+    "mtime": 1793733640.8346374,
+    "seen": 1793734224.557577,
+    "ast_hash": "72069c218c56ab225db66fe7b9749a1e",
     "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
@@ -216,14 +216,14 @@
     "semantic_hash": ""
   },
   "public/icon-192.png": {
-    "mtime": 1793729258.2167633,
-    "seen": 1793729377.6352944,
+    "mtime": 1793734079.18667,
+    "seen": 1793734224.561527,
     "ast_hash": "c26c9ba5137a8e031f137197ec426fe6",
     "semantic_hash": ""
   },
   "public/icon-512.png": {
-    "mtime": 1793729258.2187777,
-    "seen": 1793729377.6353025,
+    "mtime": 1793734079.1876996,
+    "seen": 1793734224.5615292,
     "ast_hash": "0aacb77a4b043b450be987bdf0d7bee7",
     "semantic_hash": ""
   },
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "src/services/bookMemoryService.js": {
-    "mtime": 1793728565.574686,
-    "seen": 1793729377.6223986,
-    "ast_hash": "a7460f665977ea589de874e44d1bc8d6",
+    "mtime": 1793734076.836457,
+    "seen": 1793734224.556816,
+    "ast_hash": "24afcb8ada6e556869d3cfb90271b3a9",
     "semantic_hash": ""
   },
   "tests/test_book_memory_suite.mjs": {
@@ -309,6 +309,18 @@
     "mtime": 1793729275.9869688,
     "seen": 1793729377.6288972,
     "ast_hash": "cd9b02404b728649a9b3d873eb53bd83",
+    "semantic_hash": ""
+  },
+  "tests/test_on_demand_rag_renewal_suite.mjs": {
+    "mtime": 1793731707.427127,
+    "seen": 1793731771.5069902,
+    "ast_hash": "c4e23a492760d766611de9be62c448b2",
+    "semantic_hash": ""
+  },
+  "tests/test_ocr_hydration_and_persistence_suite.mjs": {
+    "mtime": 1793733998.7168658,
+    "seen": 1793734224.5587974,
+    "ast_hash": "63c6c934d74ba4b30ccc2b9652ec8ced",
     "semantic_hash": ""
   },
   "package-lock.json": {

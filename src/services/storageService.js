@@ -514,43 +514,113 @@ export function clearNotes() {
    ========================================================================== */
 export const INITIAL_BOOKS = []; // Zero mock data
 
+// Debounced localStorage persist to avoid blocking Main Thread during fast OCR or page-turning
+let pendingBooksSaveTimer = null;
+let latestBooksToSave = null;
+
+function cloneBooks(books) {
+  if (!Array.isArray(books)) return [];
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(books);
+    } catch (_) {}
+  }
+  return JSON.parse(JSON.stringify(books));
+}
+
+function mergeBooksState(baseBooks, pendingBooks) {
+  if (!Array.isArray(pendingBooks) || pendingBooks.length === 0) {
+    return Array.isArray(baseBooks) ? baseBooks : [];
+  }
+  if (!Array.isArray(baseBooks) || baseBooks.length === 0) {
+    return pendingBooks;
+  }
+
+  const map = new Map();
+  for (const b of baseBooks) {
+    if (b && b.id) map.set(String(b.id), { ...b });
+  }
+
+  for (const pb of pendingBooks) {
+    if (!pb || !pb.id) continue;
+    const id = String(pb.id);
+    const eb = map.get(id);
+    if (!eb) {
+      map.set(id, { ...pb });
+      continue;
+    }
+
+    // Merge pageParagraphs: never let empty/fewer paragraphs overwrite valid paragraphs
+    const mergedParagraphs = { ...(eb.pageParagraphs || {}) };
+    if (pb.pageParagraphs && typeof pb.pageParagraphs === 'object') {
+      for (const [pStr, paras] of Object.entries(pb.pageParagraphs)) {
+        const hasPbParas = Array.isArray(paras) && paras.some(p => typeof p === 'string' && p.trim().length > 0);
+        const hasEbParas = Array.isArray(mergedParagraphs[pStr]) && mergedParagraphs[pStr].some(p => typeof p === 'string' && p.trim().length > 0);
+        if (hasPbParas || !hasEbParas) {
+          mergedParagraphs[pStr] = paras;
+        }
+      }
+    }
+
+    // Merge pageRawTexts
+    const mergedRaw = { ...(eb.pageRawTexts || {}), ...(pb.pageRawTexts || {}) };
+
+    map.set(id, {
+      ...eb,
+      ...pb,
+      pageParagraphs: mergedParagraphs,
+      pageRawTexts: mergedRaw,
+      progress: pb.progress !== undefined ? pb.progress : eb.progress,
+      currentPage: pb.currentPage || eb.currentPage
+    });
+  }
+
+  return Array.from(map.values());
+}
+
 export function getBooks() {
   try {
+    let cleanBooks = [];
     const raw = localStorage.getItem(BOOKS_KEY);
-    if (!raw) return [];
-    const books = JSON.parse(raw);
-    if (!Array.isArray(books)) return [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          cleanBooks = parsed
+            .filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title));
+        }
+      } catch (_) {}
+    }
+
     let cacheUpdated = false;
-    const cleanBooks = books
-      .filter(b => b && b.id && !MOCK_BOOK_IDS.has(b.id) && !MOCK_TITLES.has(b.title))
-      .map(b => {
-        // Auto-heal legacy cached page paragraphs: fix spaced letters, restore hyphens, and heal Turkish OCR artifacts
-        if (b.pageParagraphs && typeof b.pageParagraphs === 'object') {
-          let bookModified = false;
-          const healedPages = {};
-          for (const [pNum, paras] of Object.entries(b.pageParagraphs)) {
-            if (Array.isArray(paras)) {
-              const cleanedList = paras.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p) : p));
-              const merged = mergeAccidentalParagraphSplits(cleanedList);
-              healedPages[pNum] = merged;
-              bookModified = true;
-            } else if (typeof paras === 'string') {
-              const cleaned = normalizeHyphensAndText(paras);
-              const split = cleaned.split(/\r?\n\n+/);
-              const merged = mergeAccidentalParagraphSplits(split);
-              healedPages[pNum] = merged;
-              bookModified = true;
-            } else {
-              healedPages[pNum] = paras;
-            }
-          }
-          if (bookModified) {
-            b.pageParagraphs = healedPages;
-            cacheUpdated = true;
+    cleanBooks = cleanBooks.map(b => {
+      // Auto-heal legacy cached page paragraphs: fix spaced letters, restore hyphens, and heal Turkish OCR artifacts
+      if (b.pageParagraphs && typeof b.pageParagraphs === 'object') {
+        let bookModified = false;
+        const healedPages = {};
+        for (const [pNum, paras] of Object.entries(b.pageParagraphs)) {
+          if (Array.isArray(paras)) {
+            const cleanedList = paras.map(p => (typeof p === 'string' ? normalizeHyphensAndText(p) : p));
+            const merged = mergeAccidentalParagraphSplits(cleanedList);
+            healedPages[pNum] = merged;
+            bookModified = true;
+          } else if (typeof paras === 'string') {
+            const cleaned = normalizeHyphensAndText(paras);
+            const split = cleaned.split(/\r?\n\n+/);
+            const merged = mergeAccidentalParagraphSplits(split);
+            healedPages[pNum] = merged;
+            bookModified = true;
+          } else {
+            healedPages[pNum] = paras;
           }
         }
-        return b;
-      });
+        if (bookModified) {
+          b.pageParagraphs = healedPages;
+          cacheUpdated = true;
+        }
+      }
+      return b;
+    });
 
     if (cacheUpdated) {
       try {
@@ -558,7 +628,13 @@ export function getBooks() {
       } catch (_) {}
     }
 
-    return cleanBooks;
+    // Bekleyen güncel verileri (latestBooksToSave) localStorage verisiyle birleştir
+    if (Array.isArray(latestBooksToSave) && latestBooksToSave.length > 0) {
+      cleanBooks = mergeBooksState(cleanBooks, latestBooksToSave);
+    }
+
+    // Döndürülen verinin yanlışlıkla başka fonksiyonlar tarafından mutasyona uğratılmasını önlemek için klonla
+    return cloneBooks(cleanBooks);
   } catch (err) {
     console.error('Kitaplar okunurken hata:', err);
     return [];
@@ -567,6 +643,7 @@ export function getBooks() {
 
 export function saveBook(book) {
   try {
+    flushPendingStorageWrites();
     const books = getBooks();
     const existingIndex = books.findIndex(b => b.id === book.id);
     let updatedBook;
@@ -608,6 +685,7 @@ export function getCurrentBook() {
 export function setCurrentBook(bookId) {
   try {
     localStorage.setItem(CURRENT_BOOK_KEY, bookId);
+    flushPendingStorageWrites();
     const books = getBooks();
     const updated = books.map(b => ({
       ...b,
@@ -665,20 +743,26 @@ export async function flushPendingCloudSyncs() {
   await Promise.all(promises);
 }
 
-// Debounced localStorage persist to avoid blocking Main Thread during fast OCR or page-turning
-let pendingBooksSaveTimer = null;
-let latestBooksToSave = null;
-
 export function debouncedSaveBooks(books, delayMs = 500) {
-  latestBooksToSave = books;
+  if (!Array.isArray(books)) return;
+
+  // Merge with existing pending writes to prevent different books or rapid updates from overwriting each other
+  if (Array.isArray(latestBooksToSave) && latestBooksToSave.length > 0) {
+    latestBooksToSave = mergeBooksState(latestBooksToSave, books);
+  } else {
+    latestBooksToSave = cloneBooks(books);
+  }
+
   if (pendingBooksSaveTimer) return;
   pendingBooksSaveTimer = setTimeout(() => {
     pendingBooksSaveTimer = null;
-    if (latestBooksToSave) {
+    if (Array.isArray(latestBooksToSave) && latestBooksToSave.length > 0) {
       try {
         localStorage.setItem(BOOKS_KEY, JSON.stringify(latestBooksToSave));
       } catch (err) {
         console.warn('localStorage save warning:', err);
+      } finally {
+        latestBooksToSave = null;
       }
     }
   }, delayMs);
@@ -689,7 +773,7 @@ export function flushPendingStorageWrites() {
     clearTimeout(pendingBooksSaveTimer);
     pendingBooksSaveTimer = null;
   }
-  if (latestBooksToSave) {
+  if (Array.isArray(latestBooksToSave) && latestBooksToSave.length > 0) {
     try {
       localStorage.setItem(BOOKS_KEY, JSON.stringify(latestBooksToSave));
     } catch (err) {

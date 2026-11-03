@@ -601,9 +601,9 @@ export function getMissingOrFailedPages(memoryOrBook, explicitTotalPages = null)
   let target = memoryOrBook;
   if (typeof memoryOrBook === 'string') {
     target = l1MemoryCache.get(memoryOrBook) || null;
-  } else if (memoryOrBook?.id && !memoryOrBook.scannedPages && l1MemoryCache.has(memoryOrBook.id)) {
+  } else if (memoryOrBook?.id && l1MemoryCache.has(memoryOrBook.id)) {
     target = l1MemoryCache.get(memoryOrBook.id);
-  } else if (memoryOrBook?.bookId && !memoryOrBook.scannedPages && l1MemoryCache.has(memoryOrBook.bookId)) {
+  } else if (memoryOrBook?.bookId && l1MemoryCache.has(memoryOrBook.bookId)) {
     target = l1MemoryCache.get(memoryOrBook.bookId);
   }
 
@@ -612,7 +612,16 @@ export function getMissingOrFailedPages(memoryOrBook, explicitTotalPages = null)
   const missingPages = [];
   const failedPages = [];
 
-  const pagesMap = target?.scannedPages || memoryOrBook?.scannedPages || {};
+  const pagesMap = (target?.scannedPages && typeof target.scannedPages === 'object' && !Array.isArray(target.scannedPages))
+    ? target.scannedPages
+    : (memoryOrBook?.scannedPages && typeof memoryOrBook.scannedPages === 'object' && !Array.isArray(memoryOrBook.scannedPages)
+        ? memoryOrBook.scannedPages
+        : {});
+
+  const arrayScannedSet = Array.isArray(memoryOrBook?.scannedPages)
+    ? new Set(memoryOrBook.scannedPages.map(Number))
+    : (Array.isArray(target?.scannedPages) ? new Set(target.scannedPages.map(Number)) : null);
+
   const paragraphsMap = target?.pageParagraphs || memoryOrBook?.pageParagraphs || {};
   const failedAttempts = target?.failedAttempts || memoryOrBook?.failedAttempts || {};
 
@@ -621,9 +630,11 @@ export function getMissingOrFailedPages(memoryOrBook, explicitTotalPages = null)
     const paras = (pageRec && pageRec.paragraphs) || paragraphsMap[p];
 
     const hasValidParagraphs = Array.isArray(paras) && paras.length > 0 && paras.some(t => String(t || '').trim().length > 0);
-    const isCompleted = pageRec ? pageRec.ocrStatus === 'completed' : hasValidParagraphs;
+    const isCompleted = pageRec
+      ? pageRec.ocrStatus === 'completed'
+      : (hasValidParagraphs || (arrayScannedSet && arrayScannedSet.has(p)));
 
-    if (isCompleted && hasValidParagraphs) {
+    if (isCompleted && (hasValidParagraphs || (arrayScannedSet && arrayScannedSet.has(p)))) {
       scannedPages.push(p);
     } else if (pageRec && pageRec.ocrStatus === 'failed') {
       failedPages.push(p);
@@ -659,31 +670,111 @@ export function getMissingOrFailedPages(memoryOrBook, explicitTotalPages = null)
 export function hydrateBookFromMemory(book, memory) {
   if (!book || !memory) return book;
 
+  // Başka kitaba ait Book Memory'nin yüklenmesini kesinlikle engelle
+  if (memory.bookId && String(memory.bookId) !== String(book.id) && memory.pdfFingerprint !== book.pdfFingerprint) {
+    console.warn(`[Hydration Guard] Reddedildi: Bellek (${memory.bookId}) hedef kitap (${book.id}) ile eşleşmiyor.`);
+    return book;
+  }
+
   if (!book.pageParagraphs) book.pageParagraphs = {};
   if (!book.pageRawTexts) book.pageRawTexts = {};
 
   const scannedPages = memory.scannedPages || {};
+  let updatedAny = false;
+
+  // 1. IndexedDB'deki sayfaları LocalStorage/RAM ile sayfa bazında birleştir
   for (const [pStr, pageData] of Object.entries(scannedPages)) {
     const pNum = Number(pStr);
-    if (pageData && pageData.ocrStatus === 'completed' && Array.isArray(pageData.paragraphs)) {
+    if (!pageData) continue;
+
+    const idbParas = Array.isArray(pageData.paragraphs)
+      ? pageData.paragraphs.filter(p => typeof p === 'string' && p.trim().length > 0)
+      : [];
+    const localParas = Array.isArray(book.pageParagraphs[pNum])
+      ? book.pageParagraphs[pNum].filter(p => typeof p === 'string' && p.trim().length > 0)
+      : [];
+
+    const isIdbCompleted = (pageData.ocrStatus === 'completed' && idbParas.length > 0);
+    const isLocalCompleted = (localParas.length > 0);
+
+    if (isIdbCompleted && !isLocalCompleted) {
+      // IndexedDB'de var, LocalStorage'da yok: Geri yükle
       book.pageParagraphs[pNum] = pageData.paragraphs;
       if (pageData.rawText) {
         book.pageRawTexts[pNum] = pageData.rawText;
       }
+      updatedAny = true;
+    } else if (isIdbCompleted && isLocalCompleted) {
+      // İkisinde de var: Daha güncel ve geçerli olanı koru
+      const idbTime = pageData.timestamp || memory.lastOcrDate || 0;
+      const localTime = book.lastOcrDate || 0;
+      if (idbTime >= localTime || idbParas.length >= localParas.length) {
+        book.pageParagraphs[pNum] = pageData.paragraphs;
+        if (pageData.rawText) {
+          book.pageRawTexts[pNum] = pageData.rawText;
+        }
+      }
+    } else if (!isIdbCompleted && isLocalCompleted) {
+      // Boş/başarısız IndexedDB kaydı dolu LocalStorage kaydını EZMEMELİ!
+      // LocalStorage'daki geçerli veriyi IndexedDB belleğine geri besle
+      pageData.paragraphs = book.pageParagraphs[pNum];
+      pageData.rawText = book.pageRawTexts[pNum] || pageData.paragraphs.join('\n\n');
+      pageData.ocrStatus = 'completed';
+      pageData.timestamp = Date.now();
+      updatedAny = true;
     }
   }
 
-  if (memory.chapterOutline) {
+  // 2. LocalStorage'da bulunan ama IndexedDB'de hiç olmayan geçerli sayfaları koru ve IndexedDB'ye ekle
+  for (const [pStr, localParas] of Object.entries(book.pageParagraphs)) {
+    const pNum = Number(pStr);
+    if (!scannedPages[pNum] && Array.isArray(localParas) && localParas.length > 0) {
+      const valid = localParas.filter(p => typeof p === 'string' && p.trim().length > 0);
+      if (valid.length > 0) {
+        scannedPages[pNum] = {
+          pageNumber: pNum,
+          paragraphs: localParas,
+          rawText: book.pageRawTexts?.[pNum] || valid.join('\n\n'),
+          ocrStatus: 'completed',
+          ocrEngine: 'cached',
+          timestamp: Date.now(),
+          error: null
+        };
+        updatedAny = true;
+      }
+    }
+  }
+
+  if (memory.chapterOutline && !book.chapterOutline) {
     book.chapterOutline = memory.chapterOutline;
   }
-  if (memory.pdfFingerprint) {
+  if (memory.pdfFingerprint && !book.pdfFingerprint) {
     book.pdfFingerprint = memory.pdfFingerprint;
   }
   if (memory.totalPages) {
     book.totalPages = Math.max(book.totalPages || 1, memory.totalPages);
   }
   if (memory.lastOcrDate) {
-    book.lastOcrDate = memory.lastOcrDate;
+    book.lastOcrDate = Math.max(book.lastOcrDate || 0, memory.lastOcrDate);
+  }
+
+  // OCR tamamlanma durumlarını scannedPages üzerinden de doğrula
+  const completedSet = new Set();
+  for (const [pStr, pData] of Object.entries(scannedPages)) {
+    if (pData?.ocrStatus === 'completed' && Array.isArray(pData.paragraphs) && pData.paragraphs.length > 0) {
+      completedSet.add(Number(pStr));
+    }
+  }
+  for (const [pStr, paras] of Object.entries(book.pageParagraphs)) {
+    if (Array.isArray(paras) && paras.length > 0) {
+      completedSet.add(Number(pStr));
+    }
+  }
+  book.scannedPages = Array.from(completedSet).sort((a, b) => a - b);
+
+  if (updatedAny) {
+    // If IndexedDB or book was enriched during merge, update memory in background
+    persistMemoryToIdb(memory).catch(() => {});
   }
 
   return book;
@@ -877,15 +968,25 @@ export function getOrBuildBookRagIndex(memory, pagesTextMap, activePages = new S
  *
  * Returns null ONLY when all pages across the entire book are scanned or reached max failures.
  */
-export function getNextTargetPage({
-  totalPages = 1,
-  pageParagraphs = {},
-  currentReaderPage = 1,
-  priorityQueue = [],
-  activePages = new Set(),
-  failedAttempts = new Map(),
-  maxFailures = 3
-}) {
+export function getNextTargetPage(optionsOrTotalPages, maybePageParagraphs) {
+  let opts = {};
+  if (typeof optionsOrTotalPages === 'number') {
+    opts = {
+      totalPages: optionsOrTotalPages,
+      pageParagraphs: maybePageParagraphs || {}
+    };
+  } else if (optionsOrTotalPages && typeof optionsOrTotalPages === 'object') {
+    opts = optionsOrTotalPages;
+  }
+  const {
+    totalPages = 1,
+    pageParagraphs = {},
+    currentReaderPage = 1,
+    priorityQueue = [],
+    activePages = new Set(),
+    failedAttempts = new Map(),
+    maxFailures = 3
+  } = opts;
   const isPageDone = (p) => {
     const paras = pageParagraphs ? pageParagraphs[p] : null;
     return Array.isArray(paras) && paras.length > 0;
