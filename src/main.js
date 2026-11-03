@@ -2553,14 +2553,18 @@ async function handleSendBookChatMessage(text) {
   try {
     const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
 
-    // Prepare pages text context with hybrid outline and client RAG
+    // Prepare pages text context with advanced multi-stage RAG
     let contextText = '';
     if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
       contextText = prepareBookContext({
         pagesTextMap: currentActiveBook.pageParagraphs,
         currentPage: currentReaderPage,
         spoilerProtection: isSpoiler,
-        question: question
+        question: question,
+        bookId: String(currentActiveBook.id || 'book'),
+        totalPages: currentActiveBook.totalPages || currentPdfNumPages || 1,
+        activePages: activeAnalyzingPages,
+        failedPages: failedPageAttempts
       });
     } else if (currentActiveBook?.content) {
       contextText = currentActiveBook.content;

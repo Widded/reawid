@@ -1,7 +1,13 @@
 {
+  "1": "storageService.js",
   "3": "PerformanceMonitor",
-  "6": "main.js",
+  "6": "normalizeHyphensAndText",
   "8": "readerFormatter.js",
+  "13": "supabaseService.js",
   "14": "test_root_cause_suite.mjs",
-  "16": "isModelStrictlyFree"
+  "16": "setupSettingsScreenEvents",
+  "21": "openBookInReader",
+  "25": "renderNotesScreen",
+  "26": "performOcr",
+  "27": "setupResetDataController"
 }

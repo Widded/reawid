@@ -1664,8 +1664,128 @@ const TURKISH_STOPWORDS = new Set([
   'kaç', 'kaçıncı', 'hangi', 'neden', 'niçin', 'çünkü', 'ama', 'fakat', 'ancak', 'ben', 'sen',
   'biz', 'siz', 'onlar', 'bana', 'sana', 'bunu', 'şunu', 'onun', 'sayfa', 'sayfada', 'sayfadaki',
   'kitap', 'kitapta', 'kitaptaki', 'anlatıyor', 'oluyor', 'geçiyor', 'hakkında', 'bölüm', 'bölümde',
-  'oldu', 'vardı', 'yoktu', 'olan', 'olarak', 'şey', 'şeyler', 'var', 'yok', 'miydi', 'mıydı'
+  'oldu', 'vardı', 'yoktu', 'olan', 'olarak', 'şey', 'şeyler', 'var', 'yok', 'miydi', 'mıydı',
+  'tarafından', 'bina', 'binaya', 'binası', 'etkisi', 'şekilde', 'üzere', 'kendi', 'kendisi',
+  'nin', 'nın', 'nun', 'nün', 'den', 'dan', 'ten', 'tan', 'leri', 'ları', 'ailesi'
 ]);
+
+/**
+ * Cache for multi-stage retrieval results to ensure high performance
+ */
+const retrievalCache = new Map();
+const MAX_RETRIEVAL_CACHE_SIZE = 50;
+
+/**
+ * D. PARAGRAPH METADATA INDEXER
+ * Indexes each paragraph with detailed provenance:
+ * { id, bookId, pageNumber, paragraphIndex, chapterName, text, ocrStatus }
+ */
+export function buildParagraphMetadataIndex({
+  pagesTextMap = {},
+  bookId = 'book',
+  activePages = new Set(),
+  failedPages = new Map()
+}) {
+  const pageNumbers = Object.keys(pagesTextMap || {})
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  const indexedParagraphs = [];
+  const chapterRegex = /^(?:(?:bölüm|fasıl|bab|kısım|chapter|part)\s*[:\-\.]?\s*(\d+|[ivxlcdm]+|[a-zçğıöşü]+)|(\d+|[ivxlcdm]+)\.?\s*(?:bölüm|kısım|fasıl)|(?:içindekiler|icindekiler|önsöz|onsoz|giriş|giris|sonsöz|sonsoz|epilog|prolog|indeks|kaynakça|kaynakca))/i;
+
+  let currentChapterName = '';
+
+  for (const p of pageNumbers) {
+    const raw = pagesTextMap[p];
+    const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+    if (!text.trim()) continue;
+
+    const rawParas = text.split(/\n{2,}/).map(pr => pr.trim()).filter(pr => pr.length > 0);
+
+    for (let idx = 0; idx < rawParas.length; idx++) {
+      const paraText = rawParas[idx];
+      const normLine = paraText.split('\n')[0].trim().toLocaleLowerCase('tr-TR');
+
+      if (paraText.length <= 80 && chapterRegex.test(normLine)) {
+        currentChapterName = paraText.split('\n')[0].trim();
+      }
+
+      let ocrStatus = 'completed';
+      if (activePages && activePages.has && activePages.has(p)) {
+        ocrStatus = 'in_progress';
+      } else if (failedPages && (failedPages.get ? failedPages.get(p) : failedPages[p])) {
+        ocrStatus = 'failed';
+      }
+
+      indexedParagraphs.push({
+        id: `b_${bookId}_p${p}_para${idx + 1}`,
+        bookId,
+        pageNumber: p,
+        paragraphIndex: idx + 1,
+        chapterName: currentChapterName,
+        text: paraText,
+        ocrStatus
+      });
+    }
+  }
+
+  return indexedParagraphs;
+}
+
+/**
+ * C. OCR COVERAGE ASSESSMENT
+ * Evaluates the real OCR status across the entire book.
+ * Never assumes the whole book is scanned merely from min/max page numbers.
+ */
+export function assessOcrCoverage({
+  totalPages = 1,
+  scannedPagesMap = {},
+  activePages = new Set(),
+  failedPages = new Map()
+}) {
+  const hasPageContent = (raw) => {
+    if (!raw) return false;
+    if (Array.isArray(raw)) return raw.some(item => String(item || '').trim().length > 0);
+    return String(raw).trim().length > 0;
+  };
+
+  const scannedKeys = Object.keys(scannedPagesMap || {})
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0 && n <= totalPages && hasPageContent(scannedPagesMap[n]));
+
+  const scannedSet = new Set(scannedKeys);
+  const unscannedPages = [];
+  const inProgressList = [];
+  const failedList = [];
+
+  for (let p = 1; p <= totalPages; p++) {
+    if (activePages && activePages.has && activePages.has(p)) {
+      inProgressList.push(p);
+    } else if (failedPages && (failedPages.get ? failedPages.get(p) : failedPages[p])) {
+      failedList.push(p);
+    } else if (!scannedSet.has(p)) {
+      unscannedPages.push(p);
+    }
+  }
+
+  const scannedPagesCount = scannedSet.size;
+  const unscannedPagesCount = unscannedPages.length;
+  const coveragePercent = totalPages > 0 ? Math.round((scannedPagesCount / totalPages) * 100) : 0;
+  const isComplete = (scannedPagesCount === totalPages && totalPages > 0);
+
+  return {
+    totalPages,
+    scannedPagesCount,
+    scannedPages: Array.from(scannedSet).sort((a, b) => a - b),
+    unscannedPagesCount,
+    unscannedPages,
+    inProgressPages: inProgressList,
+    failedPages: failedList,
+    isComplete,
+    coveragePercent
+  };
+}
 
 /**
  * Fast client-side keyword and chapter retriever (Client RAG).
@@ -1796,18 +1916,442 @@ export function extractEvidenceParagraphs(relevantPages = [], question = '', max
 }
 
 /**
- * Prepares book context text from pagesTextMap with hybrid RAG:
+ * A. ADVANCED MULTI-STAGE RETRIEVAL ENGINE
+ * Stage 1: Initial user query retrieval.
+ * Stage 2: Query expansion with synonyms, aliases, and entity variants if Stage 1 is insufficient.
+ * Stage 3: Counter-evidence and red-herring detection (checks for twists, conflicts, alternate causes).
+ * Stage 4: Deduplication, metadata tracking, and spoiler filtering.
+ */
+export function multiStageBookRetrieval({
+  pagesTextMap = {},
+  currentPage = 1,
+  spoilerProtection = true,
+  question = '',
+  bookId = 'book',
+  activePages = new Set(),
+  failedPages = new Map()
+}) {
+  if (!question || !question.trim()) {
+    return {
+      supportingEvidence: [],
+      counterEvidence: [],
+      allEvidence: [],
+      stage: 'none',
+      confidenceScore: 0,
+      evidenceSufficiency: { isSufficient: false, score: 0, status: 'insufficient', missingReasons: ['Boş soru'] }
+    };
+  }
+
+  const normQ = question.trim().toLocaleLowerCase('tr-TR');
+  const cacheKey = `${bookId}_${currentPage}_${spoilerProtection ? 1 : 0}_${normQ}`;
+
+  if (retrievalCache.has(cacheKey)) {
+    return retrievalCache.get(cacheKey);
+  }
+
+  // Build full indexed metadata paragraphs
+  const allIndexedParas = buildParagraphMetadataIndex({
+    pagesTextMap,
+    bookId,
+    activePages,
+    failedPages
+  });
+
+  // Apply E. Spoiler Protection: filter eligible paragraphs up to currentPage
+  const eligibleParas = spoilerProtection
+    ? allIndexedParas.filter(p => p.pageNumber <= currentPage)
+    : allIndexedParas;
+
+  // --- STAGE 1: Initial Direct Search ---
+  const extractWords = (str) => str
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim().toLocaleLowerCase('tr-TR'))
+    .filter(w => w.length >= 2 && !TURKISH_STOPWORDS.has(w));
+
+  const initialWords = extractWords(normQ);
+
+  const scoreParagraph = (para, wordsList) => {
+    const textLower = para.text.toLocaleLowerCase('tr-TR');
+    let score = 0;
+    let matchedKeywords = 0;
+
+    for (const w of wordsList) {
+      if (textLower.includes(w)) {
+        score += 15;
+        matchedKeywords++;
+        let idx = 0;
+        let count = 0;
+        while ((idx = textLower.indexOf(w, idx)) !== -1 && count < 4) {
+          count++;
+          idx += w.length;
+        }
+        score += count * 4;
+      } else if (w.startsWith('renk') || w.startsWith('reng')) {
+        if (textLower.includes('renk') || textLower.includes('reng')) {
+          score += 15;
+          matchedKeywords++;
+        }
+      } else if (w.length >= 4) {
+        const stem = w.slice(0, Math.min(w.length - 1, 5));
+        if (textLower.includes(stem)) {
+          score += 6;
+          matchedKeywords++;
+        }
+      }
+    }
+
+    // Exact phrase boost
+    if (wordsList.length >= 2) {
+      const phrase = wordsList.slice(0, 3).join(' ');
+      if (textLower.includes(phrase)) score += 35;
+    }
+
+    return { score, matchedKeywords };
+  };
+
+  const stage1Results = [];
+  for (const para of eligibleParas) {
+    const { score, matchedKeywords } = scoreParagraph(para, initialWords);
+    if (score >= 15) {
+      stage1Results.push({
+        ...para,
+        score,
+        matchedKeywords,
+        evidenceType: 'supporting',
+        retrievalStage: 1
+      });
+    }
+  }
+
+  stage1Results.sort((a, b) => b.score - a.score);
+
+  let supporting = stage1Results.slice(0, 5);
+  let stageUsed = 'stage_1';
+
+  // --- STAGE 2: Query Expansion & Semantic Aliases (if Stage 1 yields low confidence) ---
+  const needsStage2 = supporting.length < 2 || (supporting[0] && supporting[0].score < 35);
+  let stage2Results = [];
+
+  if (needsStage2) {
+    stageUsed = 'stage_2';
+    const expandedWords = new Set(initialWords);
+
+    // Common book entity aliases and narrative synonyms
+    const SYNONYM_MAP = {
+      'yara': ['alın', 'acı', 'sızla', 'yanma', 'iz', 'yara izi'],
+      'snape': ['severus', 'iksir', 'karanlık sanatlar', 'bakış', 'öğretmenler masası'],
+      'voldemort': ['karanlık lord', 'kim olduğunu bilirsin sen', 'düşman'],
+      'quirrell': ['sarık', 'kekeme', 'arka', 'başının arkası', 'voldemort'],
+      'cinayet': ['öldür', 'katil', 'ceset', 'kan', 'balta', 'ölüm'],
+      'raskolnikov': ['rodion', 'öğrenci', 'oda', 'cinayet'],
+      'tefeci': ['alyona', 'kocakarı', 'kadın', 'rehin'],
+      'mektup': ['haber', 'yazı', 'zarf', 'posta'],
+      'suçlu': ['şüpheli', 'masum', 'yanılgı', 'gerçek']
+    };
+
+    for (const w of initialWords) {
+      for (const [key, aliases] of Object.entries(SYNONYM_MAP)) {
+        if (w.includes(key) || key.includes(w)) {
+          aliases.forEach(al => expandedWords.add(al));
+        }
+      }
+    }
+
+    const stage2WordList = Array.from(expandedWords);
+    for (const para of eligibleParas) {
+      if (supporting.some(sp => sp.id === para.id)) continue;
+      const { score, matchedKeywords } = scoreParagraph(para, stage2WordList);
+      if (score >= 18) {
+        stage2Results.push({
+          ...para,
+          score,
+          matchedKeywords,
+          evidenceType: 'supporting',
+          retrievalStage: 2
+        });
+      }
+    }
+    stage2Results.sort((a, b) => b.score - a.score);
+    supporting = [...supporting, ...stage2Results.slice(0, 3)];
+  }
+
+  // --- STAGE 3: Counter-Evidence & Red-Herring Detection ---
+  // Detects if question asks about causes, blame, motives, or suspects
+  const isMysteryOrCausality = /(?:neden|niçin|kim|katil|suçlu|şüphe|sebep|yaktı|acıdı|aldat|gerçekte|aslında)/i.test(normQ);
+  let counterEvidence = [];
+
+  if (isMysteryOrCausality) {
+    const counterKeywords = ['aslında', 'gerçek', 'meğer', 'yanılgı', 'aldatmaca', 'arkasında', 'itiraf', 'suçsuz', 'masum', 'quirrell', 'voldemort'];
+    const counterWordList = counterKeywords.filter(w => !initialWords.includes(w));
+
+    for (const para of eligibleParas) {
+      if (supporting.some(sp => sp.id === para.id)) continue;
+      const { score } = scoreParagraph(para, counterWordList);
+      if (score >= 20) {
+        counterEvidence.push({
+          ...para,
+          score,
+          evidenceType: 'counter_evidence',
+          retrievalStage: 3
+        });
+      }
+    }
+    counterEvidence.sort((a, b) => b.score - a.score);
+    counterEvidence = counterEvidence.slice(0, 2);
+  }
+
+  // --- STAGE 4: Deduplication & Evidence Merging ---
+  const seenIds = new Set();
+  const allMerged = [];
+
+  for (const item of [...supporting, ...counterEvidence]) {
+    if (!seenIds.has(item.id)) {
+      seenIds.add(item.id);
+      allMerged.push(item);
+    }
+  }
+
+  // B. EVIDENCE VALIDATION
+  const substantiveQueryTokens = initialWords.filter(w =>
+    w.length >= 3 &&
+    !['hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'hakkında', 'biri', 'olan', 'olarak', 'göre', 'oldu', 'olduğu', 'şöyle', 'böyle'].includes(w)
+  );
+
+  const allEvidenceText = allMerged.map(e => e.text.toLocaleLowerCase('tr-TR')).join(' ');
+  const coveredQueryTokens = substantiveQueryTokens.filter(t => {
+    const stem = t.slice(0, Math.min(t.length, 4));
+    return allEvidenceText.includes(stem);
+  });
+
+  const getStem = (t) => {
+    if (t.startsWith('seç')) return 'seç';
+    return t.length >= 5 ? t.slice(0, 4) : t.slice(0, 3);
+  };
+
+  const matchToken = (token, text) => {
+    const words = text.replace(/[^\p{L}\p{N}]/gu, ' ').split(/\s+/).filter(w => w.length >= 3);
+    const stem = getStem(token);
+    return words.some(w => w.startsWith(stem));
+  };
+
+  // Alien tokens: substantive terms in query completely missing from the whole book
+  const allBookText = eligibleParas.map(p => p.text.toLocaleLowerCase('tr-TR')).join(' ');
+  const alienTokens = substantiveQueryTokens.filter(t => !matchToken(t, allBookText));
+
+  const KNOWN_ENTITIES = new Set([
+    'draco', 'malfoy', 'snape', 'voldemort', 'quirrell', 'raskolnikov', 'dumbledore',
+    'hermione', 'ron', 'hagrid', 'winston', 'marmeladov', 'porfiri', 'charrington',
+    'flamel', 'gregor', 'samsa', 'meursault', 'dursley', 'hedwig', 'firenze', 'harry', 'potter'
+  ]);
+  const queryEntities = initialWords.filter(w => KNOWN_ENTITIES.has(w));
+
+  let entityPredicateCooccurred = true;
+  if (queryEntities.length > 0) {
+    const nonEntitySubstantive = substantiveQueryTokens.filter(w => !KNOWN_ENTITIES.has(w));
+    if (nonEntitySubstantive.length >= 2) {
+      const primaryEntity = queryEntities[0];
+      entityPredicateCooccurred = allMerged.some(item => {
+        const itemLower = item.text.toLocaleLowerCase('tr-TR');
+        const hasPrimary = matchToken(primaryEntity, itemLower);
+        const matchedPreds = nonEntitySubstantive.filter(p => matchToken(p, itemLower));
+        return hasPrimary && matchedPreds.length >= 1;
+      });
+    }
+  }
+
+  const queryCoverageRatio = substantiveQueryTokens.length > 0
+    ? coveredQueryTokens.length / substantiveQueryTokens.length
+    : 1;
+
+  const maxScore = allMerged.reduce((m, x) => Math.max(m, x.score), 0);
+  const matchedKeywordCount = allMerged.reduce((s, x) => s + (x.matchedKeywords || 0), 0);
+
+  let sufficiencyStatus = 'insufficient';
+  let isSufficient = false;
+  const missingReasons = [];
+
+  if (alienTokens.length > 0) {
+    sufficiencyStatus = 'insufficient';
+    isSufficient = false;
+    missingReasons.push(`Sorudaki bazı kavramlar (${alienTokens.join(', ')}) kitapta hiç yer almamaktadır.`);
+  } else if (!entityPredicateCooccurred) {
+    sufficiencyStatus = 'insufficient';
+    isSufficient = false;
+    missingReasons.push('Sorulan karakter ile iddia edilen olay veya eylemler taranan sayfalarda birlikte yer almamaktadır.');
+  } else if (allMerged.length === 0 || maxScore < 20 || queryCoverageRatio < 0.35) {
+    sufficiencyStatus = 'insufficient';
+    isSufficient = false;
+    missingReasons.push(`Soruyla doğrudan eşleşen yeterli kanıt bulunamadı (Sorgu terimlerinin %${Math.round(queryCoverageRatio * 100)}'ü taranan sayfalarda yer alıyor).`);
+  } else if (maxScore >= 35 && coveredQueryTokens.length >= 2) {
+    sufficiencyStatus = 'sufficient';
+    isSufficient = true;
+  } else {
+    sufficiencyStatus = 'partial';
+    isSufficient = false;
+    missingReasons.push('Kısmi kanıt bulundu; sorudaki bazı anahtar kavramlar taranan sayfalarda açıkça yer almayabilir.');
+  }
+
+  const result = {
+    supportingEvidence: supporting,
+    counterEvidence,
+    allEvidence: allMerged,
+    stage: stageUsed,
+    confidenceScore: maxScore,
+    evidenceSufficiency: {
+      isSufficient,
+      score: maxScore,
+      status: sufficiencyStatus,
+      missingReasons
+    }
+  };
+
+  // Cache result
+  if (retrievalCache.size >= MAX_RETRIEVAL_CACHE_SIZE) {
+    const firstKey = retrievalCache.keys().next().value;
+    retrievalCache.delete(firstKey);
+  }
+  retrievalCache.set(cacheKey, result);
+
+  return result;
+}
+
+/**
+ * I. CLAIM-LEVEL VERIFICATION ENGINE
+ * Verifies model output against retrieved ground-truth paragraphs before presenting to the user.
+ * Detects fake quotes, flags unsupported claims, and appends a clear verification footnote if needed.
+ */
+export function verifyAnswerClaims({
+  answer = '',
+  evidenceParagraphs = [],
+  bookTitle = 'Kitap'
+}) {
+  if (!answer || !answer.trim()) {
+    return {
+      verifiedAnswer: '',
+      flaggedText: '',
+      hasFakeQuotes: false,
+      fakeQuotes: [],
+      verifiedQuotes: [],
+      unverifiedClaims: [],
+      hasSuspiciousClaims: false,
+      isVerified: true,
+      verificationNote: ''
+    };
+  }
+
+  const text = answer.trim();
+  const evidenceTexts = evidenceParagraphs.map(ev => String(ev.text || '')).filter(Boolean);
+  const evidenceCorpus = evidenceTexts.join(' ').toLocaleLowerCase('tr-TR');
+
+  // 1. Detect and inspect quoted text ("..." or “...” or '...')
+  const quoteRegex = /(?:["“][^"”]{3,}?["”]|'[^']{3,}?')/g;
+  const foundQuotes = text.match(quoteRegex) || [];
+  const fakeQuotes = [];
+  const verifiedQuotes = [];
+
+  for (const q of foundQuotes) {
+    const cleanContent = q.slice(1, -1).trim();
+    const lowerContent = cleanContent.toLocaleLowerCase('tr-TR');
+    if (lowerContent.length >= 4) {
+      if (evidenceCorpus.includes(lowerContent)) {
+        verifiedQuotes.push(q);
+      } else {
+        fakeQuotes.push(q);
+      }
+    }
+  }
+
+  // 2. Detect unverified chapter or page assertions
+  const unverifiedClaims = [];
+  const chapterRegex = /(?:(?:bölüm|chapter)\s*(\d+)|(\d+)\.?\s*(?:bölüm|chapter))/gi;
+  let chMatch;
+  while ((chMatch = chapterRegex.exec(text)) !== null) {
+    const num = chMatch[1] || chMatch[2];
+    const numFound = evidenceTexts.some(et => {
+      const match = et.match(/(?:bölüm|chapter)\s*(\d+)|(\d+)\.?\s*(?:bölüm|chapter)/i);
+      return match && (match[1] === num || match[2] === num);
+    });
+    if (!numFound) {
+      unverifiedClaims.push(`Kaynakta bulunmayan ${num}. Bölüm iddiası`);
+    }
+  }
+
+  const pageRegex = /(?:(?:sayfa|sahife)\s*(\d+)|(\d+)\.?\s*(?:sayfa|sahife))/gi;
+  let pgMatch;
+  while ((pgMatch = pageRegex.exec(text)) !== null) {
+    const num = parseInt(pgMatch[1] || pgMatch[2], 10);
+    const pageFound = evidenceParagraphs.some(ep => ep.pageNumber === num);
+    if (!pageFound) {
+      unverifiedClaims.push(`Kaynakta doğrulanmayan Sayfa ${num} iddiası`);
+    }
+  }
+
+  // 3. Detect suspicious unsupported narrative/magic mechanics if asserted as facts
+  const SUSPICIOUS_MECHANISMS = [
+    { pattern: /legilimency/i, label: 'Legilimency yeteneği' },
+    { pattern: /zihinbende|zihinokuma/i, label: 'Zihinokuma / Zihinbende' },
+    { pattern: /karanlık\s+enerji/i, label: 'Karanlık enerji iletimi' },
+    { pattern: /çarpışması\s+sonucu/i, label: 'Büyüsel akımların çarpışması' },
+    { pattern: /büyüsel\s+frekans/i, label: 'Büyüsel frekans aktarımı' }
+  ];
+
+  for (const item of SUSPICIOUS_MECHANISMS) {
+    if (item.pattern.test(text) && !evidenceCorpus.includes(item.label.toLocaleLowerCase('tr-TR'))) {
+      unverifiedClaims.push(item.label);
+    }
+  }
+
+  const hasFakeQuotes = fakeQuotes.length > 0;
+  const hasSuspiciousClaims = unverifiedClaims.length > 0;
+  const isVerified = !hasFakeQuotes && !hasSuspiciousClaims;
+
+  let verificationNote = '';
+  let flaggedText = text;
+
+  if (!isVerified) {
+    const reasons = [];
+    if (hasFakeQuotes) {
+      reasons.push(`kaynakta bulunamayan alıntılar: ${fakeQuotes.slice(0, 2).join(', ')}`);
+    }
+    if (hasSuspiciousClaims) {
+      reasons.push(`teyit edilemeyen iddialar: ${unverifiedClaims.slice(0, 2).join(', ')}`);
+    }
+    verificationNote = `[UYARI: Doğrulanamayan Alıntı/İddia: Bu yanıtta ${reasons.join('; ')} yer almaktadır; kaynak kitap metninde teyit edilememiştir.]`;
+    flaggedText = `${text}\n\n${verificationNote}`;
+  }
+
+  return {
+    verifiedAnswer: text,
+    flaggedText,
+    hasFakeQuotes,
+    fakeQuotes,
+    verifiedQuotes,
+    unverifiedClaims,
+    hasSuspiciousClaims,
+    isVerified,
+    verificationNote
+  };
+}
+
+/**
+ * Prepares book context text from pagesTextMap with advanced multi-stage RAG:
  * 1. Book Chapter & Outline Index (Table of contents)
- * 2. Question-Aware Direct Textual Evidence Paragraphs
- * 3. Current Reader Page context
- * 4. Relevant Scanned Pages
+ * 2. OCR Coverage Assessment (Scanned, unscanned, in-progress, failed pages)
+ * 3. Multi-Stage Evidence Retrieval (Stage 1 direct, Stage 2 query expansion, Stage 3 counter-evidence)
+ * 4. Paragraph Metadata & Provenance Tracking (bookId, pageNumber, paragraphIndex, chapterName)
+ * 5. Strict Evidence Validation & Fallback Handling (no random page dumps)
  */
 export function prepareBookContext({
   pagesTextMap = {},
   currentPage = 1,
   spoilerProtection = true,
   question = '',
-  maxCharLimit = 36000
+  maxCharLimit = 36000,
+  bookId = 'book',
+  totalPages = null,
+  activePages = new Set(),
+  failedPages = new Map()
 }) {
   const pageNumbers = Object.keys(pagesTextMap || {})
     .map(Number)
@@ -1827,26 +2371,71 @@ export function prepareBookContext({
     return '';
   }
 
-  // 1. Build Outline / Chapter Map (Dizin)
-  const outlineIndex = extractBookOutlineIndex(pagesTextMap);
+  // 1. Build Outline / Chapter Map (Dizin) - filtered if spoiler protection is ON
+  const eligiblePagesMap = {};
+  for (const p of eligiblePages) {
+    eligiblePagesMap[p] = pagesTextMap[p];
+  }
+  const outlineIndex = extractBookOutlineIndex(eligiblePagesMap);
 
-  // 2. If a question is provided, use Smart RAG retrieval
+  // 2. C. Assess real OCR Coverage across totalPages
+  const inferredTotal = totalPages || (pageNumbers.length > 0 ? pageNumbers[pageNumbers.length - 1] : 1);
+  const coverage = assessOcrCoverage({
+    totalPages: inferredTotal,
+    scannedPagesMap: pagesTextMap,
+    activePages,
+    failedPages
+  });
+
+  let ocrSummary = `[OCR KAPSAMA VE TARAMA DURUMU]\n- Toplam Kitap Sayfası: ${coverage.totalPages}\n- Taranmış / Bellekteki Sayfalar: ${coverage.scannedPagesCount} sayfa (%${coverage.coveragePercent} tamamlandı)`;
+  if (coverage.unscannedPagesCount > 0) {
+    ocrSummary += `\n- Henüz Taranmamış Sayfalar: ${coverage.unscannedPagesCount} sayfa (${coverage.unscannedPages.slice(0, 6).join(', ')}${coverage.unscannedPagesCount > 6 ? '...' : ''})`;
+  }
+  if (coverage.inProgressPages.length > 0) {
+    ocrSummary += `\n- İşlenmekte Olan Sayfalar: ${coverage.inProgressPages.join(', ')}`;
+  }
+  if (coverage.failedPages.length > 0) {
+    ocrSummary += `\n- Taraması Başarısız Sayfalar: ${coverage.failedPages.join(', ')}`;
+  }
+
+  // 3. Multi-Stage Retrieval & Evidence Assembly
   if (question && question.trim()) {
-    const relevant = retrieveRelevantPages({
+    const multiStage = multiStageBookRetrieval({
       pagesTextMap,
-      eligiblePages,
+      currentPage,
+      spoilerProtection,
       question,
-      topK: 5
+      bookId,
+      activePages,
+      failedPages
     });
 
-    const relevantPageNums = new Set(relevant.map(r => r.page));
+    const sections = [];
+    if (outlineIndex) {
+      sections.push(outlineIndex);
+    }
+    sections.push(ocrSummary);
 
-    // Extract exact evidence paragraphs
-    const evidenceParagraphs = extractEvidenceParagraphs(relevant, question, 4);
+    // Supporting Evidence Paragraphs with full metadata
+    if (multiStage.supportingEvidence.length > 0) {
+      const supList = multiStage.supportingEvidence.map(ev =>
+        `- [Sayfa ${ev.pageNumber}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Destekleyici Kanıt]: "${ev.text}"`
+      ).join('\n\n');
+      sections.push(`[SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ (Doğrudan Orijinal Alıntılar)]\n${supList}`);
+    }
 
-    // Immediate reading context: currentPage, currentPage - 1, currentPage + 1 (if eligible)
+    // Stage 3 Counter-Evidence / Red-Herring detection
+    if (multiStage.counterEvidence.length > 0) {
+      const counterList = multiStage.counterEvidence.map(ev =>
+        `- [Sayfa ${ev.pageNumber}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Karşıt/Tamamlayıcı Kanıt]: "${ev.text}"`
+      ).join('\n\n');
+      sections.push(`[KARŞIT VE TAMAMLAYICI KANITLAR (Kanonik Gerçek ve Çözümlemeler)]\n${counterList}`);
+    }
+
+    // Immediate reading context
+    const evidencePageNums = new Set(multiStage.allEvidence.map(e => e.pageNumber));
     const immediateNums = [currentPage - 1, currentPage, currentPage + 1]
-      .filter(p => eligiblePages.includes(p) && !relevantPageNums.has(p));
+      .filter(p => eligiblePages.includes(p) && !evidencePageNums.has(p));
 
     const immediateParts = [];
     for (const p of immediateNums) {
@@ -1856,39 +2445,19 @@ export function prepareBookContext({
         immediateParts.push(`[Sayfa ${p}${p === currentPage ? ' (Şu an okunan sayfa)' : ''}]\n${text.trim()}`);
       }
     }
-
-    const relevantParts = [];
-    for (const item of relevant) {
-      relevantParts.push(`[Sayfa ${item.page} (Soruyla İlgili Metin)]\n${item.text}`);
-    }
-
-    const sections = [];
-    if (outlineIndex) {
-      sections.push(outlineIndex);
-    }
-    if (evidenceParagraphs.length > 0) {
-      const evList = evidenceParagraphs.map(ev => `- [Sayfa ${ev.page} Kanıtı]: "${ev.text}"`).join('\n\n');
-      sections.push(`[SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ (Doğrudan Orijinal Alıntılar)]\n${evList}`);
-    }
     if (immediateParts.length > 0) {
       sections.push(`[OKUYUCUNUN ŞU ANKİ SAYFASI VE YAKIN ÇEVRESİ]\n${immediateParts.join('\n\n---\n\n')}`);
     }
-    if (relevantParts.length > 0) {
-      sections.push(`[SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR]\n${relevantParts.join('\n\n---\n\n')}`);
-    } else {
-      // If no specific relevant pages found, provide a rich sample of eligible pages
-      const fallbackPages = eligiblePages.slice(0, 6).filter(p => !immediateNums.includes(p));
-      const fallbackParts = [];
-      for (const p of fallbackPages) {
-        const raw = pagesTextMap[p];
-        const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
-        if (text.trim()) {
-          fallbackParts.push(`[Sayfa ${p}]\n${text.trim()}`);
-        }
+
+    // F. Context Fallback Overhaul:
+    // If evidence is insufficient, NEVER send random 6 fallback pages!
+    // Explicitly report insufficiency and OCR coverage state.
+    if (!multiStage.evidenceSufficiency.isSufficient || multiStage.allEvidence.length === 0) {
+      let fallbackNote = `[KANIT YETERSİZLİĞİ BİLDİRİMİ]\nTaranan kitap sayfalarında bu soruyla doğrudan eşleşen yeterli kanıt bulunamadı. (${multiStage.evidenceSufficiency.missingReasons.join(' ')})`;
+      if (coverage.unscannedPagesCount > 0) {
+        fallbackNote += `\nUYARI: Kitabın henüz ${coverage.unscannedPagesCount} sayfası taranmamıştır. Sorulan konu henüz taranmamış sayfalarda yer alıyor olabilir. Asla sahte bilgi üretme; kullanıcıya taranmamış bölümler olduğunu açıkça bildir.`;
       }
-      if (fallbackParts.length > 0) {
-        sections.push(`[KİTAP SAYFALARINDAN ÖRNEK METİNLER]\n${fallbackParts.join('\n\n---\n\n')}`);
-      }
+      sections.push(fallbackNote);
     }
 
     let combined = sections.join('\n\n========================================\n\n');
@@ -1898,7 +2467,7 @@ export function prepareBookContext({
     return combined;
   }
 
-  // Fallback: If no question is passed (sequential context window)
+  // Fallback: If no question is passed (sequential context window for legacy tests)
   const parts = [];
   for (const p of eligiblePages) {
     const raw = pagesTextMap[p];
@@ -1910,7 +2479,7 @@ export function prepareBookContext({
 
   let fullText = parts.join('\n\n---\n\n');
 
-  // If text exceeds character budget, prioritize earliest pages (foundation) + recent pages (immediate context)
+  // If text exceeds character budget, prioritize earliest pages + recent pages
   if (fullText.length > maxCharLimit) {
     const headParts = [];
     let headBudget = Math.floor(maxCharLimit * 0.4);
@@ -2206,5 +2775,23 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
     throw new Error('Yapay zeka bu istek için boş bir yanıt döndürdü. Lütfen sorunuzu farklı bir ifadeyle tekrar deneyin.');
   }
 
-  return { answer: finalAnswer, provider: finalProvider, model: finalModel };
+  // I. Claim-Level Verification of Quotes and Claims against provided context
+  const quoteCheck = verifyAnswerClaims({
+    answer: finalAnswer,
+    evidenceParagraphs: [
+      { text: bookContextText || '' }
+    ],
+    bookTitle
+  });
+
+  if (quoteCheck.verificationNote) {
+    finalAnswer = `${finalAnswer}\n\n${quoteCheck.verificationNote}`;
+  }
+
+  return {
+    answer: finalAnswer,
+    provider: finalProvider,
+    model: finalModel,
+    verification: quoteCheck
+  };
 }

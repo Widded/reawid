@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793698590.3498795,
-    "seen": 1793698617.6660419,
-    "ast_hash": "1eade1ff33498c996d7ddd0633e8154b",
+    "mtime": 1793699194.99301,
+    "seen": 1793699253.198805,
+    "ast_hash": "8653c3182ba64d279ff72ae6cf9ce249",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -108,9 +108,9 @@
     "semantic_hash": ""
   },
   "tests/test_book_ai_chat_suite.mjs": {
-    "mtime": 1793697347.3725238,
-    "seen": 1793697416.2516441,
-    "ast_hash": "7d972e36e16d43b2663f16ab2383d9a2",
+    "mtime": 1793699215.9162912,
+    "seen": 1793699253.2003815,
+    "ast_hash": "fa9d45e03e25bf98f891daea77cfd94b",
     "semantic_hash": ""
   },
   "tests/test_ocr_suite.mjs": {
