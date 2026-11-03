@@ -3,7 +3,6 @@
   "4": "PDF Rendering & Document Service",
   "5": "OCR Quality & Metric Suite",
   "9": "Tesseract Engine & Turkish Model",
-  "10": "AI Proofreader & Congestion Management",
   "15": "Document Export & Print Service",
   "20": "Edge Functions & CORS Proxy",
   "22": "Vercel Deployment Configuration",

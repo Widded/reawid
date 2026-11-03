@@ -1,9 +1,9 @@
 {
   "api/tts.js": {
-    "mtime": 1793639173.001262,
-    "seen": 1793659305.0426314,
-    "ast_hash": "fe89189d15a1948d825a0382bee4bbcf",
-    "semantic_hash": "fe89189d15a1948d825a0382bee4bbcf"
+    "mtime": 1793724750.4050913,
+    "seen": 1793724834.7900138,
+    "ast_hash": "1e985ef1836bf7493ee998e4bb506973",
+    "semantic_hash": ""
   },
   "package.json": {
     "mtime": 1793638026.7250192,
@@ -24,15 +24,15 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793721707.7896502,
-    "seen": 1793722216.6706693,
-    "ast_hash": "c80781b7cd7fd60d1054b55068333b75",
+    "mtime": 1793724165.8515136,
+    "seen": 1793724834.7905345,
+    "ast_hash": "bf4dd215c9cb35577a3c812a4c5d72fe",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793721380.243267,
-    "seen": 1793722216.6706731,
-    "ast_hash": "cb3292c102a6da76c48eca10c9efd105",
+    "mtime": 1793724052.3878067,
+    "seen": 1793724834.7905366,
+    "ast_hash": "b6740b2ba57a3329a1926994197d860c",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -72,9 +72,9 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793721665.6850686,
-    "seen": 1793722216.6717064,
-    "ast_hash": "24130bd19073926f0c76ef21e984e9fa",
+    "mtime": 1793723979.9150746,
+    "seen": 1793724834.7914453,
+    "ast_hash": "c034f2ac467a680c8c6af92144aef064",
     "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
@@ -84,9 +84,9 @@
     "semantic_hash": "b68a5f1b682c05140de80988d7c3ca1f"
   },
   "src/services/tesseractService.js": {
-    "mtime": 1793659661.6694245,
-    "seen": 1793659927.0410466,
-    "ast_hash": "f7551372c86e47e7435b0ac74b08b8a4",
+    "mtime": 1793723737.8019679,
+    "seen": 1793724834.7916224,
+    "ast_hash": "3c6de50bb192b060e1c755f9738d3ee5",
     "semantic_hash": ""
   },
   "supabase/functions/ocr-proxy/index.ts": {
@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "tests/test_performance_suite.mjs": {
-    "mtime": 1793659735.477659,
-    "seen": 1793659927.0412,
-    "ast_hash": "4e9f81bded82b3078306298e18dec3d8",
+    "mtime": 1793724424.2531657,
+    "seen": 1793724834.7926528,
+    "ast_hash": "d3f800e6d245a213cb42c035017f7f13",
     "semantic_hash": ""
   },
   "tests/test_root_cause_suite.mjs": {
@@ -162,10 +162,10 @@
     "semantic_hash": "690b9a1ea71c8b84841855540822a3b2"
   },
   "vite.config.js": {
-    "mtime": 1793638264.6591215,
-    "seen": 1793659305.0426667,
-    "ast_hash": "07a60e8e0e0e7bd7067b04e6ed23e64c",
-    "semantic_hash": "07a60e8e0e0e7bd7067b04e6ed23e64c"
+    "mtime": 1793724222.9613893,
+    "seen": 1793724834.7936287,
+    "ast_hash": "203da78a187a65fb296f4a7230495f58",
+    "semantic_hash": ""
   },
   "index.html": {
     "mtime": 1793694802.08096,
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "src/services/bookMemoryService.js": {
-    "mtime": 1793721649.2328644,
-    "seen": 1793722216.670676,
-    "ast_hash": "49a10b58bf1fa4f6e32e4bf15208ae47",
+    "mtime": 1793724587.8294837,
+    "seen": 1793724834.7905383,
+    "ast_hash": "53c1e105a111eb831922b192f673d8b4",
     "semantic_hash": ""
   },
   "tests/test_book_memory_suite.mjs": {
@@ -285,6 +285,18 @@
     "mtime": 1793722154.520069,
     "seen": 1793722216.6725764,
     "ast_hash": "81e0071f68b64a9fc4ee7b29a5cb198b",
+    "semantic_hash": ""
+  },
+  "tests/test_production_stress_suite.mjs": {
+    "mtime": 1793722834.8358493,
+    "seen": 1793722964.824882,
+    "ast_hash": "555c69b936f4df6ae943634ac7908caa",
+    "semantic_hash": ""
+  },
+  "tests/test_critical_fixes_suite.mjs": {
+    "mtime": 1793724666.246163,
+    "seen": 1793724834.7925322,
+    "ast_hash": "e83e576fc376a3bba024b90440cc6c65",
     "semantic_hash": ""
   },
   "package-lock.json": {

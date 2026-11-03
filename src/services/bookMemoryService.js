@@ -4,7 +4,9 @@
 
 import {
   extractBookOutlineIndex,
-  buildParagraphMetadataIndex
+  buildParagraphMetadataIndex,
+  invalidateBookRetrievalCache,
+  detectPrintedPageNumber
 } from './aiService.js';
 
 const IDB_NAME = 'reawid_book_memory_db';
@@ -169,6 +171,7 @@ export function initBookMemory({
     failedAttempts: {},
     chapterOutline: '',
     ragIndex: null,
+    contentVersion: 1,
     lastOcrDate: null,
     ocrStats: {
       totalPages: safeTotal,
@@ -186,23 +189,57 @@ export function initBookMemory({
   return memory;
 }
 
+// Per-book serialization queue to prevent parallel IndexedDB transaction aborts
+const idbWriteQueues = new Map();
+
 /**
- * Persists a full memory record to IndexedDB asynchronously.
+ * Persists a full memory record to IndexedDB asynchronously with serialization and quota protection.
  */
 async function persistMemoryToIdb(memory) {
+  if (!memory || !memory.bookId) return false;
+  const key = String(memory.bookId);
+
+  const prevWrite = idbWriteQueues.get(key) || Promise.resolve();
+  let releaseWrite;
+  const currentWrite = new Promise(resolve => { releaseWrite = resolve; });
+  idbWriteQueues.set(key, currentWrite);
+
   try {
+    await prevWrite;
     const db = await getBookMemoryDb();
     if (!db) return false;
 
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE_MEMORIES, 'readwrite');
-      tx.objectStore(IDB_STORE_MEMORIES).put(memory);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
+    return await new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(IDB_STORE_MEMORIES, 'readwrite');
+        tx.onabort = () => {
+          const err = tx.error || new Error('IDB transaction aborted');
+          reject(err);
+        };
+        tx.onerror = () => {
+          const err = tx.error || new Error('IDB transaction error');
+          reject(err);
+        };
+        tx.oncomplete = () => resolve(true);
+
+        const store = tx.objectStore(IDB_STORE_MEMORIES);
+        store.put(memory);
+      } catch (txErr) {
+        reject(txErr);
+      }
     });
   } catch (err) {
-    console.warn('[BookMemory] IDB save memory warning:', err);
+    if (err?.name === 'QuotaExceededError') {
+      console.error(`[BookMemory] IndexedDB Depolama Kotası Doldu (QuotaExceededError) [${key}]:`, err);
+    } else {
+      console.warn(`[BookMemory] IDB save memory warning [${key}]:`, err?.message || err);
+    }
     return false;
+  } finally {
+    releaseWrite();
+    if (idbWriteQueues.get(key) === currentWrite) {
+      idbWriteQueues.delete(key);
+    }
   }
 }
 
@@ -344,10 +381,12 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
   if (!memory.failedAttempts) memory.failedAttempts = {};
 
   const existingPage = memory.scannedPages[pNum];
-  const incomingStatus = pageData.ocrStatus || 'completed';
-  const incomingParagraphs = Array.isArray(pageData.paragraphs)
-    ? pageData.paragraphs
-    : (pageData.paragraphs ? [String(pageData.paragraphs)] : []);
+  const incomingStatus = (pageData && pageData.ocrStatus) || 'completed';
+  const incomingParagraphs = Array.isArray(pageData)
+    ? pageData
+    : (Array.isArray(pageData?.paragraphs)
+        ? pageData.paragraphs
+        : (pageData?.paragraphs ? [String(pageData.paragraphs)] : []));
 
   // Rule: Do not overwrite an already completed page with a failed status
   if (
@@ -362,12 +401,16 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
   }
 
   const now = Date.now();
+  const rawPageText = pageData.rawText || incomingParagraphs.join('\n\n');
+  const detectedPrinted = detectPrintedPageNumber(rawPageText);
 
   if (incomingStatus === 'completed' && incomingParagraphs.length > 0) {
     memory.scannedPages[pNum] = {
       pageNumber: pNum,
+      pdfPage: pNum,
+      printedPage: detectedPrinted,
       paragraphs: incomingParagraphs,
-      rawText: pageData.rawText || incomingParagraphs.join('\n\n'),
+      rawText: rawPageText,
       ocrStatus: 'completed',
       ocrEngine: pageData.ocrEngine || 'auto',
       timestamp: now,
@@ -381,6 +424,8 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
 
     memory.scannedPages[pNum] = {
       pageNumber: pNum,
+      pdfPage: pNum,
+      printedPage: detectedPrinted,
       paragraphs: [],
       rawText: '',
       ocrStatus: 'failed',
@@ -392,6 +437,8 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
     // in_progress or metadata update
     memory.scannedPages[pNum] = {
       pageNumber: pNum,
+      pdfPage: pNum,
+      printedPage: detectedPrinted,
       paragraphs: incomingParagraphs,
       rawText: pageData.rawText || '',
       ocrStatus: incomingStatus,
@@ -408,6 +455,26 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
       const p = memory.scannedPages[n];
       return p && p.ocrStatus === 'completed' && Array.isArray(p.paragraphs) && p.paragraphs.length > 0;
     });
+
+  // Calculate consensus page offset (pdfPage - printedPage)
+  const offsetVotes = new Map();
+  for (const [pStr, pageObj] of Object.entries(memory.scannedPages)) {
+    const p = Number(pStr);
+    const pr = pageObj.printedPage;
+    if (typeof pr === 'number' && p >= pr) {
+      const diff = p - pr;
+      offsetVotes.set(diff, (offsetVotes.get(diff) || 0) + 1);
+    }
+  }
+  let maxOffsetVotes = 0;
+  let consensusOffset = null;
+  for (const [diff, votes] of offsetVotes.entries()) {
+    if (votes > maxOffsetVotes) {
+      maxOffsetVotes = votes;
+      consensusOffset = diff;
+    }
+  }
+  memory.pageOffset = consensusOffset;
 
   const total = Math.max(memory.totalPages || 1, ...scannedKeys, pNum);
   memory.totalPages = total;
@@ -426,8 +493,12 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
   };
   memory.updatedAt = new Date(now).toISOString();
 
-  // Invalidate RAG index so it rebuilds with fresh page data on next retrieval
+  // Monotonically increment content version so RAG retrieval cache is invalidated
+  memory.contentVersion = (memory.contentVersion || 0) + 1;
+
+  // Invalidate RAG index and retrieval cache so it rebuilds with fresh page data on next retrieval
   memory.ragIndex = null;
+  invalidateBookRetrievalCache(memory.bookId);
 
   // Auto-update chapter outline if new headings detected
   try {
@@ -438,9 +509,9 @@ export async function savePageOcrMemory(bookId, pageNumber, pageData) {
     memory.chapterOutline = extractBookOutlineIndex(simpleMap);
   } catch (_) {}
 
-  // Commit to L1 cache & IndexedDB
+  // Commit to L1 cache & wait for IndexedDB persistence
   l1MemoryCache.set(memory.bookId, memory);
-  persistMemoryToIdb(memory).catch(() => {});
+  await persistMemoryToIdb(memory);
 
   return memory;
 }
@@ -628,6 +699,16 @@ export async function loadOrInitializeBookMemory(book, fileOrBuffer = null) {
 }
 
 /**
+ * Gets the current monotonically increasing content version of a book.
+ * Used for RAG retrieval cache invalidation.
+ */
+export function getBookContentVersion(bookId) {
+  if (!bookId) return 0;
+  const mem = l1MemoryCache.get(String(bookId));
+  return mem ? (mem.contentVersion || 1) : 1;
+}
+
+/**
  * Deletes persistent book memory by bookId.
  *
  * @param {string} bookId
@@ -638,6 +719,7 @@ export async function deleteBookMemory(bookId) {
   const key = String(bookId);
 
   l1MemoryCache.delete(key);
+  invalidateBookRetrievalCache(key);
 
   try {
     const db = await getBookMemoryDb();
@@ -662,6 +744,7 @@ export async function deleteBookMemory(bookId) {
  */
 export async function clearAllBookMemories() {
   l1MemoryCache.clear();
+  invalidateBookRetrievalCache();
 
   try {
     const db = await getBookMemoryDb();
@@ -782,4 +865,30 @@ export function getNextTargetPage({
   }
 
   return null;
+}
+
+/**
+ * Returns the detected page offset (pdfPage - printedPage) for a given book.
+ *
+ * @param {string} bookId
+ * @returns {number|null} Offset or null if not yet determined
+ */
+export function getBookPageOffset(bookId) {
+  if (!bookId) return null;
+  const memory = l1MemoryCache.get(String(bookId));
+  return typeof memory?.pageOffset === 'number' ? memory.pageOffset : null;
+}
+
+/**
+ * Estimates the physical PDF sheet number corresponding to a printed page number.
+ *
+ * @param {string} bookId
+ * @param {number} printedPage
+ * @returns {number|null}
+ */
+export function estimatePdfPageFromPrinted(bookId, printedPage) {
+  const p = Number(printedPage);
+  if (isNaN(p) || p <= 0) return null;
+  const offset = getBookPageOffset(bookId);
+  return typeof offset === 'number' ? p + offset : p;
 }

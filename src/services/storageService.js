@@ -16,7 +16,11 @@ import {
   fixSpacedOutLetters,
   mergeAccidentalParagraphSplits,
   healTurkishOcrArtifacts,
-  normalizeHyphensAndText
+  normalizeHyphensAndText,
+  detectPrintedPageNumber,
+  recordRetrievalAudit,
+  getRetrievalAuditTrail,
+  getLastRetrievalAudit
 } from './aiService.js';
 import {
   savePageOcrMemory,
@@ -29,7 +33,10 @@ import {
   generatePdfFingerprint,
   hydrateBookFromMemory,
   getOrBuildBookRagIndex,
-  getNextTargetPage
+  getNextTargetPage,
+  getBookContentVersion,
+  getBookPageOffset,
+  estimatePdfPageFromPrinted
 } from './bookMemoryService.js';
 
 export {
@@ -43,7 +50,14 @@ export {
   generatePdfFingerprint,
   hydrateBookFromMemory,
   getOrBuildBookRagIndex,
-  getNextTargetPage
+  getNextTargetPage,
+  getBookContentVersion,
+  getBookPageOffset,
+  estimatePdfPageFromPrinted,
+  detectPrintedPageNumber,
+  recordRetrievalAudit,
+  getRetrievalAuditTrail,
+  getLastRetrievalAudit
 };
 
 const SETTINGS_KEY = 'reawid_settings_v1';
@@ -195,8 +209,9 @@ export function generateBookCoverSvg(title = 'Kitap', author = 'ReaWid') {
 // Read environment variables (supports both VITE_ and EXPO_PUBLIC_ prefixes)
 const metaEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
 const ENV_ACTIVE_PROVIDER = (metaEnv.VITE_OCR_PROVIDER || metaEnv.EXPO_PUBLIC_OCR_PROVIDER || 'auto').toLowerCase();
-const ENV_GROQ_KEY = metaEnv.VITE_GROQ_API_KEY || metaEnv.EXPO_PUBLIC_GROQ_API_KEY || '';
-const ENV_OPENROUTER_KEY = metaEnv.VITE_OPENROUTER_API_KEY || metaEnv.EXPO_PUBLIC_OPENROUTER_API_KEY || '';
+// Security: Never bake hardcoded API keys into client-side production bundles
+const ENV_GROQ_KEY = '';
+const ENV_OPENROUTER_KEY = '';
 const ENV_GROQ_MODEL = metaEnv.VITE_GROQ_MODEL || metaEnv.EXPO_PUBLIC_GROQ_MODEL || 'auto';
 const ENV_OPENROUTER_MODEL = metaEnv.VITE_OPENROUTER_MODEL || metaEnv.EXPO_PUBLIC_OPENROUTER_MODEL || 'auto';
 

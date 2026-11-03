@@ -10,7 +10,19 @@ let tesseractWorker = null;
 let isInitializing = false;
 let currentInitPromise = null;
 let lastWorkerActiveTime = Date.now();
-let isProcessingQueue = false;
+let ocrJobQueue = Promise.resolve();
+
+/**
+ * Creates a standardized AbortError recognized by modern DOM and Node.js environments.
+ */
+export function createAbortError(message = 'İşlem kullanıcı tarafından durduruldu.') {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException(message, 'AbortError');
+  }
+  const err = new Error(message);
+  err.name = 'AbortError';
+  return err;
+}
 
 // Auto-terminate worker after 5 minutes of idle to free up ~40MB WebAssembly memory
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -126,30 +138,31 @@ export async function performTesseractOcr({
   const metricKey = `tesseract_p${pageNumber}`;
   perfMonitor.start(metricKey);
 
-  // Simple serial queue lock to prevent unconstrained parallel OCR workers
-  let waitLoops = 0;
-  while (isProcessingQueue) {
-    if (signal?.aborted || waitLoops > 200) {
-      if (waitLoops > 200) isProcessingQueue = false; // release stuck queue lock!
-      perfMonitor.trackOcrEnd();
-      perfMonitor.end(metricKey);
-      throw new Error(signal?.aborted ? 'İşlem kullanıcı tarafından durduruldu.' : 'OCR kuyruğu zaman aşımı.');
-    }
-    waitLoops++;
-    await new Promise((r) => setTimeout(r, 50));
+  if (signal?.aborted) {
+    perfMonitor.trackOcrEnd();
+    perfMonitor.end(metricKey);
+    throw createAbortError();
   }
 
-  isProcessingQueue = true;
+  // Strict serial queue lock to prevent unconstrained parallel OCR workers from colliding
+  const previousJob = ocrJobQueue;
+  let releaseJobLock;
+  ocrJobQueue = new Promise((resolve) => {
+    releaseJobLock = resolve;
+  });
 
   try {
+    // Wait until previous OCR job finishes completely
+    await previousJob;
+
     if (signal?.aborted) {
-      throw new Error('İşlem kullanıcı tarafından durduruldu.');
+      throw createAbortError();
     }
 
     const worker = await getOrInitTesseractWorker(onProgress);
 
     if (signal?.aborted) {
-      throw new Error('İşlem kullanıcı tarafından durduruldu.');
+      throw createAbortError();
     }
 
     // 1. Akıllı Kontrast Germe & Gri Tonlama (Preserve smooth letter contours for LSTM)
@@ -165,35 +178,77 @@ export async function performTesseractOcr({
       }
     }
 
+    if (signal?.aborted) {
+      throw createAbortError();
+    }
+
+    // Abort listener for active worker recognition
+    let abortListener = null;
+    const abortPromise = new Promise((_, reject) => {
+      if (signal?.aborted) {
+        reject(createAbortError());
+        return;
+      }
+      if (signal && typeof signal.addEventListener === 'function') {
+        abortListener = () => reject(createAbortError());
+        signal.addEventListener('abort', abortListener, { once: true });
+      }
+    });
+
     const recognizePromise = worker.recognize(processedSource);
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Tesseract sayfa tanıma zaman aşımına uğradı (25s).')), 25000)
     );
-    const recognizeRes = await Promise.race([recognizePromise, timeoutPromise]);
+
+    let recognizeRes;
+    try {
+      recognizeRes = await Promise.race([recognizePromise, abortPromise, timeoutPromise]);
+    } catch (raceErr) {
+      if (raceErr.name === 'AbortError' || (raceErr.message && raceErr.message.includes('zaman aşımına'))) {
+        // Halt and terminate busy worker so cancelled WebAssembly computation does not corrupt next job
+        await terminateTesseractWorker().catch(() => {});
+      }
+      throw raceErr;
+    } finally {
+      if (signal && abortListener && typeof signal.removeEventListener === 'function') {
+        signal.removeEventListener('abort', abortListener);
+      }
+    }
+
     const durationMs = Math.round(performance.now() - startTime);
 
     let rawText = (recognizeRes?.data?.text || '').trim();
     let confidence = Math.round(recognizeRes?.data?.confidence || 0);
 
     // 2. İki Aşamalı Akıllı Fallback (Two-Pass OCR):
-    // Eğer güven skoru %62 altında kalırsa, integral Bradley-Roth adaptif eşikleme ile 2. turu dene
     if (confidence < 62 && options.twoPass !== false && typeof document !== 'undefined' && !signal?.aborted) {
       try {
         const pass2Source = await preprocessImageForOcr(imageSource, { mode: 'adaptive_threshold' });
         const pass2Promise = worker.recognize(pass2Source);
-        const pass2Res = await Promise.race([
-          pass2Promise,
-          new Promise((_, r) => setTimeout(() => r(new Error('Pass 2 timeout')), 15000))
-        ]);
-        const pass2Text = (pass2Res?.data?.text || '').trim();
-        const pass2Conf = Math.round(pass2Res?.data?.confidence || 0);
+        const pass2Timeout = new Promise((_, r) => setTimeout(() => r(new Error('Pass 2 timeout')), 15000));
+        
+        let pass2Res;
+        try {
+          pass2Res = await Promise.race([pass2Promise, abortPromise, pass2Timeout]);
+        } catch (pass2RaceErr) {
+          if (pass2RaceErr.name === 'AbortError') {
+            await terminateTesseractWorker().catch(() => {});
+            throw pass2RaceErr;
+          }
+        }
 
-        if (pass2Conf > confidence || (pass2Text.length > rawText.length * 1.3 && pass2Conf >= 45)) {
-          console.info(`[Tesseract OCR] [Adaptive] İkinci aşama (Adaptive Thresholding) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
-          rawText = pass2Text;
-          confidence = pass2Conf;
+        if (pass2Res) {
+          const pass2Text = (pass2Res?.data?.text || '').trim();
+          const pass2Conf = Math.round(pass2Res?.data?.confidence || 0);
+
+          if (pass2Conf > confidence || (pass2Text.length > rawText.length * 1.3 && pass2Conf >= 45)) {
+            console.info(`[Tesseract OCR] [Adaptive] İkinci aşama (Adaptive Thresholding) daha başarılı sonuç verdi (%${pass2Conf} vs %${confidence}).`);
+            rawText = pass2Text;
+            confidence = pass2Conf;
+          }
         }
       } catch (pass2Err) {
+        if (pass2Err.name === 'AbortError') throw pass2Err;
         console.warn('[Tesseract OCR] İkinci aşama uyarısı:', pass2Err?.message);
       }
     }
@@ -225,10 +280,12 @@ export async function performTesseractOcr({
 
     return verifiableResult;
   } catch (err) {
-    console.error(`[Tesseract OCR] Sayfa ${pageNumber} işlenirken hata:`, err);
+    if (err.name !== 'AbortError') {
+      console.error(`[Tesseract OCR] Sayfa ${pageNumber} işlenirken hata:`, err);
+    }
     throw err;
   } finally {
-    isProcessingQueue = false;
+    if (releaseJobLock) releaseJobLock();
     perfMonitor.trackOcrEnd();
     perfMonitor.end(metricKey);
     resetIdleTimer();

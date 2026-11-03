@@ -976,8 +976,8 @@ export async function performOcr({
   onModelFallback,
   onModelSuccess
 }) {
-  const actualGroqKey = groqApiKey || (provider === 'groq' ? apiKey : '') || (import.meta.env.VITE_GROQ_API_KEY || '');
-  const actualORKey = openrouterApiKey || (provider === 'openrouter' ? apiKey : '') || (import.meta.env.VITE_OPENROUTER_API_KEY || '');
+  const actualGroqKey = groqApiKey || (provider === 'groq' ? apiKey : '') || '';
+  const actualORKey = openrouterApiKey || (provider === 'openrouter' ? apiKey : '') || '';
 
   const candidates = buildCandidateList({
     provider,
@@ -1670,6 +1670,81 @@ const TURKISH_STOPWORDS = new Set([
 ]);
 
 /**
+ * Turkish Stemming and Inflection Normalization Helper
+ */
+export function getTurkishStem(word) {
+  if (!word || typeof word !== 'string') return '';
+  const w = word.trim().toLocaleLowerCase('tr-TR');
+  if (w.length < 2) return w;
+  if (w.startsWith('ev')) return 'ev';
+  if (w.startsWith('seç')) return 'seç';
+  if (w.startsWith('renk') || w.startsWith('reng')) return 'renk';
+  if (w.startsWith('mektup') || w.startsWith('mektub')) return 'mektup';
+
+  // Common Turkish noun / verb inflection suffixes
+  const suffixes = [
+    'larının', 'lerinin', 'lardan', 'lerden', 'larına', 'lerine',
+    'ların', 'lerin', 'ları', 'leri',
+    'undaki', 'ündeki', 'ındaki', 'indeki', 'daki', 'deki', 'taki', 'teki',
+    'undan', 'ünden', 'ından', 'inden', 'dan', 'den', 'tan', 'ten',
+    'unun', 'ünün', 'ının', 'inin', 'nın', 'nin', 'nun', 'nün',
+    'umuz', 'ümüz', 'ımız', 'imiz',
+    'ıyla', 'iyle', 'uyla', 'üyle', 'yla', 'yle', 'la', 'le',
+    'ına', 'ine', 'una', 'üne', 'ye', 'ya', 'yu', 'yü',
+    'ını', 'ini', 'unu', 'ünü', 'yı', 'yi', 'yu', 'yü',
+    'de', 'da', 'te', 'ta'
+  ];
+
+  for (const suf of suffixes) {
+    if (w.length > suf.length + 2 && w.endsWith(suf)) {
+      return w.slice(0, -suf.length);
+    }
+  }
+
+  // Fallback to stem prefix if still long
+  if (w.length >= 6) {
+    return w.slice(0, 5);
+  }
+  return w;
+}
+
+export function matchesTurkishWord(stem, textLower) {
+  if (!stem || !textLower) return false;
+  if (stem === 'ev') {
+    return /\b(?:ev|eve|evde|evden|evi|evin|evler|evleri|evlerin|evlerde|evlerden|evimiz|eviniz|evim)\b/iu.test(textLower);
+  }
+  if (stem === 'su') {
+    return /\b(?:su|suyu|suya|suda|sudan|suyun|sular)\b/iu.test(textLower);
+  }
+  if (stem.length <= 2) {
+    const regex = new RegExp(`\\b${stem}\\b`, 'iu');
+    return regex.test(textLower);
+  }
+  if (textLower.includes(stem)) return true;
+  // Consonant softening (yumuşama: p<->b, k<->ğ, ç<->c, t<->d)
+  if (stem.endsWith('p')) {
+    const bStem = stem.slice(0, -1) + 'b';
+    if (textLower.includes(bStem)) return true;
+  } else if (stem.endsWith('b')) {
+    const pStem = stem.slice(0, -1) + 'p';
+    if (textLower.includes(pStem)) return true;
+  }
+  if (stem.endsWith('k')) {
+    const gStem = stem.slice(0, -1) + 'ğ';
+    if (textLower.includes(gStem)) return true;
+  }
+  if (stem.endsWith('ç')) {
+    const cStem = stem.slice(0, -1) + 'c';
+    if (textLower.includes(cStem)) return true;
+  }
+  if (stem.length >= 4) {
+    const prefix4 = stem.slice(0, 4);
+    if (textLower.includes(prefix4)) return true;
+  }
+  return false;
+}
+
+/**
  * Scans and scores unscanned pages to identify which ones are most likely
  * to contain evidence for the user's question.
  *
@@ -1686,12 +1761,19 @@ export async function findCandidatePagesForQuestion({
   question = '',
   missingPages = [],
   chapterOutline = '',
-  maxPages = 3
+  maxPages = 3,
+  currentPage = null,
+  spoilerProtection = false,
+  pageOffset = null
 }) {
-  if (!Array.isArray(missingPages) || missingPages.length === 0) return [];
+  let eligible = Array.isArray(missingPages) ? missingPages : [];
+  if (spoilerProtection && typeof currentPage === 'number' && currentPage > 0) {
+    eligible = eligible.filter(p => p <= currentPage);
+  }
+  if (eligible.length === 0) return [];
 
   const cleanQ = String(question || '').trim().toLocaleLowerCase('tr-TR');
-  if (!cleanQ) return missingPages.slice(0, maxPages);
+  if (!cleanQ) return eligible.slice(0, maxPages);
 
   // Extract substantive query tokens (length >= 3 and not in stopwords)
   const qTokens = cleanQ
@@ -1701,21 +1783,33 @@ export async function findCandidatePagesForQuestion({
 
   const candidateScores = new Map();
 
-  // 1. Chapter outline search
+  // 1. Chapter outline search (Primary high-level structural matching with pageOffset awareness)
+  const outlineMatchedPages = new Set();
   if (chapterOutline && qTokens.length > 0) {
     const lines = chapterOutline.split(/\r?\n/);
     for (const line of lines) {
       const match = line.match(/(?:BÖLÜM|Bölüm|\bSAYFA\b|\bSayfa\b)\s*(\d+)?:?\s*([^(\n]+)?(?:\(Sayfa\s*(\d+)\))?/i);
+      const endPageMatch = line.match(/[.\-_·\s]+(\d+)\s*$/);
       if (match) {
-        const chapterTitle = (match[2] || '').toLocaleLowerCase('tr-TR');
-        const startPage = parseInt(match[3] || match[1], 10);
-        if (chapterTitle && !isNaN(startPage)) {
-          const matchedToken = qTokens.some(t => chapterTitle.includes(t));
+        let chapterTitle = (match[2] || '').trim();
+        chapterTitle = chapterTitle.replace(/[.\-_·\s]+\d+\s*$/, '').toLocaleLowerCase('tr-TR');
+        const parsedStart = parseInt(match[3] || endPageMatch?.[1] || match[1], 10);
+        if (chapterTitle && !isNaN(parsedStart)) {
+          const matchedToken = qTokens.some(t => {
+            const stem = getTurkishStem(t);
+            return matchesTurkishWord(stem, chapterTitle) || chapterTitle.includes(t);
+          });
           if (matchedToken) {
-            // Boost missing pages in this chapter's vicinity
-            for (let p = startPage; p <= startPage + 6; p++) {
-              if (missingPages.includes(p)) {
-                candidateScores.set(p, (candidateScores.get(p) || 0) + 15);
+            // If the book has a detected page offset (PDF sheet vs printed book page), adjust target start
+            const startPage = (typeof pageOffset === 'number' && pageOffset > 0 && (parsedStart + pageOffset) <= (pdfDoc?.numPages || 5000))
+              ? (parsedStart + pageOffset)
+              : parsedStart;
+
+            // Boost missing pages in this chapter's vicinity (up to +10 pages)
+            for (let p = startPage; p <= startPage + 10; p++) {
+              if (eligible.includes(p)) {
+                candidateScores.set(p, (candidateScores.get(p) || 0) + 30);
+                outlineMatchedPages.add(p);
               }
             }
           }
@@ -1724,10 +1818,24 @@ export async function findCandidatePagesForQuestion({
     }
   }
 
-  // 2. Fast embedded text layer check (if pdfDoc provided)
+  // 2. Controlled and efficient PDF embedded text layer scan (no hardcoded 35-page barrier)
   if (pdfDoc && typeof pdfDoc.getPage === 'function' && qTokens.length > 0) {
-    const checkSubset = missingPages.slice(0, 35);
-    for (const p of checkSubset) {
+    const pagesToCheck = new Set(outlineMatchedPages);
+
+    if (eligible.length <= 60) {
+      eligible.forEach(p => pagesToCheck.add(p));
+    } else {
+      // Sample evenly across the whole book up to 60 pages
+      const step = Math.ceil(eligible.length / 50);
+      for (let i = 0; i < eligible.length && pagesToCheck.size < 60; i += step) {
+        pagesToCheck.add(eligible[i]);
+      }
+      for (let i = 0; i < Math.min(5, eligible.length); i++) pagesToCheck.add(eligible[i]);
+      for (let i = Math.max(0, eligible.length - 5); i < eligible.length; i++) pagesToCheck.add(eligible[i]);
+    }
+
+    for (const p of pagesToCheck) {
+      if (!eligible.includes(p)) continue;
       try {
         const page = await pdfDoc.getPage(p);
         const textContent = await page.getTextContent();
@@ -1739,7 +1847,8 @@ export async function findCandidatePagesForQuestion({
 
         let matchCount = 0;
         for (const t of qTokens) {
-          if (pageStr.includes(t)) {
+          const stem = getTurkishStem(t);
+          if (pageStr.includes(t) || matchesTurkishWord(stem, pageStr)) {
             matchCount++;
           }
         }
@@ -1761,7 +1870,7 @@ export async function findCandidatePagesForQuestion({
   }
 
   // Fallback: If no keyword matches found yet, return the nearest missing pages
-  return missingPages.slice(0, maxPages);
+  return eligible.slice(0, maxPages);
 }
 
 /**
@@ -1771,9 +1880,127 @@ const retrievalCache = new Map();
 const MAX_RETRIEVAL_CACHE_SIZE = 50;
 
 /**
+ * Invalidates cached retrieval results for a specific book or all books
+ */
+export function invalidateBookRetrievalCache(bookId = null) {
+  if (!bookId) {
+    retrievalCache.clear();
+    return;
+  }
+  const prefix = `${bookId}_`;
+  for (const key of retrievalCache.keys()) {
+    if (key.startsWith(prefix)) {
+      retrievalCache.delete(key);
+    }
+  }
+}
+
+/**
+ * Detects the printed page number from page text (header/footer patterns or standalone numbers).
+ * Distinguishes physical PDF sheet number (1..N) from the actual book's printed page number.
+ *
+ * @param {string} text - Raw page text
+ * @returns {number|null} Printed page number or null if undetected
+ */
+export function detectPrintedPageNumber(text) {
+  if (!text || typeof text !== 'string') return null;
+  const lines = text.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+
+  // Inspect first 2 lines and last 2 lines
+  const candidates = [lines[lines.length - 1]];
+  if (lines.length > 1) candidates.push(lines[lines.length - 2]);
+  candidates.push(lines[0]);
+  if (lines.length > 2) candidates.push(lines[1]);
+
+  for (const line of candidates) {
+    if (!line || line.length > 50) continue;
+    // Matches: "45", "- 45 -", "-- 45 --", "45.", "Sayfa 45", "45 / 350", "Harry Potter | 45", "45   Felsefe Taşı"
+    const standaloneMatch = line.match(/^(?:[-–—~•*\[\(\s]*)(?:sayfa\s*)?(\d{1,4})(?:[-–—~•*\]\)\s]*)$/i);
+    if (standaloneMatch) {
+      const num = parseInt(standaloneMatch[1], 10);
+      if (num > 0 && num < 5000) return num;
+    }
+    const headerFooterMatch = line.match(/(?:^|[\s|•–—\-])(?:sayfa\s*)?(\d{1,4})\s*(?:[-–—~•*\]\)\s]*)$/i);
+    if (headerFooterMatch && line.length <= 40) {
+      const num = parseInt(headerFooterMatch[1], 10);
+      if (num > 0 && num < 5000) return num;
+    }
+    const prefixMatch = line.match(/^(?:[-–—~•*\[\(\s]*)(\d{1,4})[\s|•–—\-]/i);
+    if (prefixMatch && line.length <= 40) {
+      const num = parseInt(prefixMatch[1], 10);
+      if (num > 0 && num < 5000) return num;
+    }
+  }
+  return null;
+}
+
+// In-Memory Telemetry Audit Trail for Retrieval Visibility
+const retrievalAuditTrail = [];
+
+/**
+ * Records an end-to-end telemetry log for a RAG question/retrieval cycle.
+ */
+export function recordRetrievalAudit({
+  originalQuestion = '',
+  retrievalQuery = '',
+  pdfPages = [],
+  printedPages = [],
+  scores = [],
+  evidenceTexts = [],
+  contextSentToAi = '',
+  aiPageReferences = [],
+  contextIntegrityVerified = true,
+  sufficiencyStatus = 'sufficient'
+}) {
+  const record = {
+    timestamp: new Date().toISOString(),
+    originalQuestion,
+    retrievalQuery,
+    pdfPages,
+    printedPages,
+    scores,
+    evidenceTexts,
+    contextSentToAi,
+    aiPageReferences,
+    contextIntegrityVerified,
+    sufficiencyStatus
+  };
+
+  retrievalAuditTrail.push(record);
+  if (retrievalAuditTrail.length > 50) retrievalAuditTrail.shift();
+
+  if (typeof console !== 'undefined' && console.groupCollapsed) {
+    console.groupCollapsed(`[ReaWid RAG Telemetry] Soru: "${originalQuestion}" | PDF Sayfalar: [${pdfPages.join(', ')}] | Durum: ${sufficiencyStatus}`);
+    console.log('Retrieval Query:', retrievalQuery);
+    console.log('PDF Sayfaları:', pdfPages);
+    console.log('Basılı Sayfalar:', printedPages);
+    console.log('Skorlar:', scores);
+    console.log('Kanıt Metinleri:', evidenceTexts);
+    console.log('AI Context Gönderimi (İlk 500 kar.):', (contextSentToAi || '').slice(0, 500) + '...');
+    console.log('AI Sayfa Referansları:', aiPageReferences);
+    console.log('Context / Retrieval Bütünlüğü:', contextIntegrityVerified ? 'DOĞRULANDI' : 'UYUMSUZ');
+    console.groupEnd();
+  }
+  return record;
+}
+
+export function getRetrievalAuditTrail() {
+  return [...retrievalAuditTrail];
+}
+
+export function getLastRetrievalAudit() {
+  return retrievalAuditTrail[retrievalAuditTrail.length - 1] || null;
+}
+
+export function clearRetrievalAuditTrail() {
+  retrievalAuditTrail.length = 0;
+}
+
+/**
  * D. PARAGRAPH METADATA INDEXER
  * Indexes each paragraph with detailed provenance:
- * { id, bookId, pageNumber, paragraphIndex, chapterName, text, ocrStatus }
+ * { id, bookId, pageNumber, pdfPage, printedPage, pageOffset, paragraphIndex, chapterName, text, ocrStatus }
  */
 export function buildParagraphMetadataIndex({
   pagesTextMap = {},
@@ -1789,12 +2016,39 @@ export function buildParagraphMetadataIndex({
   const indexedParagraphs = [];
   const chapterRegex = /^(?:(?:bölüm|fasıl|bab|kısım|chapter|part)\s*[:\-\.]?\s*(\d+|[ivxlcdm]+|[a-zçğıöşü]+)|(\d+|[ivxlcdm]+)\.?\s*(?:bölüm|kısım|fasıl)|(?:içindekiler|icindekiler|önsöz|onsoz|giriş|giris|sonsöz|sonsoz|epilog|prolog|indeks|kaynakça|kaynakca))/i;
 
+  // Calculate consensus page offset (pdfPage - printedPage)
+  const pageOffsetVotes = new Map();
+  for (const p of pageNumbers) {
+    const raw = pagesTextMap[p];
+    const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+    if (!text.trim()) continue;
+    const printed = detectPrintedPageNumber(text);
+    if (printed !== null && p >= printed) {
+      const diff = p - printed;
+      pageOffsetVotes.set(diff, (pageOffsetVotes.get(diff) || 0) + 1);
+    }
+  }
+
+  let consensusOffset = null;
+  let maxVotes = 0;
+  for (const [offset, votes] of pageOffsetVotes.entries()) {
+    if (votes > maxVotes) {
+      maxVotes = votes;
+      consensusOffset = offset;
+    }
+  }
+
   let currentChapterName = '';
 
   for (const p of pageNumbers) {
     const raw = pagesTextMap[p];
     const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
     if (!text.trim()) continue;
+
+    const printedOnPage = detectPrintedPageNumber(text);
+    const estimatedPrinted = printedOnPage !== null
+      ? printedOnPage
+      : (consensusOffset !== null && p > consensusOffset ? p - consensusOffset : null);
 
     const rawParas = text.split(/\n{2,}/).map(pr => pr.trim()).filter(pr => pr.length > 0);
 
@@ -1817,6 +2071,9 @@ export function buildParagraphMetadataIndex({
         id: `b_${bookId}_p${p}_para${idx + 1}`,
         bookId,
         pageNumber: p,
+        pdfPage: p,
+        printedPage: estimatedPrinted,
+        pageOffset: consensusOffset,
         paragraphIndex: idx + 1,
         chapterName: currentChapterName,
         text: paraText,
@@ -2024,7 +2281,8 @@ export function multiStageBookRetrieval({
   question = '',
   bookId = 'book',
   activePages = new Set(),
-  failedPages = new Map()
+  failedPages = new Map(),
+  contentVersion = null
 }) {
   if (!question || !question.trim()) {
     return {
@@ -2037,8 +2295,10 @@ export function multiStageBookRetrieval({
     };
   }
 
+  const scannedCount = Object.keys(pagesTextMap || {}).length;
+  const version = contentVersion !== null ? contentVersion : scannedCount;
   const normQ = question.trim().toLocaleLowerCase('tr-TR');
-  const cacheKey = `${bookId}_${currentPage}_${spoilerProtection ? 1 : 0}_${normQ}`;
+  const cacheKey = `${bookId}_v${version}_p${currentPage}_s${spoilerProtection ? 1 : 0}_${normQ}`;
 
   if (retrievalCache.has(cacheKey)) {
     return retrievalCache.get(cacheKey);
@@ -2072,8 +2332,9 @@ export function multiStageBookRetrieval({
     let matchedKeywords = 0;
 
     for (const w of wordsList) {
+      const stem = getTurkishStem(w);
       if (textLower.includes(w)) {
-        score += 15;
+        score += 18;
         matchedKeywords++;
         let idx = 0;
         let count = 0;
@@ -2082,15 +2343,18 @@ export function multiStageBookRetrieval({
           idx += w.length;
         }
         score += count * 4;
+      } else if (matchesTurkishWord(stem, textLower)) {
+        score += 18;
+        matchedKeywords++;
       } else if (w.startsWith('renk') || w.startsWith('reng')) {
         if (textLower.includes('renk') || textLower.includes('reng')) {
           score += 15;
           matchedKeywords++;
         }
       } else if (w.length >= 4) {
-        const stem = w.slice(0, Math.min(w.length - 1, 5));
-        if (textLower.includes(stem)) {
-          score += 6;
+        const fallbackStem = w.slice(0, Math.min(w.length - 1, 5));
+        if (textLower.includes(fallbackStem)) {
+          score += 8;
           matchedKeywords++;
         }
       }
@@ -2141,13 +2405,16 @@ export function multiStageBookRetrieval({
       'cinayet': ['öldür', 'katil', 'ceset', 'kan', 'balta', 'ölüm'],
       'raskolnikov': ['rodion', 'öğrenci', 'oda', 'cinayet'],
       'tefeci': ['alyona', 'kocakarı', 'kadın', 'rehin'],
-      'mektup': ['haber', 'yazı', 'zarf', 'posta'],
+      'mektup': ['mektup', 'mektuplar', 'mektubu', 'mektupların', 'şömine', 'haber', 'yazı', 'zarf', 'posta'],
+      'ev': ['ev', 'eve', 'evde', 'evden', 'dursley', 'privet drive'],
       'suçlu': ['şüpheli', 'masum', 'yanılgı', 'gerçek']
     };
 
     for (const w of initialWords) {
+      const stemW = getTurkishStem(w);
       for (const [key, aliases] of Object.entries(SYNONYM_MAP)) {
-        if (w.includes(key) || key.includes(w)) {
+        if (w.includes(key) || key.includes(w) || stemW === key || stemW === getTurkishStem(key)) {
+          expandedWords.add(key);
           aliases.forEach(al => expandedWords.add(al));
         }
       }
@@ -2208,31 +2475,30 @@ export function multiStageBookRetrieval({
   }
 
   // B. EVIDENCE VALIDATION
+  const QUESTION_COMMON_WORDS = new Set([
+    'hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'hakkında', 'biri', 'olan',
+    'olarak', 'göre', 'oldu', 'olduğu', 'şöyle', 'böyle', 'bölümde', 'bölüm', 'sayfada',
+    'sayfa', 'kitapta', 'kitap', 'yaptı', 'etti', 'gitti', 'geldi', 'gördü', 'buldu',
+    'söyledi', 'dedi', 'anlattı', 'olay', 'sahne', 'sahnesi', 'zamanda', 'zaman', 'geçti',
+    'film', 'filmde', 'filmdeki', 'filmden', 'dizi', 'dizide', 'dizideki', 'görsel', 'sinema',
+    'geldiği', 'gelen', 'gelir'
+  ]);
   const substantiveQueryTokens = initialWords.filter(w =>
-    w.length >= 3 &&
-    !['hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'hakkında', 'biri', 'olan', 'olarak', 'göre', 'oldu', 'olduğu', 'şöyle', 'böyle'].includes(w)
+    w.length >= 3 && !QUESTION_COMMON_WORDS.has(w)
   );
 
   const allEvidenceText = allMerged.map(e => e.text.toLocaleLowerCase('tr-TR')).join(' ');
   const coveredQueryTokens = substantiveQueryTokens.filter(t => {
-    const stem = t.slice(0, Math.min(t.length, 4));
-    return allEvidenceText.includes(stem);
+    const stem = getTurkishStem(t);
+    return matchesTurkishWord(stem, allEvidenceText);
   });
-
-  const getStem = (t) => {
-    if (t.startsWith('seç')) return 'seç';
-    return t.length >= 5 ? t.slice(0, 4) : t.slice(0, 3);
-  };
-
-  const matchToken = (token, text) => {
-    const words = text.replace(/[^\p{L}\p{N}]/gu, ' ').split(/\s+/).filter(w => w.length >= 3);
-    const stem = getStem(token);
-    return words.some(w => w.startsWith(stem));
-  };
 
   // Alien tokens: substantive terms in query completely missing from the whole book
   const allBookText = eligibleParas.map(p => p.text.toLocaleLowerCase('tr-TR')).join(' ');
-  const alienTokens = substantiveQueryTokens.filter(t => !matchToken(t, allBookText));
+  const alienTokens = substantiveQueryTokens.filter(t => {
+    const stem = getTurkishStem(t);
+    return !matchesTurkishWord(stem, allBookText);
+  });
 
   const KNOWN_ENTITIES = new Set([
     'draco', 'malfoy', 'snape', 'voldemort', 'quirrell', 'raskolnikov', 'dumbledore',
@@ -2248,8 +2514,8 @@ export function multiStageBookRetrieval({
       const primaryEntity = queryEntities[0];
       entityPredicateCooccurred = allMerged.some(item => {
         const itemLower = item.text.toLocaleLowerCase('tr-TR');
-        const hasPrimary = matchToken(primaryEntity, itemLower);
-        const matchedPreds = nonEntitySubstantive.filter(p => matchToken(p, itemLower));
+        const hasPrimary = matchesTurkishWord(getTurkishStem(primaryEntity), itemLower);
+        const matchedPreds = nonEntitySubstantive.filter(p => matchesTurkishWord(getTurkishStem(p), itemLower));
         return hasPrimary && matchedPreds.length >= 1;
       });
     }
@@ -2278,7 +2544,7 @@ export function multiStageBookRetrieval({
     sufficiencyStatus = 'insufficient';
     isSufficient = false;
     missingReasons.push(`Soruyla doğrudan eşleşen yeterli kanıt bulunamadı (Sorgu terimlerinin %${Math.round(queryCoverageRatio * 100)}'ü taranan sayfalarda yer alıyor).`);
-  } else if (maxScore >= 35 && coveredQueryTokens.length >= 2) {
+  } else if ((maxScore >= 30 && coveredQueryTokens.length >= 2) || (maxScore >= 25 && queryCoverageRatio >= 0.8)) {
     sufficiencyStatus = 'sufficient';
     isSufficient = true;
   } else {
@@ -2287,12 +2553,14 @@ export function multiStageBookRetrieval({
     missingReasons.push('Kısmi kanıt bulundu; sorudaki bazı anahtar kavramlar taranan sayfalarda açıkça yer almayabilir.');
   }
 
+  const consensusOffset = allIndexedParas[0]?.pageOffset ?? null;
   const result = {
     supportingEvidence: supporting,
     counterEvidence,
     allEvidence: allMerged,
     stage: stageUsed,
     confidenceScore: maxScore,
+    pageOffset: consensusOffset,
     evidenceSufficiency: {
       isSufficient,
       score: maxScore,
@@ -2314,11 +2582,12 @@ export function multiStageBookRetrieval({
 /**
  * I. CLAIM-LEVEL VERIFICATION ENGINE
  * Verifies model output against retrieved ground-truth paragraphs before presenting to the user.
- * Detects fake quotes, flags unsupported claims, and appends a clear verification footnote if needed.
+ * Detects fake quotes, flags unsupported claims, unverified page references, and enforces evidence refusal.
  */
 export function verifyAnswerClaims({
   answer = '',
   evidenceParagraphs = [],
+  isEvidenceSufficient = true,
   bookTitle = 'Kitap'
 }) {
   if (!answer || !answer.trim()) {
@@ -2366,19 +2635,35 @@ export function verifyAnswerClaims({
     const numFound = evidenceTexts.some(et => {
       const match = et.match(/(?:bölüm|chapter)\s*(\d+)|(\d+)\.?\s*(?:bölüm|chapter)/i);
       return match && (match[1] === num || match[2] === num);
-    });
+    }) || evidenceParagraphs.some(ep => ep.chapterName && ep.chapterName.includes(num));
     if (!numFound) {
       unverifiedClaims.push(`Kaynakta bulunmayan ${num}. Bölüm iddiası`);
     }
   }
 
-  const pageRegex = /(?:(?:sayfa|sahife)\s*(\d+)|(\d+)\.?\s*(?:sayfa|sahife))/gi;
+  // Page numbers and ranges (e.g. "Sayfa 44", "40-46. sayfalarda", "PDF sayfası 44-45", "PDF Sayfa 61")
+  const verifiedPagesSet = new Set();
+  for (const ep of evidenceParagraphs) {
+    if (ep.pageNumber) verifiedPagesSet.add(Number(ep.pageNumber));
+    if (ep.pdfPage) verifiedPagesSet.add(Number(ep.pdfPage));
+    if (ep.printedPage) verifiedPagesSet.add(Number(ep.printedPage));
+  }
+
+  const pageRangeRegex = /(?:(?:pdf\s*(?:sayfa|sayfası)?|sayfa|sahife)\s*(\d+)(?:\s*[-–—]\s*(\d+))?|(\d+)(?:\s*[-–—]\s*(\d+))?\.?\s*(?:sayfa|sahife|pdf))/gi;
   let pgMatch;
-  while ((pgMatch = pageRegex.exec(text)) !== null) {
-    const num = parseInt(pgMatch[1] || pgMatch[2], 10);
-    const pageFound = evidenceParagraphs.some(ep => ep.pageNumber === num);
-    if (!pageFound) {
-      unverifiedClaims.push(`Kaynakta doğrulanmayan Sayfa ${num} iddiası`);
+  while ((pgMatch = pageRangeRegex.exec(text)) !== null) {
+    const p1 = parseInt(pgMatch[1] || pgMatch[3], 10);
+    const p2 = parseInt(pgMatch[2] || pgMatch[4], 10);
+    const nums = [];
+    if (!isNaN(p1) && p1 > 0) nums.push(p1);
+    if (!isNaN(p2) && p2 > 0) nums.push(p2);
+
+    for (const num of nums) {
+      const pageFound = verifiedPagesSet.has(num) ||
+        evidenceTexts.some(et => et.includes(`Sayfa ${num}`) || et.includes(`sayfa ${num}`) || et.includes(`S.${num}`));
+      if (!pageFound) {
+        unverifiedClaims.push(`Kaynakta doğrulanmayan Sayfa ${num} iddiası`);
+      }
     }
   }
 
@@ -2395,6 +2680,12 @@ export function verifyAnswerClaims({
     if (item.pattern.test(text) && !evidenceCorpus.includes(item.label.toLocaleLowerCase('tr-TR'))) {
       unverifiedClaims.push(item.label);
     }
+  }
+
+  // 4. Evidence Insufficiency Refusal Check:
+  const admitsLackOfEvidence = /(?:doğrulayamadım|taranmış\s+metninde\s+doğrulayamadım|yer\s+almamaktadır|kanıt\s+bulunamadı|taranmamış\s+sayfa|teyit\s+edilemedi)/i.test(text);
+  if (!isEvidenceSufficient && !admitsLackOfEvidence) {
+    unverifiedClaims.push('Kanıt yetersizliğine rağmen uydurma iddia üretimi');
   }
 
   const hasFakeQuotes = fakeQuotes.length > 0;
@@ -2511,19 +2802,25 @@ export function prepareBookContext({
     }
     sections.push(ocrSummary);
 
-    // Supporting Evidence Paragraphs with full metadata
+    // Supporting Evidence Paragraphs with full provenance metadata
     if (multiStage.supportingEvidence.length > 0) {
-      const supList = multiStage.supportingEvidence.map(ev =>
-        `- [Sayfa ${ev.pageNumber}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Destekleyici Kanıt]: "${ev.text}"`
-      ).join('\n\n');
+      const supList = multiStage.supportingEvidence.map(ev => {
+        const pageLabel = ev.printedPage
+          ? `PDF Sayfa ${ev.pageNumber} (Basılı Kitap Sayfası: ${ev.printedPage})`
+          : `PDF Sayfa ${ev.pageNumber}`;
+        return `- [${pageLabel}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Destekleyici Kanıt]: "${ev.text}"`;
+      }).join('\n\n');
       sections.push(`[SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ (Doğrudan Orijinal Alıntılar)]\n${supList}`);
     }
 
     // Stage 3 Counter-Evidence / Red-Herring detection
     if (multiStage.counterEvidence.length > 0) {
-      const counterList = multiStage.counterEvidence.map(ev =>
-        `- [Sayfa ${ev.pageNumber}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Karşıt/Tamamlayıcı Kanıt]: "${ev.text}"`
-      ).join('\n\n');
+      const counterList = multiStage.counterEvidence.map(ev => {
+        const pageLabel = ev.printedPage
+          ? `PDF Sayfa ${ev.pageNumber} (Basılı Kitap Sayfası: ${ev.printedPage})`
+          : `PDF Sayfa ${ev.pageNumber}`;
+        return `- [${pageLabel}, Paragraf ${ev.paragraphIndex}${ev.chapterName ? ` (${ev.chapterName})` : ''} Karşıt/Tamamlayıcı Kanıt]: "${ev.text}"`;
+      }).join('\n\n');
       sections.push(`[KARŞIT VE TAMAMLAYICI KANITLAR (Kanonik Gerçek ve Çözümlemeler)]\n${counterList}`);
     }
 
@@ -2537,7 +2834,9 @@ export function prepareBookContext({
       const raw = pagesTextMap[p];
       const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
       if (text.trim()) {
-        immediateParts.push(`[Sayfa ${p}${p === currentPage ? ' (Şu an okunan sayfa)' : ''}]\n${text.trim()}`);
+        const printed = detectPrintedPageNumber(text) || (multiStage.pageOffset ? p - multiStage.pageOffset : null);
+        const pageLabel = printed ? `PDF Sayfa ${p} (Basılı Kitap Sayfası: ${printed})` : `PDF Sayfa ${p}`;
+        immediateParts.push(`[${pageLabel}${p === currentPage ? ' (Şu an okunan sayfa)' : ''}]\n${text.trim()}`);
       }
     }
     if (immediateParts.length > 0) {
@@ -2548,7 +2847,7 @@ export function prepareBookContext({
     // If evidence is insufficient, NEVER send random 6 fallback pages!
     // Explicitly report insufficiency and OCR coverage state.
     if (!multiStage.evidenceSufficiency.isSufficient || multiStage.allEvidence.length === 0) {
-      let fallbackNote = `[KANIT YETERSİZLİĞİ BİLDİRİMİ]\nTaranan kitap sayfalarında bu soruyla doğrudan eşleşen yeterli kanıt bulunamadı. (${multiStage.evidenceSufficiency.missingReasons.join(' ')})`;
+      let fallbackNote = `[KANIT YETERSİZLİĞİ BİLDİRİMİ]\nTaranan kitap sayfalarında bu soruyla doğrudan eşleşen yeterli kanıt bulunamadı. (${multiStage.evidenceSufficiency.missingReasons.join(' ')})\nZORUNLU KURAL: Kaynakta kanıt bulunamadığı için cevabında açıkça 'Bu bilgiyi kitabın taranmış metninde doğrulayamadım.' ifadesini kullan. Asla kendi genel bilginden veya hafızandan olay, sahne veya sayfa numarası uydurma.`;
       if (coverage.unscannedPagesCount > 0) {
         fallbackNote += `\nUYARI: Kitabın henüz ${coverage.unscannedPagesCount} sayfası taranmamıştır. Sorulan konu henüz taranmamış sayfalarda yer alıyor olabilir. Asla sahte bilgi üretme; kullanıcıya taranmamış bölümler olduğunu açıkça bildir.`;
       }
@@ -2658,7 +2957,9 @@ export async function askBookAi({
   question = '',
   chatHistory = [],
   spoilerProtection = true,
-  settings = {}
+  settings = {},
+  retrievedEvidence = [],
+  evidenceSufficiency = null
 }) {
   if (!question || question.trim() === '') {
     throw new Error('Soru metni boş olamaz.');
@@ -2684,30 +2985,39 @@ export async function askBookAi({
     throw new Error('Yapay zeka asistanını kullanmak için Ayarlar menüsünden ücretsiz Groq veya OpenRouter API anahtarınızı girin.');
   }
 
+  const strictGroundingRules = `GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
+1. YALNIZCA VERİLEN KAYNAK METİNLERE DAYAN (GROUNDED RESPONSES ONLY):
+   - Cevabını YALNIZCA ve SADECE sana sunulan [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ] içerisindeki taranmış metinlere dayandır.
+   - Eğer sana sunulan bağlamda [KANIT YETERSİZLİĞİ BİLDİRİMİ] yer alıyorsa veya sorulan olay/sahne için kaynakta doğrudan bir kanıt paragrafı yoksa, KESİNLİKLE "Bu bilgiyi kitabın taranmış metninde doğrulayamadım." ifadesini kullan.
+   - Kitabın genel dış bilgisinden (kendi eğitim hafızandan) hareketle ASLA olay, sahne, bölüm veya sayfa numarası TAHMİN ETME / UYDURMA.
+2. ÖNCEKİ ASİSTAN YANITLARI KİTAP KAYNAĞI DEĞİLDİR:
+   - Sohbet geçmişindeki önceki asistan yanıtlarını kitap kaynağı olarak KABUL ETME.
+   - Kullanıcı önceki bir cevabı sorguladığında veya yeniden doğrulama istediğinde, yalnızca sana sunulan kanıt parçalarına bak; önceki asistan yanıtındaki uydurma veya hatalı sayfaları asla tekrar etme.
+3. PDF SAYFASI VE BASILI SAYFA AYRIMI:
+   - Sayfa numarası belirtirken kaynakta doğrulanmış olan PDF sayfa numarasını ve varsa basılı sayfa numarasını açıkça ayırt ederek ver (örneğin: 'PDF Sayfa 61 (Basılı Sayfa 45)').
+   - Kaynak parçalarında doğrulanmamış hiçbir sayfa numarasını kesinmiş gibi kullanıcıya sunma.
+4. SIFIR SAHTE ALINTI VE MEKANİZMA YASAĞI (HALÜSİNASYON ENGELİ):
+   - Kitapta açıkça geçmeyen hiçbir cümleyi veya diyalogu tırnak içinde yazar/karakter sözü gibi ASLA UYDURMA.
+   - Kitapta tanımlanmamış büyü/teknoloji mekanizmaları, bağlantılar veya fan teorilerini (örn. "Snape'in Legilimency yeteneği yara izini tetikledi", "iki karanlık büyü akımı çarpıştı" vb.) gerçek kuralmış gibi KESİNLİKLE UYDURMA.
+   - Kitaptaki olay bir şüphe veya yanlış yönlendirme (red herring) ise bunu kanonik doğrulukla açıkla; karakterin yanılgısını büyü kuralı zannetme.
+5. FİLM VE KİTAP AYRIMI:
+   - Kullanıcı özellikle sormadığı sürece filmdeki sahneleri veya görsel detayları kitap kurgusuyla karıştırma.
+6. DOĞRUDAN SORUYA ODAKLAN VE BOŞ LAF YAPMA:
+   - Kullanıcı ne sorduysa doğrudan ve net biçimde onu anlat.
+   - Kullanıcı özellikle istemediği sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu laflarına KESİNLİKLE GİRME.
+   - Cevabını sürükleyici, net ve derli toplu (2-3 net paragrafta) sonuca ulaştırarak eksiksiz bitir; asla havada bırakma.
+7. ALAN SINIRI VE BİÇİM: Yalnızca "${bookTitle}" kitabı çerçevesinde kal. Yanıtlarında kesinlikle hiçbir emoji veya iç düşünme (<think>) blokları kullanma.`;
+
   let systemPrompt = '';
   if (spoilerProtection) {
     systemPrompt = `Sen ReaWid Kitap Asistanısın.
 Kullanıcı şu anda "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabının ${currentPage}. sayfasını okuyor (Toplam ${totalPages} sayfa).
 
-GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
-1. BİRİNCİL KAYNAK KİTAP METNİDİR:
-   - Cevabını öncelikle sana sunulan [SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ], sayfa parçaları ve kitap fihristine dayandır.
-   - İddialarını ilgili sayfa numaralarıyla ([Sayfa X]) destekle.
-2. SIFIR SAHTE ALINTI VE MEKANİZMA YASAĞI (HALÜSİNASYON ENGELİ):
-   - Kitapta açıkça geçmeyen hiçbir cümleyi veya diyalogu tırnak içinde yazar/karakter sözü gibi ASLA UYDURMA.
-   - Kitapta tanımlanmamış büyü/teknoloji mekanizmaları, bağlantılar veya fan teorilerini (örn. "Snape'in Legilimency yeteneği yara izini tetikledi", "iki karanlık büyü akımı çarpıştı" vb.) gerçek kuralmış gibi KESİNLİKLE UYDURMA.
-   - Kitaptaki olay bir şüphe veya yanlış yönlendirme (red herring) ise bunu kanonik doğrulukla açıkla; karakterin yanılgısını büyü kuralı zannetme.
-3. FİLM VE KİTAP AYRIMI:
-   - Kullanıcı özellikle sormadığı sürece filmdeki sahneleri veya görsel detayları kitap kurgusuyla karıştırma.
-4. DOĞRUDAN SORUYA ODAKLAN VE BOŞ LAF YAPMA:
-   - Kullanıcı ne sorduysa doğrudan ve net biçimde onu anlat.
-   - Kullanıcı özellikle istemediği sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu laflarına KESİNLİKLE GİRME.
-   - Cevabını sürükleyici, net ve derli toplu (2-3 net paragrafta) sonuca ulaştırarak eksiksiz bitir; asla havada bırakma.
-5. SPOILER KORUMASI (AÇIK - ${currentPage}. SAYFAYA KADAR):
-   - Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olay örgüsünü, katili/suçluyu veya kitabın sonunu açık etme. İleriki sayfalar sorulursa "Henüz ${currentPage}. sayfadasınız; okuma heyecanını kaçırmamak için o kısımları şimdi paylaşmıyorum." de.
-   - ${currentPage}. sayfaya kadar olan kısımları serbestçe, net şekilde yanıtla.
-6. SAYFA VE BÖLÜM NUMARALARI: Fihrist ve bölüm sayfa numaraları spoiler sayılmaz; kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda kitap haritasına bakarak sayfa numarasını doğrudan söyle.
-7. ALAN SINIRI VE BİÇİM: Yalnızca "${bookTitle}" kitabı çerçevesinde kal. Yanıtlarında kesinlikle hiçbir emoji veya iç düşünme (<think>) blokları kullanma.
+${strictGroundingRules}
+
+SPOILER KORUMASI (AÇIK - ${currentPage}. SAYFAYA KADAR):
+- Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olay örgüsünü, katili/suçluyu veya kitabın sonunu açık etme. İleriki sayfalar sorulursa "Henüz ${currentPage}. sayfadasınız; okuma heyecanını kaçırmamak için o kısımları şimdi paylaşmıyorum." de.
+- ${currentPage}. sayfaya kadar olan kısımları serbestçe, net şekilde yanıtla.
 
 Kitap Metni ve Bağlamı:
 ${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
@@ -2715,27 +3025,13 @@ ${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
     systemPrompt = `Sen ReaWid Kitap Asistanısın.
 Kullanıcı "${bookTitle}" ${bookAuthor ? `(Yazar: ${bookAuthor})` : ''} kitabını okuyor. Şu an ${currentPage}. sayfada (Toplam ${totalPages} sayfa).
 
-GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
-1. BİRİNCİL KAYNAK KİTAP METNİDİR:
-   - Cevabını öncelikle sana sunulan [SORUYLA İLGİLİ KİTAPTAN BULUNAN KANIT METİNLERİ], sayfa parçaları ve kitap fihristine dayandır.
-   - İddialarını ilgili sayfa numaralarıyla ([Sayfa X]) destekle.
-2. SIFIR SAHTE ALINTI VE MEKANİZMA YASAĞI (HALÜSİNASYON ENGELİ):
-   - Kitapta açıkça geçmeyen hiçbir cümleyi veya diyalogu tırnak içinde yazar/karakter sözü gibi ASLA UYDURMA.
-   - Kitapta tanımlanmamış büyü/teknoloji mekanizmaları, bağlantılar veya fan teorilerini (örn. "Snape'in Legilimency yeteneği yara izini tetikledi", "iki karanlık büyü akımı çarpıştı" vb.) gerçek kuralmış gibi KESİNLİKLE UYDURMA.
-   - Kitaptaki olay bir şüphe veya yanlış yönlendirme (red herring) ise (örneğin Harry'nin yara izinin acımasında Snape'ten şüphelenmesi ama gerçek tehdidin sarığındaki Voldemort ile Quirrell olması gibi) bunu kanonik doğrulukla açıkla; karakterin yanılgısını büyü kuralı zannetme.
-3. FİLM VE KİTAP AYRIMI:
-   - Kullanıcı özellikle sormadığı sürece filmdeki sahneleri veya görsel detayları kitap kurgusuyla karıştırma.
-4. DOĞRUDAN SORUYA ODAKLAN VE BOŞ LAF YAPMA:
-   - Kullanıcı ne sorduysa doğrudan ve net biçimde onu anlat.
-   - Kullanıcı özellikle istemediği sürece "üslup analizi", "okuyucu üzerindeki etkisi", "edebi sanatlar", "felsefi derinlik" gibi akademik dolgu laflarına KESİNLİKLE GİRME.
-   - Cevabını sürükleyici, net ve derli toplu (2-4 net paragrafta) sonuca ulaştırarak eksiksiz bitir; asla havada bırakma.
-5. SPOILER KORUMASI (KAPALI - TÜM KİTAP SERBEST):
-   - Kitabın tamamını, tüm olay örgüsünü, karakterlerin akıbetini ve kitabın sonunu hiçbir kısıtlama olmadan doğrudan ve eksiksiz açıkla.
-6. SAYFA VE BÖLÜM NUMARALARI: Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda kitap haritasına ve fihriste bakarak sayfa numarasını doğrudan söyle.
-7. ALAN SINIRI VE BİÇİM: Yalnızca "${bookTitle}" kitabı çerçevesinde kal. Yanıtlarında kesinlikle hiçbir emoji veya iç düşünme (<think>) blokları kullanma.
+${strictGroundingRules}
+
+SPOILER KORUMASI (KAPALI - TÜM KİTAP SERBEST):
+- Kitabın tamamını, tüm olay örgüsünü, karakterlerin akıbetini ve kitabın sonunu hiçbir kısıtlama olmadan doğrudan ve eksiksiz açıkla.
 
 Kitap Metni ve Bağlamı:
-${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmaktadır.'}`;
+${bookContextText || 'Kitap genel bağlamıyla tartışılmaktadır.'}`;
   }
 
   // Construct message thread
@@ -2871,17 +3167,36 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
   }
 
   // I. Claim-Level Verification of Quotes and Claims against provided context
+  const effectiveEvidence = Array.isArray(retrievedEvidence) && retrievedEvidence.length > 0
+    ? retrievedEvidence
+    : [ { text: bookContextText || '' } ];
+
+  const isSufficient = evidenceSufficiency ? evidenceSufficiency.isSufficient : !bookContextText.includes('[KANIT YETERSİZLİĞİ BİLDİRİMİ]');
+
   const quoteCheck = verifyAnswerClaims({
     answer: finalAnswer,
-    evidenceParagraphs: [
-      { text: bookContextText || '' }
-    ],
+    evidenceParagraphs: effectiveEvidence,
+    isEvidenceSufficient: isSufficient,
     bookTitle
   });
 
   if (quoteCheck.verificationNote) {
     finalAnswer = `${finalAnswer}\n\n${quoteCheck.verificationNote}`;
   }
+
+  // Telemetry recording
+  recordRetrievalAudit({
+    originalQuestion: question,
+    retrievalQuery: question,
+    pdfPages: effectiveEvidence.map(e => e.pageNumber || e.pdfPage).filter(Boolean),
+    printedPages: effectiveEvidence.map(e => e.printedPage).filter(Boolean),
+    scores: effectiveEvidence.map(e => ({ page: e.pageNumber || e.pdfPage, score: e.score || 0 })),
+    evidenceTexts: effectiveEvidence.map(e => e.text),
+    contextSentToAi: bookContextText,
+    aiPageReferences: quoteCheck.unverifiedClaims || [],
+    contextIntegrityVerified: true,
+    sufficiencyStatus: isSufficient ? 'sufficient' : 'insufficient'
+  });
 
   return {
     answer: finalAnswer,

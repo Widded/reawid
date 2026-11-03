@@ -7,6 +7,7 @@ import {
   extractPdfPageText
 } from '../src/services/pdfService.js';
 
+import { getNextTargetPage } from '../src/services/bookMemoryService.js';
 import { perfMonitor } from '../src/services/perfMonitor.js';
 
 let passed = 0;
@@ -65,9 +66,9 @@ console.log('--- Senaryo 1: Hızlı Sayfa Gezinme ve Düşük Gecikme (LRU Cache
 }
 
 // -----------------------------------------------------------------------------
-// SENARYO 2: Büyük ve Çok Sayfalı Bir PDF Açmak (Lazy Stream & Sınırlı Pencere)
+// SENARYO 2: Büyük (500 Sayfa) PDF Açma ve Kesintisiz Aşamalı Arka Plan Taraması
 // -----------------------------------------------------------------------------
-console.log('\n--- Senaryo 2: Büyük (500 Sayfa) PDF Açma ve Sınırlı Ön Yükleme Penceresi ---');
+console.log('\n--- Senaryo 2: Büyük (500 Sayfa) PDF Açma ve Kesintisiz Aşamalı Arka Plan Taraması ---');
 {
   const totalPages = 500;
   const pageParagraphs = {};
@@ -75,44 +76,70 @@ console.log('\n--- Senaryo 2: Büyük (500 Sayfa) PDF Açma ve Sınırlı Ön Y�
   const priorityPageQueue = [];
   let currentReaderPage = 1;
 
-  // Optimize edilmiş bounded getNextTargetPage mantığı:
-  function getNextTargetPageTest(total, paragraphs, curPage) {
-    if (priorityPageQueue.length > 0) {
-      return priorityPageQueue.shift();
-    }
-    if (curPage && !paragraphs[curPage] && !activeAnalyzingPages.has(curPage)) {
-      return curPage;
-    }
-    if (curPage) {
-      for (let offset = 1; offset <= 2; offset++) {
-        const nextP = curPage + offset;
-        if (nextP <= total && !paragraphs[nextP] && !activeAnalyzingPages.has(nextP)) {
-          return nextP;
-        }
-      }
-      const prevP = curPage - 1;
-      if (prevP >= 1 && !paragraphs[prevP] && !activeAnalyzingPages.has(prevP)) {
-        return prevP;
-      }
-    }
-    return null; // Asla 500 sayfayı körlemesine kuyruğa doldurma!
-  }
-
-  // 1. Sayfadayken analiz sırası
-  const target1 = getNextTargetPageTest(totalPages, pageParagraphs, currentReaderPage);
+  // 1. Sayfadayken analiz sırası: Doğrudan src/services/bookMemoryService getNextTargetPage çağrılır
+  const target1 = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
   assert(target1 === 1, 'İlk hedef kullanıcının baktığı Sayfa 1 olmalı');
   pageParagraphs[1] = ['Sayfa 1 metni'];
 
-  const target2 = getNextTargetPageTest(totalPages, pageParagraphs, currentReaderPage);
+  const target2 = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
   assert(target2 === 2, 'İkinci hedef kullanıcının bir sonraki Sayfa 2 olmalı');
   pageParagraphs[2] = ['Sayfa 2 metni'];
 
-  const target3 = getNextTargetPageTest(totalPages, pageParagraphs, currentReaderPage);
-  assert(target3 === 3, 'Üçüncü hedef Sayfa 3 olmalı (pencere sonu)');
+  const target3 = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
+  assert(target3 === 3, 'Üçüncü hedef Sayfa 3 olmalı');
   pageParagraphs[3] = ['Sayfa 3 metni'];
 
-  const target4 = getNextTargetPageTest(totalPages, pageParagraphs, currentReaderPage);
-  assert(target4 === null, 'Aktif pencere (1..3) dolduktan sonra 500. sayfaya kadar gereksiz tarama durduruldu (null döndü)');
+  const target4 = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
+  assert(target4 === 4, 'Aktif okuma penceresinden sonra tarama kesintisiz forward sweep ile Sayfa 4 e devam eder');
+
+  // Kullanıcı Sayfa 150 ye atlarsa veya soru sorarsa priority kuyruğu en başa geçer
+  priorityPageQueue.push(150);
+  const targetJump = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
+  assert(targetJump === 150, 'Priority queue eklenen hedef (Sayfa 150) anında ilk sıraya alınmalı');
+  pageParagraphs[150] = ['Sayfa 150 metni'];
+
+  // Tüm sayfalar bittiğinde null dönmeli
+  for (let i = 1; i <= totalPages; i++) {
+    pageParagraphs[i] = [`Sayfa ${i} içeriği`];
+  }
+  const targetAllDone = getNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages
+  });
+  assert(targetAllDone === null, 'Tüm 500 sayfa tamamlandığında getNextTargetPage null döner');
 }
 
 // -----------------------------------------------------------------------------
