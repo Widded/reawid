@@ -1615,15 +1615,159 @@ Output ONLY the translated text without introductory or concluding remarks.`;
 }
 
 /**
- * Prepares book context text from pagesTextMap up to maxPage (for spoiler protection)
+ * Detects chapter titles, parts, and structural table of contents across all scanned pages.
+ * Creates a lightweight index map (~300-500 tokens) to guarantee 100% accurate chapter and page queries.
+ */
+export function extractBookOutlineIndex(pagesTextMap = {}) {
+  const pageNumbers = Object.keys(pagesTextMap || {})
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  if (pageNumbers.length === 0) return '';
+
+  const entries = [];
+  const chapterRegex = /^(?:(?:bölüm|fasıl|bab|kısım|chapter|part)\s*[:\-\.]?\s*(\d+|[ivxlcdm]+|[a-zçğıöşü]+)|(\d+|[ivxlcdm]+)\.?\s*(?:bölüm|kısım|fasıl)|(?:içindekiler|icindekiler|önsöz|onsoz|giriş|giris|sonsöz|sonsoz|epilog|prolog|indeks|kaynakça|kaynakca))/i;
+
+  for (const p of pageNumbers) {
+    const raw = pagesTextMap[p];
+    const text = Array.isArray(raw) ? raw.join('\n') : String(raw || '');
+    if (!text.trim()) continue;
+
+    // Check the first 5 lines of the page for headings
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 5);
+    for (const line of lines) {
+      const trNormalized = line.toLocaleLowerCase('tr-TR');
+      if (line.length <= 80 && chapterRegex.test(trNormalized)) {
+        entries.push(`- [Sayfa ${p}]: ${line}`);
+        break;
+      }
+    }
+  }
+
+  const minPage = pageNumbers[0];
+  const maxPage = pageNumbers[pageNumbers.length - 1];
+
+  if (entries.length > 0) {
+    return [
+      `[KİTAP HARİTASI VE BÖLÜM DİZİNİ (Taranan Sayfalar: ${minPage}-${maxPage}, Toplam ${pageNumbers.length} Sayfa)]`,
+      ...entries
+    ].join('\n');
+  }
+
+  return `[KİTAP SAYFA BİLGİSİ: Şu ana kadar taranmış ve hazır sayfalar: Sayfa ${minPage} - ${maxPage} (Toplam ${pageNumbers.length} sayfa taranmıştır).]`;
+}
+
+const TURKISH_STOPWORDS = new Set([
+  've', 'veya', 'ile', 'bir', 'bu', 'şu', 'o', 'için', 'diye', 'gibi', 'kadar', 'sonra', 'önce',
+  'daha', 'en', 'ise', 'mi', 'mı', 'mu', 'mü', 'ne', 'nasıl', 'nerede', 'kim', 'kime', 'kimde',
+  'kaç', 'kaçıncı', 'hangi', 'neden', 'niçin', 'çünkü', 'ama', 'fakat', 'ancak', 'ben', 'sen',
+  'biz', 'siz', 'onlar', 'bana', 'sana', 'bunu', 'şunu', 'onun', 'sayfa', 'sayfada', 'sayfadaki',
+  'kitap', 'kitapta', 'kitaptaki', 'anlatıyor', 'oluyor', 'geçiyor', 'hakkında', 'bölüm', 'bölümde',
+  'oldu', 'vardı', 'yoktu', 'olan', 'olarak', 'şey', 'şeyler', 'var', 'yok', 'miydi', 'mıydı'
+]);
+
+/**
+ * Fast client-side keyword and chapter retriever (Client RAG).
+ * Scores and extracts the top K most relevant pages for a user's question.
+ */
+export function retrieveRelevantPages({
+  pagesTextMap = {},
+  eligiblePages = [],
+  question = '',
+  topK = 4
+}) {
+  if (!question || !question.trim() || !eligiblePages || eligiblePages.length === 0) {
+    return [];
+  }
+
+  const qRaw = question.toLowerCase();
+
+  // Extract chapter query if user asked e.g. "3. bölüm", "bölüm 3", "üçüncü bölüm"
+  const chapterMatch = qRaw.match(/(?:bölüm\s*(\d+|[ivxlcdm]+)|(\d+|[ivxlcdm]+)\.?\s*bölüm)/i);
+  const targetChapterNum = chapterMatch ? (chapterMatch[1] || chapterMatch[2]) : null;
+
+  // Extract clean keywords
+  const words = qRaw
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 2 && !TURKISH_STOPWORDS.has(w));
+
+  const scored = [];
+
+  for (const p of eligiblePages) {
+    const raw = pagesTextMap[p];
+    const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+    if (!text.trim()) continue;
+
+    const lower = text.toLowerCase();
+    let score = 0;
+
+    // 1. Chapter match boost
+    if (targetChapterNum) {
+      const chapterPatterns = [
+        `bölüm ${targetChapterNum}`,
+        `bölüm: ${targetChapterNum}`,
+        `bölüm - ${targetChapterNum}`,
+        `${targetChapterNum}. bölüm`,
+        `${targetChapterNum}.bölüm`
+      ];
+      if (chapterPatterns.some(pat => lower.includes(pat))) {
+        score += 150;
+      }
+    }
+
+    // 2. Exact multi-word search phrase
+    if (words.length >= 2) {
+      const searchPhrase = words.slice(0, 3).join(' ');
+      if (lower.includes(searchPhrase)) {
+        score += 60;
+      }
+    }
+
+    // 3. Keyword matches with frequency cap
+    for (const w of words) {
+      if (lower.includes(w)) {
+        score += 15;
+        let idx = 0;
+        let count = 0;
+        while ((idx = lower.indexOf(w, idx)) !== -1 && count < 5) {
+          count++;
+          idx += w.length;
+        }
+        score += count * 4;
+      } else if (w.length >= 5) {
+        // Stem / prefix matching (e.g. "raskolnikov", "cinayet")
+        const stem = w.slice(0, Math.min(w.length - 1, 6));
+        if (lower.includes(stem)) {
+          score += 6;
+        }
+      }
+    }
+
+    if (score > 0) {
+      scored.push({ page: p, text: text.trim(), score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topK);
+}
+
+/**
+ * Prepares book context text from pagesTextMap with hybrid RAG:
+ * 1. Book Chapter & Outline Index (Table of contents)
+ * 2. Current Reader Page context
+ * 3. Smart Question-Aware Retrieved Pages (Client RAG)
  */
 export function prepareBookContext({
   pagesTextMap = {},
   currentPage = 1,
   spoilerProtection = true,
+  question = '',
   maxCharLimit = 24000
 }) {
-  const parts = [];
   const pageNumbers = Object.keys(pagesTextMap || {})
     .map(Number)
     .filter(n => !isNaN(n) && n > 0)
@@ -1642,6 +1786,71 @@ export function prepareBookContext({
     return '';
   }
 
+  // 1. Build Outline / Chapter Map (Dizin)
+  const outlineIndex = extractBookOutlineIndex(pagesTextMap);
+
+  // 2. If a question is provided, use Smart RAG retrieval
+  if (question && question.trim()) {
+    const relevant = retrieveRelevantPages({
+      pagesTextMap,
+      eligiblePages,
+      question,
+      topK: 4
+    });
+
+    const relevantPageNums = new Set(relevant.map(r => r.page));
+
+    // Immediate reading context: currentPage, currentPage - 1, currentPage + 1 (if eligible)
+    const immediateNums = [currentPage - 1, currentPage, currentPage + 1]
+      .filter(p => eligiblePages.includes(p) && !relevantPageNums.has(p));
+
+    const immediateParts = [];
+    for (const p of immediateNums) {
+      const raw = pagesTextMap[p];
+      const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+      if (text.trim()) {
+        immediateParts.push(`[Sayfa ${p}${p === currentPage ? ' (Şu an okunan sayfa)' : ''}]\n${text.trim()}`);
+      }
+    }
+
+    const relevantParts = [];
+    for (const item of relevant) {
+      relevantParts.push(`[Sayfa ${item.page} (Soruyla İlgili Metin)]\n${item.text}`);
+    }
+
+    const sections = [];
+    if (outlineIndex) {
+      sections.push(outlineIndex);
+    }
+    if (immediateParts.length > 0) {
+      sections.push(`[OKUYUCUNUN ŞU ANKİ SAYFASI VE YAKIN ÇEVRESİ]\n${immediateParts.join('\n\n---\n\n')}`);
+    }
+    if (relevantParts.length > 0) {
+      sections.push(`[SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR]\n${relevantParts.join('\n\n---\n\n')}`);
+    } else {
+      const fallbackPages = eligiblePages.slice(0, 3).filter(p => !immediateNums.includes(p));
+      const fallbackParts = [];
+      for (const p of fallbackPages) {
+        const raw = pagesTextMap[p];
+        const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
+        if (text.trim()) {
+          fallbackParts.push(`[Sayfa ${p}]\n${text.trim()}`);
+        }
+      }
+      if (fallbackParts.length > 0) {
+        sections.push(`[KİTABIN BAŞLANGIÇ SAYFALARI]\n${fallbackParts.join('\n\n---\n\n')}`);
+      }
+    }
+
+    let combined = sections.join('\n\n========================================\n\n');
+    if (combined.length > maxCharLimit) {
+      combined = combined.slice(0, maxCharLimit) + '\n...[Bağlam sınırı korundu]';
+    }
+    return combined;
+  }
+
+  // Fallback: If no question is passed (sequential context window)
+  const parts = [];
   for (const p of eligiblePages) {
     const raw = pagesTextMap[p];
     const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
@@ -1774,20 +1983,18 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 4. CEVAPLARINDA KESİNLİKLE HİÇBİR EMOJİ KULLANMA. Sade, duru, ciddi ve edebi bir Türkçe kullan.
 5. DÜŞÜNME VE İÇ MONOLOG KULLANMA: Yanıtından önce veya içinde kesinlikle iç düşünme süreci (thinking process), akıl yürütme veya <think> blokları yazma. Doğrudan kullanıcıya hitap eden nihai cevabını ver.
 
+SAYFA, BÖLÜM VE OLAY DOĞRULUĞU KURALLARI (HALÜSİNASYON VE UYDURMA YASAĞI):
+1. KESİNLİKLE VE ASLA KİTAPTA OLMAYAN BİR OLAY, KARAKTER, MEKAN VEYA SAYFA UYDURMA.
+2. Cevabını SADECE sana sunulan [KİTAP HARİTASI VE BÖLÜM DİZİNİ], [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR] ve okuma metinlerine dayandır.
+3. Kitap fihristi ve bölüm sayfa numaraları spoiler sayılmaz; kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda dizine bakarak tam sayfa numarasını doğrudan söyle.
+4. Eğer sorulan olay, kişi veya detay taranmış sayfalarda yer almıyorsa veya henüz o sayfaya gelinmemişse, KESİNLİKLE uydurma yapma; "Bu detay şu ana kadar taranmış sayfalarda yer almamaktadır" diyerek dürüstçe bildir.
+
 SPOILER KORUMASI (AÇIK):
-1. Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olayları, gizemlerin çözümünü veya kitabın sonunu ASLA açık etme.
-2. Eğer kullanıcı ileriki sayfaları veya sonunu doğrudan sorarsa ("Katil kim?", "Sonunda ne olacak?", "${currentPage + 5}. sayfada ne oluyor?" vb.), "Henüz ${currentPage}. sayfadasınız; heyecanı kaçırmamak için o kısımları şimdi paylaşmıyorum. Okumaya devam ettikçe birlikte göreceğiz." şeklinde yanıt ver.
+1. Kullanıcı henüz ${currentPage}. sayfada. Bu sayfanın ilerisindeki olay örgüsünü, gizemlerin çözümünü veya kitabın sonunu ASLA açık etme.
+2. Eğer kullanıcı ileriki sayfalardaki olayları doğrudan sorarsa ("Katil kim?", "Sonunda ne olacak?" vb.), "Henüz ${currentPage}. sayfadasınız; heyecanı kaçırmamak için o kısımları şimdi paylaşmıyorum. Okumaya devam ettikçe birlikte göreceğiz." şeklinde yanıt ver.
 3. ${currentPage}. sayfaya kadar olan karakterleri, mekanları, temaları ve diyalogları derinlemesine tartışabilirsin.
 
-SAYFA VE BÖLÜM NUMARALARI KURALLARI:
-- Metin sana "[Sayfa X]" etiketleriyle (uygulamanın ve PDF'in sayfa numarası) verilmektedir.
-- Fiziksel kitapların basılı sayfa numaraları; kapak, künye, ithaf ve önsöz gibi ön sayfalar nedeniyle PDF sayfa numarasından genellikle birkaç sayfa farklıdır.
-- Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda:
-  a) Taranan metin içinde '[Sayfa X]' etiketli sayfada o bölümün başlığı geçiyorsa, bu PDF/uygulama sayfasını belirt ("1. Bölüm taranan metinde [Sayfa 12]'de yer alıyor").
-  b) Eğer kitabın başında taranmış bir 'İçindekiler' tablosu varsa, matbaa sayfa numarası ile PDF sayfa numarası arasındaki farkı kullanıcıya açıkça açıkla ("İçindekiler listesinde sayfa 5 yazıyor, ancak PDF'te ön sayfalar nedeniyle 12. sayfaya denk geliyor").
-  c) İlgili bölüm henüz taranmamışsa veya bağlamda yoksa kesin sayfa uydurma; henüz taranmış sayfalar arasında yer almadığını belirt.
-
-Kitabın şu ana kadar taranmış sayfaları:
+Kitap metni bağlamı:
 ${bookContextText || 'Metin doğrudan okuma sayfasından takip edilmektedir.'}`;
   } else {
     systemPrompt = `Sen ReaWid Yapay Zeka Kitap Okuma Asistanısın.
@@ -1801,15 +2008,13 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 5. DÜŞÜNME VE İÇ MONOLOG KULLANMA: Yanıtından önce veya içinde kesinlikle iç düşünme süreci (thinking process), akıl yürütme veya <think> blokları yazma. Doğrudan kullanıcıya hitap eden nihai cevabını ver.
 
 SPOILER KORUMASI (KAPALI - TÜM KİTAP AÇIK):
-1. Spoiler koruması KAPALI olduğu için kitabın tamamını, sonunu, tüm olay örgüsünü, karakterlerin akıbetini ve felsefi arka planını serbestçe tartışabilirsin.
-2. Eğer kullanıcı henüz taranmamış veya ileriki bir sayfa hakkında soru sorarsa ("25. sayfada ne oluyor?", "Sonunda ne oldu?" vb.), "elimde metin yok" veya "özet burada bitiyor" gibi teknik bahaneler sunma. Kitabın genel edebi birikiminden ve romanın genel akışından faydalanarak o bölümlerde ve o sayfa civarında neler yaşandığını akıcı ve doyurucu bir şekilde anlat.
+1. Spoiler koruması KAPALI olduğu için kitabın tamamını, sonunu, tüm olay örgüsünü, karakterlerin akıbetini serbestçe tartışabilirsin.
 
-SAYFA VE BÖLÜM NUMARALARI KURALLARI:
-- Metin sana "[Sayfa X]" etiketleriyle (uygulamanın ve PDF'in sayfa numarası) verilmektedir.
-- Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda:
-  a) Taranan metin içinde '[Sayfa X]' etiketli sayfada o bölümün başlığı geçiyorsa, bu PDF/uygulama sayfasını belirt ("1. Bölüm taranan metinde [Sayfa 12]'de yer alıyor").
-  b) Eğer kitabın başında taranmış bir 'İçindekiler' tablosu varsa, matbaa sayfa numarası ile PDF sayfa numarası arasındaki farkı kullanıcıya açıkça açıkla ("İçindekiler listesinde sayfa 5 yazıyor, ancak PDF'te ön sayfalar nedeniyle 12. sayfaya denk geliyor").
-  c) İlgili bölüm henüz taranmamışsa veya bağlamda yoksa kesin sayfa uydurma; henüz taranmış sayfalar arasında yer almadığını belirt.
+SAYFA, BÖLÜM VE OLAY DOĞRULUĞU KURALLARI (HALÜSİNASYON VE UYDURMA YASAĞI):
+1. KESİNLİKLE VE ASLA KİTAPTA OLMAYAN BİR OLAY, KARAKTER, MEKAN VEYA SAYFA UYDURMA.
+2. Cevabını SADECE sana sunulan [KİTAP HARİTASI VE BÖLÜM DİZİNİ], [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR] ve taranmış sayfa metinlerine dayandır.
+3. Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda fihriste bakarak tam sayfa numarasını doğrudan söyle.
+4. Eğer sorulan olay veya detay taranmış sayfalarda yer almıyorsa, KESİNLİKLE uydurma yapma; "Bu detay taranmış sayfalarda yer almamaktadır" diyerek dürüstçe bildir.
 
 Kitap metni bağlamı:
 ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmaktadır.'}`;

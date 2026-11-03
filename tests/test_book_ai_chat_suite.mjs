@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { prepareBookContext, askBookAi, extractBookAiAnswer } from '../src/services/aiService.js';
+import {
+  prepareBookContext,
+  askBookAi,
+  extractBookAiAnswer,
+  extractBookOutlineIndex,
+  retrieveRelevantPages
+} from '../src/services/aiService.js';
 
 console.log('================================================================');
 console.log('ReaWid — Yapay Zeka Kitap Sohbet Asistanı Test Paketi');
@@ -99,6 +105,52 @@ runTest('Karakter sınırı (maxCharLimit) aşıldığında akıllı budama yap�
   assert.ok(ctx.length <= 1500, 'Bağlam bütçesi aşılmamalı');
   assert.ok(ctx.includes('[Sayfa 1]'), 'Açılış sayfaları korunmalı');
   assert.ok(ctx.includes('[Sayfa 20]'), 'En son sayfa korunmalı');
+});
+
+runTest('extractBookOutlineIndex: Bölüm başlıklarını ve sayfa numaralarını doğru çıkarmalı', () => {
+  const structuredPages = {
+    1: 'İÇİNDEKİLER\nBölüm 1.....Sayfa 4\nBölüm 2.....Sayfa 18',
+    4: 'BÖLÜM 1: Başlangıç Noktası\nUzun bir yolculuk başladı.',
+    18: 'Bölüm 2: Karşılaşma\nYolcular bir handa mola verdi.'
+  };
+  const outline = extractBookOutlineIndex(structuredPages);
+  assert.ok(outline.includes('[Sayfa 1]: İÇİNDEKİLER'));
+  assert.ok(outline.includes('[Sayfa 4]: BÖLÜM 1: Başlangıç Noktası'));
+  assert.ok(outline.includes('[Sayfa 18]: Bölüm 2: Karşılaşma'));
+});
+
+runTest('retrieveRelevantPages: Soruya en uygun sayfaları doğru puanlayıp cımbızlamalı', () => {
+  const testBook = {
+    1: 'Karakter kasabaya ulaştı ve atını bağladı.',
+    2: 'Meyhanede eski bir dostla karşılaştı.',
+    3: 'BÖLÜM 3: Gece Vakti\nCinayet gece yarısı eski kilisede işlendi.',
+    4: 'Sabah olduğunda polis dedektifi olay yerine geldi.'
+  };
+  const retrieved = retrieveRelevantPages({
+    pagesTextMap: testBook,
+    eligiblePages: [1, 2, 3, 4],
+    question: 'Cinayet nerede işlendi?'
+  });
+  assert.ok(retrieved.length > 0, 'En az 1 alakalı sayfa dönmeli');
+  assert.equal(retrieved[0].page, 3, 'Sayfa 3 cinayet kelimesi nedeniyle 1. sırada olmalı');
+});
+
+runTest('prepareBookContext (RAG): Soru verildiğinde kitap haritası ve ilgili sayfayı bağlama eklemeli', () => {
+  const testBook = {
+    1: 'BÖLÜM 1\nAli sabah uyandı.',
+    2: 'Ali kahvaltı yaptı.',
+    3: 'BÖLÜM 2: Gizemli Mektup\nAli postaneye gidip mührü kırılmış mektubu aldı.'
+  };
+  const ctx = prepareBookContext({
+    pagesTextMap: testBook,
+    currentPage: 3,
+    spoilerProtection: false,
+    question: 'Mektup nerede alındı?'
+  });
+  assert.ok(ctx.includes('KİTAP HARİTASI VE BÖLÜM DİZİNİ'), 'Kitap haritası bulunmalı');
+  assert.ok(ctx.includes('BÖLÜM 2: Gizemli Mektup'), 'Bölüm başlığı haritada yer almalı');
+  assert.ok(ctx.includes('SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR'), 'Cımbızlanan sayfa bloğu olmalı');
+  assert.ok(ctx.includes('Sayfa 3'), 'Mektubun geçtiği 3. sayfa cımbızlanmalı');
 });
 
 // 2. askBookAi Doğrulama & Hata Yönetimi Testleri

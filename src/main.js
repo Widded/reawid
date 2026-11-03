@@ -2553,13 +2553,14 @@ async function handleSendBookChatMessage(text) {
   try {
     const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
 
-    // Prepare pages text context
+    // Prepare pages text context with hybrid outline and client RAG
     let contextText = '';
     if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
       contextText = prepareBookContext({
         pagesTextMap: currentActiveBook.pageParagraphs,
         currentPage: currentReaderPage,
-        spoilerProtection: isSpoiler
+        spoilerProtection: isSpoiler,
+        question: question
       });
     } else if (currentActiveBook?.content) {
       contextText = currentActiveBook.content;

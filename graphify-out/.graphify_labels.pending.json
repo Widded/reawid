@@ -1,6 +1,5 @@
 {
-  "3": "PerformanceMonitor",
-  "6": "setupEventListeners",
+  "6": "renderReaderPage",
   "8": "readerFormatter.js",
   "13": "test_root_cause_suite.mjs"
 }

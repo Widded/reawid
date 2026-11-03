@@ -24,15 +24,15 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793694918.232193,
-    "seen": 1793694949.449705,
-    "ast_hash": "5f4c89a5a474c2a7dfd2fc05e9d3e756",
+    "mtime": 1793697326.5296965,
+    "seen": 1793697416.2496402,
+    "ast_hash": "a961e6295ad7def93a0a38a7a5b244b2",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793696148.165551,
-    "seen": 1793696182.6804059,
-    "ast_hash": "95bc55e9febdf2e020c8860e4cfe0443",
+    "mtime": 1793697381.9151301,
+    "seen": 1793697416.2496433,
+    "ast_hash": "6a469de5f20dd6ce041d7fda99d005e9",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -108,9 +108,9 @@
     "semantic_hash": ""
   },
   "tests/test_book_ai_chat_suite.mjs": {
-    "mtime": 1793659691.1157463,
-    "seen": 1793659927.0411956,
-    "ast_hash": "625b3fc369a5c68ac69fc1d72192fe10",
+    "mtime": 1793697347.3725238,
+    "seen": 1793697416.2516441,
+    "ast_hash": "7d972e36e16d43b2663f16ab2383d9a2",
     "semantic_hash": ""
   },
   "tests/test_ocr_suite.mjs": {
