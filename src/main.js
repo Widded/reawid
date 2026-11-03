@@ -47,7 +47,8 @@ import {
   getMissingOrFailedPages,
   findBookMemoryByFingerprint,
   deleteBookMemory,
-  hydrateBookFromMemory
+  hydrateBookFromMemory,
+  getNextTargetPage as calculateNextTargetPage
 } from './services/storageService.js';
 
 import {
@@ -68,7 +69,9 @@ import {
   formatOcrErrorMessage,
   getOcrAuditTrail,
   prepareBookContext,
-  askBookAi
+  askBookAi,
+  multiStageBookRetrieval,
+  findCandidatePagesForQuestion
 } from './services/aiService.js';
 
 if (typeof window !== 'undefined') {
@@ -1149,9 +1152,18 @@ function renderReaderPage(pageNum, turnDirection = null) {
     el.readerParagraphsContainer.innerHTML = formatBookHtml(paragraphs, {
       enabled: appSettings.smartDialogueFormatting !== false
     });
+
+    // Sayfa hazır olsa bile arka plandaki kitap taramasının kesintisiz devam ettiğinden emin ol!
+    if (currentPdfDoc && currentActiveBook.isPdf && !isBackgroundOcrActive) {
+      const total = currentTotalPages || currentPdfDoc.numPages || (currentActiveBook.totalPages || 1);
+      const memInfo = getMissingOrFailedPages(currentActiveBook, total);
+      if (!memInfo.isComplete && memInfo.missingPages.length > 0) {
+        startBackgroundPdfAnalysis(currentActiveBook, currentPdfDoc);
+      }
+    }
   } else if (currentActiveBook.isPdf) {
     // If page has failed multiple times, show error/retry card instead of infinite spinner
-    if ((failedPageAttempts.get(currentReaderPage) || 0) >= 2) {
+    if ((failedPageAttempts.get(currentReaderPage) || 0) >= 3) {
       renderPageAnalysisError(currentReaderPage, 'Sayfa analiz edilirken yapay zeka veya OCR motorundan yanıt alınamadı.');
     } else {
       // PDF Kitabı: Sayfa henüz analiz edilmediyse bekleme kartı göster (ASLA başka sayfanın metnini gösterme!)
@@ -2547,6 +2559,26 @@ function appendChatSystemNote(text) {
   scrollBookChatToBottom(false);
 }
 
+function setChatTypingStatus(statusText = 'Yanıt hazırlanıyor...') {
+  if (el.bookChatTyping) {
+    el.bookChatTyping.classList.remove('hidden');
+    const textEl = el.bookChatTyping.querySelector('.typing-text');
+    if (textEl) {
+      textEl.textContent = statusText;
+    }
+  }
+}
+
+function hideChatTypingStatus() {
+  if (el.bookChatTyping) {
+    el.bookChatTyping.classList.add('hidden');
+    const textEl = el.bookChatTyping.querySelector('.typing-text');
+    if (textEl) {
+      textEl.textContent = 'Yanıt hazırlanıyor...';
+    }
+  }
+}
+
 async function handleSendBookChatMessage(text) {
   const question = (text || '').trim();
   if (!question || isBookChatSending) return;
@@ -2561,17 +2593,83 @@ async function handleSendBookChatMessage(text) {
   if (el.btnSendBookChat) {
     el.btnSendBookChat.disabled = true;
   }
-  if (el.bookChatTyping) {
-    el.bookChatTyping.classList.remove('hidden');
-  }
+  setChatTypingStatus('Kitapta ilgili bölümler aranıyor...');
   scrollBookChatToBottom(true);
 
   isBookChatSending = true;
 
   try {
     const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
+    const totalPages = currentActiveBook?.totalPages || currentPdfNumPages || 1;
 
-    // Prepare pages text context with advanced multi-stage RAG
+    // 1. Mevcut taranmış sayfalarda RAG araması yap
+    let retrieval = null;
+    if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
+      retrieval = multiStageBookRetrieval({
+        pagesTextMap: currentActiveBook.pageParagraphs,
+        currentPage: currentReaderPage,
+        spoilerProtection: isSpoiler,
+        question: question,
+        bookId: String(currentActiveBook.id || 'book'),
+        activePages: activeAnalyzingPages,
+        failedPages: failedPageAttempts
+      });
+    }
+
+    // 2. Kanıt yetersizse ve eksik sayfalar varsa on-demand tarama yap
+    const isEvidenceSufficient = retrieval?.evidenceSufficiency?.isSufficient;
+    if (!isEvidenceSufficient && currentPdfDoc && currentActiveBook) {
+      const missingInfo = getMissingOrFailedPages(currentActiveBook, totalPages);
+
+      // Spoiler koruması açıkken: Gelecekteki sayfalar ASLA taranmaz ve dahil edilmez!
+      // Spoiler koruması kapalıyken: Tüm eksik sayfalar aranabilir.
+      const eligibleMissing = isSpoiler
+        ? missingInfo.missingPages.filter(p => p <= currentReaderPage)
+        : missingInfo.missingPages;
+
+      if (eligibleMissing.length > 0) {
+        setChatTypingStatus('Kitapta ilgili bölümler aranıyor...');
+        const candidatePages = await findCandidatePagesForQuestion({
+          pdfDoc: currentPdfDoc,
+          question: question,
+          missingPages: eligibleMissing,
+          chapterOutline: currentActiveBook.chapterOutline || '',
+          maxPages: 3
+        });
+
+        if (candidatePages.length > 0) {
+          setChatTypingStatus(`İlgili sayfalar taranıyor (S.${candidatePages.join(', ')})...`);
+
+          for (const pageNum of candidatePages) {
+            try {
+              const paragraphs = await analyzeSinglePdfPage(currentPdfDoc, pageNum, null, currentActiveBook.id);
+              if (paragraphs && paragraphs.length > 0) {
+                if (!currentActiveBook.pageParagraphs) currentActiveBook.pageParagraphs = {};
+                currentActiveBook.pageParagraphs[pageNum] = paragraphs;
+                const rawText = paragraphs.rawText || (Array.isArray(paragraphs) ? paragraphs.join('\n\n') : String(paragraphs));
+                updateBookPageParagraphs(currentActiveBook.id, pageNum, paragraphs, rawText);
+                await savePageOcrMemory(currentActiveBook.id, pageNum, {
+                  pageNumber: pageNum,
+                  paragraphs,
+                  rawText,
+                  ocrStatus: 'completed'
+                });
+              }
+            } catch (err) {
+              console.warn(`[On-Demand OCR] Sayfa ${pageNum} tarama hatası:`, err);
+            }
+          }
+
+          setChatTypingStatus('Kitap metni güncelleniyor...');
+          await yieldToMainThread(40);
+        }
+      }
+    }
+
+    setChatTypingStatus('Kanıtlar doğrulanıyor...');
+    await yieldToMainThread(30);
+
+    // 3. Güncellenmiş metinlerle bağlamı hazırla
     let contextText = '';
     if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
       contextText = prepareBookContext({
@@ -2580,7 +2678,7 @@ async function handleSendBookChatMessage(text) {
         spoilerProtection: isSpoiler,
         question: question,
         bookId: String(currentActiveBook.id || 'book'),
-        totalPages: currentActiveBook.totalPages || currentPdfNumPages || 1,
+        totalPages: totalPages,
         activePages: activeAnalyzingPages,
         failedPages: failedPageAttempts
       });
@@ -2590,6 +2688,8 @@ async function handleSendBookChatMessage(text) {
       contextText = el.readerParagraphsContainer?.innerText || '';
     }
 
+    setChatTypingStatus('Yanıt hazırlanıyor...');
+
     const rawTitle = currentActiveBook?.title || 'Kitap';
     const cleanTitle = rawTitle.replace(/\.[^/.]+$/, '').replace(/[_]+/g, ' ').trim();
 
@@ -2597,7 +2697,7 @@ async function handleSendBookChatMessage(text) {
       bookTitle: cleanTitle || rawTitle,
       bookAuthor: currentActiveBook?.author || '',
       currentPage: currentReaderPage,
-      totalPages: currentActiveBook?.totalPages || currentPdfNumPages || 1,
+      totalPages: totalPages,
       bookContextText: contextText,
       question: question,
       chatHistory: bookChatHistory.slice(0, -1),
@@ -2605,16 +2705,12 @@ async function handleSendBookChatMessage(text) {
       settings: appSettings
     });
 
-    if (el.bookChatTyping) {
-      el.bookChatTyping.classList.add('hidden');
-    }
+    hideChatTypingStatus();
 
     appendChatMessage('assistant', res.answer, true);
     bookChatHistory.push({ role: 'assistant', content: res.answer });
   } catch (err) {
-    if (el.bookChatTyping) {
-      el.bookChatTyping.classList.add('hidden');
-    }
+    hideChatTypingStatus();
     const errPrefix = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>**Yanıt Alınamadı:** ';
     appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`, true);
   } finally {
@@ -3923,7 +4019,7 @@ function updateReaderBgOcrStatus(message, isPriority = false, isCompleted = fals
   // "Tesseract: %40 (S.1)" veya "OCR: %40 (S.1)" gibi değişken formatları "S.1 • %40" formatına dönüştür
   let displayMessage = message;
   if (isCompleted) {
-    displayMessage = 'Tamamlandı';
+    displayMessage = (typeof message === 'string' && message.length > 0) ? message : 'Tamamlandı';
   } else if (typeof message === 'string') {
     const matchProgress = message.match(/(?:Tesseract|OCR):\s*%?(\d+)\s*\(S\.(\d+)\)/i);
     if (matchProgress) {
@@ -4117,57 +4213,23 @@ async function performVisionAiOcr(pageDataUrl, pageNum, documentId, signal) {
 }
 
 function getNextTargetPage(totalPages, pageParagraphs) {
-  const isPageDone = (p) => {
-    const paras = pageParagraphs ? pageParagraphs[p] : null;
-    return Array.isArray(paras) && paras.length > 0;
-  };
-
-  // 1. Kullanıcının atladığı veya öncelik kuyruğundaki sayfa
-  for (let i = 0; i < priorityPageQueue.length; i++) {
-    const candidate = priorityPageQueue[i];
-    if (candidate >= 1 && candidate <= totalPages && !isPageDone(candidate) && !activeAnalyzingPages.has(candidate)) {
-      priorityPageQueue.splice(i, 1);
-      return candidate;
-    }
-  }
-
-  // 2. Kullanıcının şu an okuduğu görünür sayfa (en yüksek öncelik)
-  if (currentReaderPage && !isPageDone(currentReaderPage) && !activeAnalyzingPages.has(currentReaderPage)) {
-    if ((failedPageAttempts.get(currentReaderPage) || 0) < 2) {
-      return currentReaderPage;
-    }
-  }
-
-  // 3. Sınırlı önceden yükleme penceresi: Kullanıcının hemen önündeki 2 sayfa (akıcı okuma için)
-  if (currentReaderPage) {
-    for (let offset = 1; offset <= 2; offset++) {
-      const nextP = currentReaderPage + offset;
-      if (nextP <= totalPages && !isPageDone(nextP) && !activeAnalyzingPages.has(nextP)) {
-        if ((failedPageAttempts.get(nextP) || 0) < 2) {
-          return nextP;
-        }
-      }
-    }
-
-    // Kullanıcının hemen gerisindeki 1 sayfa (hızlı geri dönüş için)
-    const prevP = currentReaderPage - 1;
-    if (prevP >= 1 && !isPageDone(prevP) && !activeAnalyzingPages.has(prevP)) {
-      if ((failedPageAttempts.get(prevP) || 0) < 2) {
-        return prevP;
-      }
-    }
-  }
-
-  // Aktif okuma penceresi dışındaki yüzlerce sayfayı körlemesine tarama!
-  // Bu sayede tarayıcı UI thread'i donmaz ve kullanıcının API kotası korunur.
-  return null;
+  return calculateNextTargetPage({
+    totalPages,
+    pageParagraphs,
+    currentReaderPage,
+    priorityQueue: priorityPageQueue,
+    activePages: activeAnalyzingPages,
+    failedAttempts: failedPageAttempts,
+    maxFailures: 3
+  });
 }
 
 function prioritizePageAnalysis(pageNum) {
   if (!currentActiveBook || !currentPdfDoc || currentPdfDocBookId !== currentActiveBook.id) return;
-  if (currentActiveBook.pageParagraphs && currentActiveBook.pageParagraphs[pageNum]) return;
+  if (currentActiveBook.pageParagraphs && Array.isArray(currentActiveBook.pageParagraphs[pageNum]) && currentActiveBook.pageParagraphs[pageNum].length > 0) return;
 
   const total = currentTotalPages || currentPdfDoc.numPages || (currentActiveBook?.totalPages || 1);
+  if (pageNum < 1 || pageNum > total) return;
 
   // Zaten o an bir paralel worker tarafından işleniyorsa
   if (activeAnalyzingPages.has(pageNum)) {
@@ -4175,14 +4237,14 @@ function prioritizePageAnalysis(pageNum) {
     return;
   }
 
-  // Öncelik kuyruğunun en başına ekle
-  if (!priorityPageQueue.includes(pageNum)) {
-    priorityPageQueue.unshift(pageNum);
-  }
+  // Öncelik kuyruğunun en başına ekle (mükerrer kayıt olmadan)
+  priorityPageQueue = priorityPageQueue.filter(p => p !== pageNum);
+  priorityPageQueue.unshift(pageNum);
 
   // Kullanıcının okumadığı uzak bir sayfayla meşgul olan worker varsa hemen iptal et
+  // İptal edilen sayfa daha sonra sweep döngüsünde doğal olarak yeniden taranacaktır!
   for (const [wId, worker] of activeWorkerControllers.entries()) {
-    if (worker.pageNum !== currentReaderPage) {
+    if (worker.pageNum !== pageNum && worker.pageNum !== currentReaderPage) {
       worker.controller.abort();
       break;
     }
@@ -4211,9 +4273,9 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
   if (!book.pageParagraphs) book.pageParagraphs = {};
 
   // Check if all pages are already scanned in persistent memory
-  const memoryInfo = getMissingOrFailedPages(book, totalPages);
-  if (memoryInfo.isComplete && memoryInfo.missingPages.length === 0) {
-    updateReaderBgOcrStatus(`${totalPages} / ${totalPages}`, false, true);
+  const initialMemoryInfo = getMissingOrFailedPages(book, totalPages);
+  if (initialMemoryInfo.isComplete && initialMemoryInfo.missingPages.length === 0) {
+    updateReaderBgOcrStatus(`Tüm Kitap Taranmıştır (${totalPages}/${totalPages})`, false, true);
     setTimeout(() => hideReaderBgOcrStatus(), 4000);
     isBackgroundOcrActive = false;
     return;
@@ -4228,6 +4290,12 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
         break;
       }
 
+      // Kullanıcı AI ile sohbet ediyorsa API kotası ve ağ bant genişliğini korumak için OCR'a kısa nefes aldır
+      if (isBookChatSending) {
+        await new Promise(r => setTimeout(r, 600));
+        continue;
+      }
+
       const targetPage = getNextTargetPage(totalPages, book.pageParagraphs);
       if (!targetPage) {
         if (activeAnalyzingPages.size === 0) break;
@@ -4240,13 +4308,22 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
       activeWorkerControllers.set(workerId, { controller, pageNum: targetPage });
 
       const isPriority = (targetPage === currentReaderPage);
-      const doneCount = Object.keys(book.pageParagraphs || {}).length;
-      updateReaderBgOcrStatus(isPriority ? `S.${targetPage} taranıyor` : `${Math.min(totalPages, doneCount + 1)} / ${totalPages}`, isPriority);
+      const scannedCount = Object.keys(book.pageParagraphs || {}).filter(k => Array.isArray(book.pageParagraphs[k]) && book.pageParagraphs[k].length > 0).length;
+      const remainingCount = Math.max(0, totalPages - scannedCount);
+      const percent = Math.round((scannedCount / totalPages) * 100);
+
+      // Gerçek ilerleme göstergesi:
+      if (isPriority) {
+        updateReaderBgOcrStatus(`S.${targetPage} taranıyor • %${percent} (${scannedCount}/${totalPages})`, true);
+      } else {
+        updateReaderBgOcrStatus(`${scannedCount}/${totalPages} sayfa hazır (${remainingCount} bekliyor)`, false);
+      }
 
       try {
         const paragraphs = await analyzeSinglePdfPage(pdfDoc, targetPage, controller.signal, book.id);
 
         if (controller.signal.aborted) {
+          // Sayfa iptal edildi; hata sayılmaz, ileride yeniden taranacaktır.
           continue;
         }
 
@@ -4289,7 +4366,7 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
         }
       } catch (pageErr) {
         if (pageErr.name === 'AbortError') {
-          // Öncelik değişti, döngü yeni sayfayı alacak
+          // Öncelik değişti: Bu sayfa iptal edildi ve daha sonra tekrar taranacaktır.
         } else {
           console.warn(`[OCR Queue Error] Sayfa ${targetPage} hatası:`, pageErr);
           const fails = (failedPageAttempts.get(targetPage) || 0) + 1;
@@ -4303,21 +4380,42 @@ async function startBackgroundPdfAnalysis(book, pdfDoc) {
           if (currentActiveBook && currentActiveBook.id === book.id && currentReaderPage === targetPage) {
             renderPageAnalysisError(targetPage, pageErr.message || 'OCR işlemi sırasında bir hata oluştu.');
           }
+
+          // API 429 veya sunucu yoğunluğu durumunda exponential backoff uygula
+          const isRateLimit = pageErr.message && (
+            pageErr.message.includes('429') ||
+            pageErr.message.includes('rate limit') ||
+            pageErr.message.includes('overload') ||
+            pageErr.message.includes('ResourceExhausted')
+          );
+          if (isRateLimit) {
+            updateReaderBgOcrStatus('API kotası dengeleniyor, bekleniyor...', false);
+            const backoffMs = Math.min(10000, 2000 * Math.pow(1.5, Math.min(fails, 4)));
+            await new Promise(r => setTimeout(r, backoffMs));
+          }
         }
       } finally {
         activeAnalyzingPages.delete(targetPage);
         activeWorkerControllers.delete(workerId);
       }
 
-      await new Promise(r => setTimeout(r, 30));
+      // UI thread'ine nefes aldır ve kısa gecikmeyle devam et
+      await yieldToMainThread(40);
     }
   });
 
   try {
     await Promise.all(workerPromises);
     if (currentActiveBook && currentActiveBook.id === book.id) {
-      updateReaderBgOcrStatus(`${totalPages} / ${totalPages}`, false, true);
-      setTimeout(() => hideReaderBgOcrStatus(), 4000);
+      const finalInfo = getMissingOrFailedPages(book, totalPages);
+      if (finalInfo.isComplete && finalInfo.missingPages.length === 0) {
+        updateReaderBgOcrStatus(`Tüm Kitap Taranmıştır (${totalPages}/${totalPages})`, false, true);
+        setTimeout(() => hideReaderBgOcrStatus(), 4000);
+      } else {
+        const remaining = finalInfo.missingPages.length;
+        const failed = finalInfo.failedPages.length;
+        updateReaderBgOcrStatus(`${finalInfo.scannedCount}/${totalPages} sayfa hazır (${remaining} bekliyor${failed > 0 ? `, ${failed} hatalı` : ''})`, false);
+      }
     }
   } catch (err) {
     console.warn('Arka plan analizi durduruldu:', err);

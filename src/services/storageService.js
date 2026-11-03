@@ -28,7 +28,8 @@ import {
   findBookMemoryByFingerprint,
   generatePdfFingerprint,
   hydrateBookFromMemory,
-  getOrBuildBookRagIndex
+  getOrBuildBookRagIndex,
+  getNextTargetPage
 } from './bookMemoryService.js';
 
 export {
@@ -41,7 +42,8 @@ export {
   findBookMemoryByFingerprint,
   generatePdfFingerprint,
   hydrateBookFromMemory,
-  getOrBuildBookRagIndex
+  getOrBuildBookRagIndex,
+  getNextTargetPage
 };
 
 const SETTINGS_KEY = 'reawid_settings_v1';

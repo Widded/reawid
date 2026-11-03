@@ -24,15 +24,15 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793699954.397514,
-    "seen": 1793701541.9252987,
-    "ast_hash": "32cce4b63dd8198e138e9671b9ff7aa3",
+    "mtime": 1793721707.7896502,
+    "seen": 1793722216.6706693,
+    "ast_hash": "c80781b7cd7fd60d1054b55068333b75",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793701494.2162683,
-    "seen": 1793701541.925301,
-    "ast_hash": "ec2b9812041019a6da091a5a0e417282",
+    "mtime": 1793721380.243267,
+    "seen": 1793722216.6706731,
+    "ast_hash": "cb3292c102a6da76c48eca10c9efd105",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -72,9 +72,9 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793691246.9619615,
-    "seen": 1793691376.2879574,
-    "ast_hash": "2fd114cf93cafa70a921a661f626f032",
+    "mtime": 1793721665.6850686,
+    "seen": 1793722216.6717064,
+    "ast_hash": "24130bd19073926f0c76ef21e984e9fa",
     "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
@@ -267,6 +267,24 @@
     "mtime": 1793700871.4390042,
     "seen": 1793701541.9265983,
     "ast_hash": "f417fcc913a62f254662503bdec4d287",
+    "semantic_hash": ""
+  },
+  "src/services/bookMemoryService.js": {
+    "mtime": 1793721649.2328644,
+    "seen": 1793722216.670676,
+    "ast_hash": "49a10b58bf1fa4f6e32e4bf15208ae47",
+    "semantic_hash": ""
+  },
+  "tests/test_book_memory_suite.mjs": {
+    "mtime": 1793719893.3497815,
+    "seen": 1793720004.233145,
+    "ast_hash": "01ea7bbe1adeb22af7b2fda52d41b0f5",
+    "semantic_hash": ""
+  },
+  "tests/test_continuous_ocr_suite.mjs": {
+    "mtime": 1793722154.520069,
+    "seen": 1793722216.6725764,
+    "ast_hash": "81e0071f68b64a9fc4ee7b29a5cb198b",
     "semantic_hash": ""
   },
   "package-lock.json": {

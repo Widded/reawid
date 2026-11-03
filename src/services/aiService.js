@@ -1670,6 +1670,101 @@ const TURKISH_STOPWORDS = new Set([
 ]);
 
 /**
+ * Scans and scores unscanned pages to identify which ones are most likely
+ * to contain evidence for the user's question.
+ *
+ * @param {Object} params
+ * @param {Object|null} [params.pdfDoc] - PDFDocumentProxy for embedded text extraction
+ * @param {string} params.question - User's query
+ * @param {number[]} params.missingPages - Unscanned pages eligible for inspection
+ * @param {string} [params.chapterOutline] - Outline text if available
+ * @param {number} [params.maxPages] - Max pages to select (default: 3)
+ * @returns {Promise<number[]>} Selected candidate page numbers
+ */
+export async function findCandidatePagesForQuestion({
+  pdfDoc = null,
+  question = '',
+  missingPages = [],
+  chapterOutline = '',
+  maxPages = 3
+}) {
+  if (!Array.isArray(missingPages) || missingPages.length === 0) return [];
+
+  const cleanQ = String(question || '').trim().toLocaleLowerCase('tr-TR');
+  if (!cleanQ) return missingPages.slice(0, maxPages);
+
+  // Extract substantive query tokens (length >= 3 and not in stopwords)
+  const qTokens = cleanQ
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(/\s+/)
+    .filter(t => t.length >= 3 && !TURKISH_STOPWORDS.has(t));
+
+  const candidateScores = new Map();
+
+  // 1. Chapter outline search
+  if (chapterOutline && qTokens.length > 0) {
+    const lines = chapterOutline.split(/\r?\n/);
+    for (const line of lines) {
+      const match = line.match(/(?:BÖLÜM|Bölüm|\bSAYFA\b|\bSayfa\b)\s*(\d+)?:?\s*([^(\n]+)?(?:\(Sayfa\s*(\d+)\))?/i);
+      if (match) {
+        const chapterTitle = (match[2] || '').toLocaleLowerCase('tr-TR');
+        const startPage = parseInt(match[3] || match[1], 10);
+        if (chapterTitle && !isNaN(startPage)) {
+          const matchedToken = qTokens.some(t => chapterTitle.includes(t));
+          if (matchedToken) {
+            // Boost missing pages in this chapter's vicinity
+            for (let p = startPage; p <= startPage + 6; p++) {
+              if (missingPages.includes(p)) {
+                candidateScores.set(p, (candidateScores.get(p) || 0) + 15);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Fast embedded text layer check (if pdfDoc provided)
+  if (pdfDoc && typeof pdfDoc.getPage === 'function' && qTokens.length > 0) {
+    const checkSubset = missingPages.slice(0, 35);
+    for (const p of checkSubset) {
+      try {
+        const page = await pdfDoc.getPage(p);
+        const textContent = await page.getTextContent();
+        let pageStr = '';
+        for (const item of textContent.items) {
+          if (item.str) pageStr += item.str + ' ';
+        }
+        pageStr = pageStr.toLocaleLowerCase('tr-TR');
+
+        let matchCount = 0;
+        for (const t of qTokens) {
+          if (pageStr.includes(t)) {
+            matchCount++;
+          }
+        }
+        if (matchCount > 0) {
+          candidateScores.set(p, (candidateScores.get(p) || 0) + (matchCount * 10));
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 3. Sort candidate pages by score descending
+  const scoredList = Array.from(candidateScores.entries())
+    .sort((a, b) => b[1] - a[1])
+    .filter(x => x[1] > 0)
+    .map(x => x[0]);
+
+  if (scoredList.length > 0) {
+    return scoredList.slice(0, maxPages);
+  }
+
+  // Fallback: If no keyword matches found yet, return the nearest missing pages
+  return missingPages.slice(0, maxPages);
+}
+
+/**
  * Cache for multi-stage retrieval results to ensure high performance
  */
 const retrievalCache = new Map();

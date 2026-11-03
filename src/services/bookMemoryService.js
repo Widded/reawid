@@ -707,3 +707,79 @@ export function getOrBuildBookRagIndex(memory, pagesTextMap, activePages = new S
 
   return freshIndex;
 }
+
+/**
+ * Calculates the next target page to scan for continuous background OCR,
+ * adhering to the strict priority order:
+ * 1. priorityQueue (jumped pages / on-demand AI requests)
+ * 2. currentReaderPage
+ * 3. currentReaderPage + 1, + 2 (reading prefetch window)
+ * 4. currentReaderPage - 1 (quick flip-back window)
+ * 5. Forward sweep from currentReaderPage + 3 to totalPages
+ * 6. Backward sweep from 1 to currentReaderPage - 2
+ *
+ * Returns null ONLY when all pages across the entire book are scanned or reached max failures.
+ */
+export function getNextTargetPage({
+  totalPages = 1,
+  pageParagraphs = {},
+  currentReaderPage = 1,
+  priorityQueue = [],
+  activePages = new Set(),
+  failedAttempts = new Map(),
+  maxFailures = 3
+}) {
+  const isPageDone = (p) => {
+    const paras = pageParagraphs ? pageParagraphs[p] : null;
+    return Array.isArray(paras) && paras.length > 0;
+  };
+  const isCandidateValid = (p) => {
+    const fails = failedAttempts instanceof Map ? (failedAttempts.get(p) || 0) : (failedAttempts[p] || 0);
+    return p >= 1 && p <= totalPages && !isPageDone(p) && !activePages.has(p) && fails < maxFailures;
+  };
+
+  // 1. Priority queue (highest priority)
+  while (priorityQueue.length > 0) {
+    const candidate = priorityQueue.shift();
+    if (isCandidateValid(candidate)) {
+      return candidate;
+    }
+  }
+
+  const readerPage = currentReaderPage || 1;
+
+  // 2. Current visible page
+  if (isCandidateValid(readerPage)) {
+    return readerPage;
+  }
+
+  // 3. Next 2 pages ahead
+  for (let offset = 1; offset <= 2; offset++) {
+    const nextP = readerPage + offset;
+    if (isCandidateValid(nextP)) {
+      return nextP;
+    }
+  }
+
+  // 4. Previous 1 page
+  const prevP = readerPage - 1;
+  if (isCandidateValid(prevP)) {
+    return prevP;
+  }
+
+  // 5. Forward sweep from readerPage + 3 to totalPages
+  for (let p = readerPage + 3; p <= totalPages; p++) {
+    if (isCandidateValid(p)) {
+      return p;
+    }
+  }
+
+  // 6. Backward sweep from 1 to readerPage - 2
+  for (let p = 1; p < readerPage - 1; p++) {
+    if (isCandidateValid(p)) {
+      return p;
+    }
+  }
+
+  return null;
+}
