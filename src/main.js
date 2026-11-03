@@ -2568,8 +2568,11 @@ async function handleSendBookChatMessage(text) {
       contextText = el.readerParagraphsContainer?.innerText || '';
     }
 
+    const rawTitle = currentActiveBook?.title || 'Kitap';
+    const cleanTitle = rawTitle.replace(/\.[^/.]+$/, '').replace(/[_]+/g, ' ').trim();
+
     const res = await askBookAi({
-      bookTitle: currentActiveBook?.title || 'Kitap',
+      bookTitle: cleanTitle || rawTitle,
       bookAuthor: currentActiveBook?.author || '',
       currentPage: currentReaderPage,
       totalPages: currentActiveBook?.totalPages || currentPdfNumPages || 1,
