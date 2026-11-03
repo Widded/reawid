@@ -78,7 +78,7 @@ export function isModelStrictlyFree(provider, model) {
   }
   if (p === 'groq') {
     // Groq's developer tier runs on-demand without paid commitments
-    return m === 'qwen/qwen3.8-27b';
+    return m === 'qwen/qwen3.8-27b' || m === 'openai/gpt-oss-120b' || m === 'openai/gpt-oss-20b' || m === 'allam-2-7b';
   }
   return true;
 }
@@ -1745,15 +1745,15 @@ export async function askBookAi({
   const groqKey = (settings.groqApiKey || '').trim();
   const orKey = (settings.openrouterApiKey || '').trim();
 
-  // Determine provider and model (strictly use verified active models)
+  // Determine provider and model (Groq 120B / 20B LPU as premier free literary chat engines)
   let provider = 'groq';
   let apiKey = groqKey;
-  let model = (settings.groqModel && settings.groqModel !== 'auto') ? settings.groqModel : 'qwen/qwen3.8-27b';
+  let model = (settings.groqChatModel && settings.groqChatModel !== 'auto') ? settings.groqChatModel : 'openai/gpt-oss-120b';
 
   if (groqKey) {
     provider = 'groq';
     apiKey = groqKey;
-    model = (settings.groqModel && settings.groqModel !== 'auto') ? settings.groqModel : 'qwen/qwen3.8-27b';
+    model = (settings.groqChatModel && settings.groqChatModel !== 'auto') ? settings.groqChatModel : 'openai/gpt-oss-120b';
   } else if (orKey) {
     provider = 'openrouter';
     apiKey = orKey;
@@ -1866,7 +1866,21 @@ ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmakta
     const res = await requestCompletion(endpoint, headers, payload);
     finalAnswer = res.answer;
   } catch (err) {
-    console.warn(`[Book AI Chat] ${provider} çağrısı başarısız oldu:`, err.message);
+    console.warn(`[Book AI Chat] ${provider} (${model}) çağrısı başarısız oldu:`, err.message);
+
+    // Fast failover to Groq 20B if 120B was rate-limited or congested
+    if (provider === 'groq' && model === 'openai/gpt-oss-120b') {
+      console.info('[Book AI Chat] Groq 120B çağrısı başarısız oldu, hızlı 20B yedek modeline geçiliyor...');
+      try {
+        const fb20Res = await requestCompletion(endpoint, headers, { ...payload, model: 'openai/gpt-oss-20b' });
+        if (fb20Res.answer) {
+          finalAnswer = fb20Res.answer;
+          finalModel = 'openai/gpt-oss-20b';
+        }
+      } catch (err20) {
+        console.warn('[Book AI Chat] Groq 20B yedeği de başarısız oldu:', err20.message);
+      }
+    }
   }
 
   // 2. If primary returned empty or threw an error, failover to OpenRouter if available
