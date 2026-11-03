@@ -5,9 +5,7 @@
   "8": "readerFormatter.js",
   "13": "supabaseService.js",
   "14": "test_root_cause_suite.mjs",
-  "16": "setupSettingsScreenEvents",
+  "16": "test_root_cause_suite.mjs",
   "21": "openBookInReader",
-  "25": "renderNotesScreen",
-  "26": "performOcr",
-  "27": "setupResetDataController"
+  "25": "isModelStrictlyFree"
 }

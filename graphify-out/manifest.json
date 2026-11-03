@@ -24,9 +24,9 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793699954.397514,
-    "seen": 1793701541.9252987,
-    "ast_hash": "32cce4b63dd8198e138e9671b9ff7aa3",
+    "mtime": 1793719956.7351701,
+    "seen": 1793720004.231642,
+    "ast_hash": "cb9caa54d60e74e50d87d92ab01072c0",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
@@ -72,9 +72,9 @@
     "semantic_hash": "575707f7b5ca169879d808234911cb6a"
   },
   "src/services/storageService.js": {
-    "mtime": 1793691246.9619615,
-    "seen": 1793691376.2879574,
-    "ast_hash": "2fd114cf93cafa70a921a661f626f032",
+    "mtime": 1793719481.8882506,
+    "seen": 1793720004.2324646,
+    "ast_hash": "a986326e0bcdf2a6f9b7cd5e14e417bb",
     "semantic_hash": ""
   },
   "src/services/supabaseService.js": {
@@ -267,6 +267,18 @@
     "mtime": 1793700871.4390042,
     "seen": 1793701541.9265983,
     "ast_hash": "f417fcc913a62f254662503bdec4d287",
+    "semantic_hash": ""
+  },
+  "src/services/bookMemoryService.js": {
+    "mtime": 1793719858.8209076,
+    "seen": 1793720004.2317631,
+    "ast_hash": "0c84bc142507e6fa6adefddbfb9758b2",
+    "semantic_hash": ""
+  },
+  "tests/test_book_memory_suite.mjs": {
+    "mtime": 1793719893.3497815,
+    "seen": 1793720004.233145,
+    "ast_hash": "01ea7bbe1adeb22af7b2fda52d41b0f5",
     "semantic_hash": ""
   },
   "package-lock.json": {

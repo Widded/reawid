@@ -18,6 +18,31 @@ import {
   healTurkishOcrArtifacts,
   normalizeHyphensAndText
 } from './aiService.js';
+import {
+  savePageOcrMemory,
+  getBookMemory,
+  deleteBookMemory,
+  clearAllBookMemories,
+  loadOrInitializeBookMemory,
+  getMissingOrFailedPages,
+  findBookMemoryByFingerprint,
+  generatePdfFingerprint,
+  hydrateBookFromMemory,
+  getOrBuildBookRagIndex
+} from './bookMemoryService.js';
+
+export {
+  savePageOcrMemory,
+  getBookMemory,
+  deleteBookMemory,
+  clearAllBookMemories,
+  loadOrInitializeBookMemory,
+  getMissingOrFailedPages,
+  findBookMemoryByFingerprint,
+  generatePdfFingerprint,
+  hydrateBookFromMemory,
+  getOrBuildBookRagIndex
+};
 
 const SETTINGS_KEY = 'reawid_settings_v1';
 const HISTORY_KEY = 'reawid_history_v1';
@@ -619,6 +644,9 @@ export function deleteBook(bookId) {
     // Delete cached PDF blob from IndexedDB
     deletePdfFromIdb(bookId).catch(() => {});
 
+    // Delete persistent book memory & OCR cache
+    deleteBookMemory(bookId).catch(() => {});
+
     // Background cloud sync
     deleteBookFromCloud(bookId).catch(() => {});
 
@@ -651,6 +679,14 @@ export function updateBookPageParagraphs(bookId, pageNum, paragraphs, rawText = 
       return b;
     });
     localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
+
+    // Atomic persistence to Book Memory (IndexedDB + L1)
+    savePageOcrMemory(bookId, pageNum, {
+      pageNumber: pageNum,
+      paragraphs: safeParagraphs,
+      rawText,
+      ocrStatus: 'completed'
+    }).catch(() => {});
 
     // Background cloud sync
     if (updatedBook) {
@@ -748,8 +784,9 @@ export async function resetAllAppData() {
       await supabase.from('notes').delete().eq('user_id', user.id);
     }
 
-    // 3. Clear IndexedDB PDF blobs
+    // 3. Clear IndexedDB PDF blobs and persistent book memories
     await clearAllPdfsFromIdb().catch(() => {});
+    await clearAllBookMemories().catch(() => {});
 
     // 4. Purge caches
     if ('caches' in window) {
@@ -766,6 +803,7 @@ export async function resetAllAppData() {
 
 export function clearBookOcrCache(bookId) {
   try {
+    deleteBookMemory(bookId).catch(() => {});
     const raw = localStorage.getItem(BOOKS_KEY);
     if (!raw) return false;
     const books = JSON.parse(raw);
