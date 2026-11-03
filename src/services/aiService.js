@@ -1675,19 +1675,19 @@ export function retrieveRelevantPages({
   pagesTextMap = {},
   eligiblePages = [],
   question = '',
-  topK = 4
+  topK = 5
 }) {
   if (!question || !question.trim() || !eligiblePages || eligiblePages.length === 0) {
     return [];
   }
 
-  const qRaw = question.toLowerCase();
+  const qRaw = question.toLocaleLowerCase('tr-TR');
 
   // Extract chapter query if user asked e.g. "3. bölüm", "bölüm 3", "üçüncü bölüm"
   const chapterMatch = qRaw.match(/(?:bölüm\s*(\d+|[ivxlcdm]+)|(\d+|[ivxlcdm]+)\.?\s*bölüm)/i);
   const targetChapterNum = chapterMatch ? (chapterMatch[1] || chapterMatch[2]) : null;
 
-  // Extract clean keywords
+  // Extract clean keywords with Turkish normalization
   const words = qRaw
     .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ')
     .split(/\s+/)
@@ -1701,7 +1701,7 @@ export function retrieveRelevantPages({
     const text = Array.isArray(raw) ? raw.join('\n\n') : String(raw || '');
     if (!text.trim()) continue;
 
-    const lower = text.toLowerCase();
+    const lower = text.toLocaleLowerCase('tr-TR');
     let score = 0;
 
     // 1. Chapter match boost
@@ -1726,7 +1726,7 @@ export function retrieveRelevantPages({
       }
     }
 
-    // 3. Keyword matches with frequency cap
+    // 3. Keyword matches with frequency cap & Turkish stem matching
     for (const w of words) {
       if (lower.includes(w)) {
         score += 15;
@@ -1737,11 +1737,11 @@ export function retrieveRelevantPages({
           idx += w.length;
         }
         score += count * 4;
-      } else if (w.length >= 5) {
-        // Stem / prefix matching (e.g. "raskolnikov", "cinayet")
-        const stem = w.slice(0, Math.min(w.length - 1, 6));
+      } else if (w.length >= 4) {
+        // Turkish stem / prefix matching (e.g. "öldür" -> "öldürdü", "mektup" -> "mektubu")
+        const stem = w.slice(0, Math.min(w.length - 1, 5));
         if (lower.includes(stem)) {
-          score += 6;
+          score += 8;
         }
       }
     }
@@ -1766,7 +1766,7 @@ export function prepareBookContext({
   currentPage = 1,
   spoilerProtection = true,
   question = '',
-  maxCharLimit = 24000
+  maxCharLimit = 36000
 }) {
   const pageNumbers = Object.keys(pagesTextMap || {})
     .map(Number)
@@ -1795,7 +1795,7 @@ export function prepareBookContext({
       pagesTextMap,
       eligiblePages,
       question,
-      topK: 4
+      topK: 5
     });
 
     const relevantPageNums = new Set(relevant.map(r => r.page));
@@ -1828,7 +1828,8 @@ export function prepareBookContext({
     if (relevantParts.length > 0) {
       sections.push(`[SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR]\n${relevantParts.join('\n\n---\n\n')}`);
     } else {
-      const fallbackPages = eligiblePages.slice(0, 3).filter(p => !immediateNums.includes(p));
+      // If no specific relevant pages found, provide a rich sample of eligible pages
+      const fallbackPages = eligiblePages.slice(0, 6).filter(p => !immediateNums.includes(p));
       const fallbackParts = [];
       for (const p of fallbackPages) {
         const raw = pagesTextMap[p];
@@ -1838,7 +1839,7 @@ export function prepareBookContext({
         }
       }
       if (fallbackParts.length > 0) {
-        sections.push(`[KİTABIN BAŞLANGIÇ SAYFALARI]\n${fallbackParts.join('\n\n---\n\n')}`);
+        sections.push(`[KİTAP SAYFALARINDAN ÖRNEK METİNLER]\n${fallbackParts.join('\n\n---\n\n')}`);
       }
     }
 
@@ -2007,14 +2008,13 @@ KESİN KİTAP SINIRI (STRICT DOMAIN GUARDRAIL):
 4. CEVAPLARINDA KESİNLİKLE HİÇBİR EMOJİ KULLANMA. Sade, duru, ciddi ve edebi bir Türkçe kullan.
 5. DÜŞÜNME VE İÇ MONOLOG KULLANMA: Yanıtından önce veya içinde kesinlikle iç düşünme süreci (thinking process), akıl yürütme veya <think> blokları yazma. Doğrudan kullanıcıya hitap eden nihai cevabını ver.
 
-SPOILER KORUMASI (KAPALI - TÜM KİTAP AÇIK):
-1. Spoiler koruması KAPALI olduğu için kitabın tamamını, sonunu, tüm olay örgüsünü, karakterlerin akıbetini serbestçe tartışabilirsin.
-
-SAYFA, BÖLÜM VE OLAY DOĞRULUĞU KURALLARI (HALÜSİNASYON VE UYDURMA YASAĞI):
-1. KESİNLİKLE VE ASLA KİTAPTA OLMAYAN BİR OLAY, KARAKTER, MEKAN VEYA SAYFA UYDURMA.
-2. Cevabını SADECE sana sunulan [KİTAP HARİTASI VE BÖLÜM DİZİNİ], [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR] ve taranmış sayfa metinlerine dayandır.
-3. Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda fihriste bakarak tam sayfa numarasını doğrudan söyle.
-4. Eğer sorulan olay veya detay taranmış sayfalarda yer almıyorsa, KESİNLİKLE uydurma yapma; "Bu detay taranmış sayfalarda yer almamaktadır" diyerek dürüstçe bildir.
+SPOILER KORUMASI (KAPALI - TÜM KİTAP AÇIK VE SERBESTÇE TARTIŞILABİLİR):
+1. Spoiler koruması KAPALI olduğu için kullanıcının "${bookTitle}" eseri hakkındaki TÜM sorularını (tüm olay örgüsü, karakterlerin akıbeti, kitabın sonu, önemli dönüm noktaları, temaları) serbestçe, doyurucu ve eksiksiz yanıtla.
+2. KAYNAK METİN VE BİLGİ KULLANIMI:
+   - Eğer sorulan olay, diyalog veya sahne sana sunulan taranmış sayfalarda ([SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR] vb.) geçiyorsa, cevabını doğrudan bu sayfalara dayandır ve sayfa numarasını belirt ("Sayfa X'te anlatıldığı üzere...").
+   - Eğer sorulan olay veya detay henüz taranmış sayfalar arasında yoksa (örneğin kitap henüz kısmen taranmışsa veya o sayfa metinler arasında yer almıyorsa), KULLANICIYA KESİNLİKLE "bu detay taranmış sayfalarda yok" diyerek kestirip atma veya reddetme! Eserin bilinen edebi ve kurgusal içeriğinden yararlanarak sorulan olayı açıkça ve eksiksiz anlat.
+3. KESİNLİKLE BAŞKA KİTAPLARLA KARIŞTIRMA VE UYDURMA YAPMA: Yalnızca ve sadece gerçek "${bookTitle}" eserinin orijinal olaylarını ve kurgusunu aktar.
+4. BÖLÜM VE SAYFA NUMARALARI: Kullanıcı bir bölümün kaçıncı sayfada olduğunu sorduğunda [KİTAP HARİTASI VE BÖLÜM DİZİNİ]ne bakarak ilgili sayfa numarasını doğrudan belirt.
 
 Kitap metni bağlamı:
 ${bookContextText || 'Kitap genel edebi bilgisi ve bağlamıyla tartışılmaktadır.'}`;

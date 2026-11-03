@@ -3947,12 +3947,12 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
     const ocrEngine = appSettings.ocrEngine || 'tesseract';
     const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
-    // 1. Yalnızca 'auto' modunda ve gömülü metin temizse dene; kullanıcı 'tesseract' veya 'vision_ai' seçtiyse doğrudan OCR çalıştır!
-    if (ocrEngine === 'auto') {
-      const fastText = await extractPdfPageText(pdfDoc, pageNum);
-      if (fastText && fastText.length > 0) {
-        return fastText;
-      }
+    // 1. Önce PDF gömülü metin katmanını hızlıca kontrol et (10-20ms)
+    // Eğer PDF dijital metin içeriyorsa doğrudan ve hatasız al (saniyeler içinde tüm kitap taranır).
+    // Gömülü metin yoksa veya bozuk glifler içeriyorsa null döner ve seçili OCR motoru (Tesseract vb.) devreye girer.
+    const fastText = await extractPdfPageText(pdfDoc, pageNum);
+    if (fastText && fastText.length > 0) {
+      return fastText;
     }
 
     if (signal?.aborted) return null;
