@@ -149,7 +149,7 @@ assert('(cid:xxx) içeren bozuk font metni reddedildi (OCR fallback)', corrupted
 // -----------------------------------------------------------------------------
 console.log('\n--- 5. OCR Motoru Seçim Ayarları ---');
 assert('DEFAULT_SETTINGS içinde ocrEngine tanımlı', 'ocrEngine' in DEFAULT_SETTINGS);
-assert("Varsayılan motor 'auto' olmalı", DEFAULT_SETTINGS.ocrEngine === 'auto');
+assert("Varsayılan motor 'tesseract' olmalı", DEFAULT_SETTINGS.ocrEngine === 'tesseract');
 
 console.log('\n================================================================');
 console.log(`Test Sonuçları: ${passed} Başarılı, ${failed} Hatalı (${passed + failed} Toplam Test)`);

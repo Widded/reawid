@@ -663,35 +663,35 @@
                   <h3 class="settings-group-heading">OCR & Metin Çıkarım Motoru</h3>
                   <p class="settings-group-sub">Kitap sayfalarının taranma ve metne dönüştürülme yöntemi</p>
                 </div>
-                <span class="settings-live-pill" id="badgeOcrEngine">Otomatik</span>
+                <span class="settings-live-pill" id="badgeOcrEngine">Tesseract (Yerel)</span>
               </div>
 
               <div class="settings-engine-grid" id="settingsOcrEngineSelector">
-                <!-- Otomatik -->
-                <button type="button" class="engine-card-box segmented-pill active" data-engine="auto">
-                  <div class="engine-card-top">
-                    <div class="engine-badge-icon badge-auto">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    </div>
-                    <span class="engine-chip chip-recommended">Tavsiye Edilen</span>
-                  </div>
-                  <div class="engine-card-text">
-                    <span class="engine-name">Otomatik Hibrit</span>
-                    <span class="engine-explanation">Normal PDF'lerde anlık çıkarım, taranmış fotoğraflarda akıllı OCR yapar.</span>
-                  </div>
-                </button>
-
-                <!-- Tesseract -->
-                <button type="button" class="engine-card-box segmented-pill" data-engine="tesseract">
+                <!-- Tesseract (Tavsiye Edilen & Varsayılan) -->
+                <button type="button" class="engine-card-box segmented-pill active" data-engine="tesseract">
                   <div class="engine-card-top">
                     <div class="engine-badge-icon badge-local">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     </div>
-                    <span class="engine-chip chip-offline">Çevrimdışı</span>
+                    <span class="engine-chip chip-recommended">Tavsiye Edilen · Çevrimdışı</span>
                   </div>
                   <div class="engine-card-text">
                     <span class="engine-name">Tesseract OCR</span>
-                    <span class="engine-explanation">Tamamen cihaz içinde internetsiz çalışır, kota veya veri sınırı yoktur.</span>
+                    <span class="engine-explanation">Tamamen cihaz içinde %100 internetsiz çalışır, kota veya veri sınırı yoktur.</span>
+                  </div>
+                </button>
+
+                <!-- Otomatik Hibrit -->
+                <button type="button" class="engine-card-box segmented-pill" data-engine="auto">
+                  <div class="engine-card-top">
+                    <div class="engine-badge-icon badge-auto">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    </div>
+                    <span class="engine-chip">Hibrit</span>
+                  </div>
+                  <div class="engine-card-text">
+                    <span class="engine-name">Otomatik Hibrit</span>
+                    <span class="engine-explanation">Normal PDF'lerde anlık çıkarım, taranmış fotoğraflarda akıllı geçiş yapar.</span>
                   </div>
                 </button>
 
@@ -701,7 +701,7 @@
                     <div class="engine-badge-icon badge-cloud">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
                     </div>
-                    <span class="engine-chip chip-cloud">Bulut AI</span>
+                    <span class="engine-chip">Bulut AI</span>
                   </div>
                   <div class="engine-card-text">
                     <span class="engine-name">Vision AI (Bulut)</span>

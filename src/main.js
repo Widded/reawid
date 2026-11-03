@@ -3916,7 +3916,7 @@ function hideReaderBgOcrStatus() {
 
 async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
   try {
-    const ocrEngine = appSettings.ocrEngine || 'auto';
+    const ocrEngine = appSettings.ocrEngine || 'tesseract';
     const documentId = docId || (currentActiveBook?.id ? String(currentActiveBook.id) : 'unknown_doc');
 
     // 1. Yalnızca 'auto' modunda ve gömülü metin temizse dene; kullanıcı 'tesseract' veya 'vision_ai' seçtiyse doğrudan OCR çalıştır!
@@ -4590,7 +4590,7 @@ async function startOcrProcess() {
   isOcrRunning = true;
   abortController = new AbortController();
   el.btnStartOcr.disabled = true;
-  const engine = appSettings.ocrEngine || 'auto';
+  const engine = appSettings.ocrEngine || 'tesseract';
   el.processingStatusText.textContent = engine === 'tesseract' ? 'Tesseract OCR ile taranıyor...' : 'OCR ile taranıyor...';
 
   const startTime = Date.now();
@@ -4760,7 +4760,7 @@ async function startPdfBatchOcr() {
 
       // Perform OCR based on chosen engine (Tesseract / Vision AI / Auto)
       const batchDocId = currentPdfDoc?.fingerprint || 'batch_pdf_doc';
-      const engine = appSettings.ocrEngine || 'auto';
+      const engine = appSettings.ocrEngine || 'tesseract';
       let pageText = null;
 
       if (engine === 'tesseract') {
@@ -5364,7 +5364,7 @@ function renderSettingsScreen() {
   }
 
   // 5. OCR Engine Selector
-  const currentEngine = appSettings.ocrEngine || 'auto';
+  const currentEngine = appSettings.ocrEngine || 'tesseract';
   if (el.settingsOcrEngineSelector) {
     el.settingsOcrEngineSelector.querySelectorAll('.segmented-pill').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.engine === currentEngine);
@@ -5372,7 +5372,7 @@ function renderSettingsScreen() {
   }
   if (el.badgeOcrEngine) {
     const engineNames = { auto: 'Otomatik', tesseract: 'Tesseract (Yerel)', vision_ai: 'Vision AI (Bulut)' };
-    el.badgeOcrEngine.textContent = engineNames[currentEngine] || 'Otomatik';
+    el.badgeOcrEngine.textContent = engineNames[currentEngine] || 'Tesseract (Yerel)';
   }
 
   // 6. Main Menu Hub Badges (Quick glance indicators)

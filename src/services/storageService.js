@@ -192,7 +192,7 @@ export const DEFAULT_SETTINGS = {
   ttsVoice: 'tr-TR-AhmetNeural', // 'tr-TR-AhmetNeural' | 'tr-TR-EmelNeural'
   offlineCache: true, // Çevrimdışı sayfa önbelleği
   renderDpi: 2.0, // PDF render scale for ultra sharpness
-  ocrEngine: 'auto', // 'auto' | 'tesseract' | 'vision_ai'
+  ocrEngine: 'tesseract', // 'tesseract' (varsayılan) | 'auto' | 'vision_ai'
 
   // Silent AI Engine (auto from .env)
   activeProvider: ENV_ACTIVE_PROVIDER,
