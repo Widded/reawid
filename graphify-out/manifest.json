@@ -24,15 +24,15 @@
     "semantic_hash": "e912f4cce4554f6e6f95dd1029347f06"
   },
   "src/main.js": {
-    "mtime": 1793733722.3239079,
-    "seen": 1793734224.556685,
-    "ast_hash": "1090b9d3a8224e7200a838d90ff2a59d",
+    "mtime": 1793738733.502781,
+    "seen": 1793739938.7713885,
+    "ast_hash": "68692b9964c63693ed88b5fd2472c89b",
     "semantic_hash": ""
   },
   "src/services/aiService.js": {
-    "mtime": 1793726417.8926897,
-    "seen": 1793726552.7170715,
-    "ast_hash": "079db011b77d2f3580dcc2d956bbcb5a",
+    "mtime": 1793739893.6453626,
+    "seen": 1793739938.771391,
+    "ast_hash": "9a98a462fc4ef39399dd5f02cf1d9d23",
     "semantic_hash": ""
   },
   "src/services/exportService.js": {
@@ -216,14 +216,14 @@
     "semantic_hash": ""
   },
   "public/icon-192.png": {
-    "mtime": 1793734079.18667,
-    "seen": 1793734224.561527,
+    "mtime": 1793739896.9702704,
+    "seen": 1793739938.7764397,
     "ast_hash": "c26c9ba5137a8e031f137197ec426fe6",
     "semantic_hash": ""
   },
   "public/icon-512.png": {
-    "mtime": 1793734079.1876996,
-    "seen": 1793734224.5615292,
+    "mtime": 1793739896.971258,
+    "seen": 1793739938.776441,
     "ast_hash": "0aacb77a4b043b450be987bdf0d7bee7",
     "semantic_hash": ""
   },
@@ -321,6 +321,18 @@
     "mtime": 1793733998.7168658,
     "seen": 1793734224.5587974,
     "ast_hash": "63c6c934d74ba4b30ccc2b9652ec8ced",
+    "semantic_hash": ""
+  },
+  "tests/test_real_harry_potter_semantic_suite.mjs": {
+    "mtime": 1793739438.892121,
+    "seen": 1793739938.774522,
+    "ast_hash": "6b9fcf5a59f1c2753dbc198ece463b34",
+    "semantic_hash": ""
+  },
+  "tests/test_universal_ai_rag_suite.mjs": {
+    "mtime": 1793738798.087542,
+    "seen": 1793739938.7751753,
+    "ast_hash": "27e1b036ba62129357e79f6919d87579",
     "semantic_hash": ""
   },
   "package-lock.json": {

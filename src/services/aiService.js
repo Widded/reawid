@@ -1710,38 +1710,242 @@ export function getTurkishStem(word) {
 
 export function matchesTurkishWord(stem, textLower) {
   if (!stem || !textLower) return false;
+  const esc = s => s.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&');
   if (stem === 'ev') {
-    return /\b(?:ev|eve|evde|evden|evi|evin|evler|evleri|evlerin|evlerde|evlerden|evimiz|eviniz|evim)\b/iu.test(textLower);
+    return /(?<=^|[^\p{L}\p{N}])(?:ev|eve|evde|evden|evi|evin|evler|evleri|evlerin|evlerde|evlerden|evimiz|eviniz|evim)(?=[^\p{L}\p{N}]|$)/iu.test(textLower);
   }
   if (stem === 'su') {
-    return /\b(?:su|suyu|suya|suda|sudan|suyun|sular)\b/iu.test(textLower);
+    return /(?<=^|[^\p{L}\p{N}])(?:su|suyu|suya|suda|sudan|suyun|sular)(?=[^\p{L}\p{N}]|$)/iu.test(textLower);
   }
   if (stem.length <= 2) {
-    const regex = new RegExp(`\\b${stem}\\b`, 'iu');
+    const regex = new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(stem)}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
     return regex.test(textLower);
   }
-  if (textLower.includes(stem)) return true;
+  // Word boundary matching with Unicode awareness (Turkish letters ç, ğ, ı, ö, ş, ü, İ are non-ASCII)
+  const regex = new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(stem)}`, 'iu');
+  if (regex.test(textLower)) return true;
+
   // Consonant softening (yumuşama: p<->b, k<->ğ, ç<->c, t<->d)
   if (stem.endsWith('p')) {
     const bStem = stem.slice(0, -1) + 'b';
-    if (textLower.includes(bStem)) return true;
+    if (new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(bStem)}`, 'iu').test(textLower)) return true;
   } else if (stem.endsWith('b')) {
     const pStem = stem.slice(0, -1) + 'p';
-    if (textLower.includes(pStem)) return true;
+    if (new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(pStem)}`, 'iu').test(textLower)) return true;
   }
   if (stem.endsWith('k')) {
     const gStem = stem.slice(0, -1) + 'ğ';
-    if (textLower.includes(gStem)) return true;
+    if (new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(gStem)}`, 'iu').test(textLower)) return true;
   }
   if (stem.endsWith('ç')) {
     const cStem = stem.slice(0, -1) + 'c';
-    if (textLower.includes(cStem)) return true;
+    if (new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(cStem)}`, 'iu').test(textLower)) return true;
   }
   if (stem.length >= 4) {
     const prefix4 = stem.slice(0, 4);
-    if (textLower.includes(prefix4)) return true;
+    if (new RegExp(`(?<=^|[^\\p{L}\\p{N}])${esc(prefix4)}`, 'iu').test(textLower)) return true;
   }
   return false;
+}
+
+export const questionUnderstandingCache = new Map();
+
+export const NARRATIVE_CONCEPT_MAP = {
+  'kabul': ['yer ayrıl', 'yerinizin ayrılmış', 'mektup', 'zarf', 'davet', 'kayıt', 'onay', 'bildir', 'izin'],
+  'öğrenmek': ['öğren', 'mektup', 'anlat', 'haber', 'oku', 'söyle', 'duy', 'fark et', 'bildir', 'bilgi'],
+  'öğreniyor': ['öğren', 'mektup', 'anlat', 'haber', 'oku', 'söyle', 'duy', 'fark et', 'bildir', 'bilgi'],
+  'öğrendi': ['öğren', 'mektup', 'anlat', 'haber', 'oku', 'söyle', 'duy', 'fark et', 'bildir', 'bilgi'],
+  'veriyor': ['ver', 'uzat', 'çıkardı', 'mektup', 'zarf', 'hediye', 'not', 'paket', 'teslim'],
+  'vermek': ['ver', 'uzat', 'çıkardı', 'mektup', 'zarf', 'hediye', 'not', 'paket', 'teslim'],
+  'gitmek': ['git', 'ayrıl', 'tren', 'bavul', 'yolculuk', 'karar', 'istasyon', 'yola çık', 'veda'],
+  'kesinleşiyor': ['kesin', 'git', 'karar', 'mektup', 'izin', 'netleş', 'onay', 'belirlen'],
+  'kesinleşmek': ['kesin', 'git', 'karar', 'mektup', 'izin', 'netleş', 'onay', 'belirlen'],
+  'ayrıldığını': ['yerinizin ayrılmış', 'yer ayrıl', 'kabul', 'mektup', 'kayıt', 'onay'],
+  'yer': ['yerinizin ayrılmış', 'yer ayrıl', 'oda', 'kulübe'],
+  'anlıyor': ['anla', 'öğren', 'fark et', 'mektup', 'zarf', 'oku'],
+  'anlamak': ['anla', 'öğren', 'fark et', 'mektup', 'zarf', 'oku'],
+  'bildirmek': ['bildir', 'söyle', 'anlat', 'mektup', 'not', 'haber'],
+  'ölüm': ['öldür', 'katil', 'cinayet', 'ceset', 'ölü'],
+  'öldürmek': ['öldür', 'katil', 'cinayet', 'balta', 'canına kıy'],
+  'yara': ['alın', 'acı', 'sızla', 'iz'],
+  'büyücü': ['cadı', 'sihirbaz', 'asa', 'büyü'],
+  'mektup': ['zarf', 'posta', 'parşömen', 'yazı', 'not', 'haber', 'yerinizin ayrılmış'],
+  'başkalaşım': ['dönüş', 'böcek', 'değiş', 'farklı', 'yaratık'],
+  'dönüşüm': ['başkalaş', 'böcek', 'değiş', 'farklı', 'hal'],
+  'haşere': ['böcek', 'yaratık', 'canlı'],
+  'böcek': ['haşere', 'yaratık', 'kurt'],
+  'karşılaşmak': ['karşılaş', 'tanış', 'gör', 'buluş', 'yaklaş'],
+  'tanışmak': ['tanış', 'karşılaş', 'gör', 'konuş', 'ilk kez'],
+  'buluşmak': ['buluş', 'karşılaş', 'görüş', 'oda', 'yer']
+};
+
+export const COMMON_NARRATIVE_ACTION_STEMS = new Set([
+  'kabul', 'öğren', 'anla', 'bil', 'gör', 'ver', 'al', 'git', 'gel', 'duy', 'fark',
+  'et', 'ol', 'yap', 'bul', 'çık', 'bak', 'dur', 'başla', 'iste', 'çalış', 'söyle',
+  'anlat', 'tanı', 'dön', 'kal', 'kesin', 'ayrıl', 'yer', 'neden', 'nasıl', 'niçin',
+  'bildir', 'oku', 'sor', 'cevap', 'yaz', 'ulaş', 'kayıt', 'haber',
+  'edil', 'edildi', 'edildiğ', 'etmek', 'edilmek',
+  'dönüş', 'başkalaş', 'böcek', 'haşere', 'karşılaş', 'tanış', 'buluş'
+]);
+
+export function getRuleBasedSemanticExpansion(question, bookTitle = '') {
+  const normQ = (question || '').trim().toLocaleLowerCase('tr-TR');
+  const words = normQ.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+  
+  const searchTerms = new Set(words);
+  const alternativePhrases = new Set();
+  
+  for (const w of words) {
+    const stem = getTurkishStem(w);
+    for (const [concept, synonyms] of Object.entries(NARRATIVE_CONCEPT_MAP)) {
+      if (w.includes(concept) || concept.includes(w) || stem === concept || stem === getTurkishStem(concept)) {
+        synonyms.forEach(s => {
+          if (s.includes(' ')) {
+            alternativePhrases.add(s);
+          } else {
+            searchTerms.add(s);
+          }
+        });
+      }
+    }
+  }
+
+  // Evrensel genel edebi kalıplar (Tüm kitaplarda geçerli)
+  if (normQ.includes('kabul') || normQ.includes('yer ayrıl') || normQ.includes('okul')) {
+    alternativePhrases.add('yerinizin ayrılmış olduğunu');
+    alternativePhrases.add('yerinizin ayrilmisoldugunu');
+    alternativePhrases.add('mektubu okudu');
+  }
+  if (normQ.includes('ne veriyor') || normQ.includes('hediye') || normQ.includes('vermek')) {
+    alternativePhrases.add('mektup');
+    alternativePhrases.add('zarf');
+    alternativePhrases.add('paket');
+  }
+  if (normQ.includes('gitmesi') || normQ.includes('kesinleş')) {
+    alternativePhrases.add('gitmiyor');
+    alternativePhrases.add('karar');
+  }
+
+  return {
+    originalQuestion: question,
+    intent: question,
+    entities: [],
+    searchTerms: Array.from(searchTerms),
+    alternativePhrases: Array.from(alternativePhrases)
+  };
+}
+
+export async function understandBookQuestion({
+  question = '',
+  settings = {},
+  bookTitle = '',
+  chapterOutline = ''
+}) {
+  const cleanQ = (question || '').trim();
+  if (!cleanQ) {
+    return {
+      originalQuestion: '',
+      intent: '',
+      entities: [],
+      searchTerms: [],
+      alternativePhrases: []
+    };
+  }
+
+  const normQ = cleanQ.toLocaleLowerCase('tr-TR');
+  const cacheKey = `${bookTitle || 'book'}_${normQ}`;
+  if (questionUnderstandingCache.has(cacheKey)) {
+    return questionUnderstandingCache.get(cacheKey);
+  }
+
+  const baseExpansion = getRuleBasedSemanticExpansion(cleanQ, bookTitle);
+
+  const groqKey = (settings?.groqApiKey || '').trim();
+  const orKey = (settings?.openrouterApiKey || '').trim();
+
+  let aiExpanded = null;
+  if (groqKey || orKey) {
+    try {
+      const provider = groqKey ? 'groq' : 'openrouter';
+      const apiKey = groqKey || orKey;
+      const model = groqKey
+        ? (settings?.groqChatModel && settings?.groqChatModel !== 'auto' ? settings.groqChatModel : 'llama-3.3-70b-versatile')
+        : (settings?.openrouterModel && settings?.openrouterModel !== 'auto' ? settings.openrouterModel : 'openrouter/free');
+
+      const endpoint = provider === 'groq'
+        ? 'https://api.groq.com/openai/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      const prompt = `Sen kitap soru-cevap asistanı için arama genişletme uzmanısın.
+Kullanıcının kitapla ilgili sorusunu analiz et. Kitapta bu olayın farklı kelimeler veya eşanlamlılarla (örneğin "kabul edildiğini" yerine "mektubun verilmesi", "yerinizin ayrılmış olduğu", "büyücü olduğunu öğrenmek") anlatılabileceğini hesaba kat.
+Yalnızca geçerli bir JSON objesi döndür:
+{
+  "intent": "kullanıcının öğrenmek istediği ana olay",
+  "entities": ["karakterler", "mekanlar"],
+  "searchTerms": ["önemli", "arama", "kelimeleri"],
+  "alternativePhrases": ["kitapta geçebilecek alternatif ifadeler"]
+}
+
+Kullanıcı Sorusu: "${cleanQ}"
+Kitap: "${bookTitle || 'Kitap'}"`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://reawid.app', 'X-Title': 'ReaWid' } : {})
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          max_tokens: 180
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (resp.ok) {
+        const json = await resp.json();
+        const rawContent = json?.choices?.[0]?.message?.content || '';
+        const cleanContent = rawContent.replace(/```json\s*|```/g, '').trim();
+        aiExpanded = JSON.parse(cleanContent);
+      }
+    } catch (_) {
+      // Gracefully fallback to rule-based expansion
+    }
+  }
+
+  const mergedSearchTerms = new Set(baseExpansion.searchTerms);
+  const mergedAlternativePhrases = new Set(baseExpansion.alternativePhrases);
+  const entities = new Set();
+
+  if (aiExpanded && typeof aiExpanded === 'object') {
+    if (Array.isArray(aiExpanded.entities)) {
+      aiExpanded.entities.forEach(e => entities.add(String(e).trim()));
+    }
+    if (Array.isArray(aiExpanded.searchTerms)) {
+      aiExpanded.searchTerms.forEach(t => mergedSearchTerms.add(String(t).toLocaleLowerCase('tr-TR').trim()));
+    }
+    if (Array.isArray(aiExpanded.alternativePhrases)) {
+      aiExpanded.alternativePhrases.forEach(p => mergedAlternativePhrases.add(String(p).toLocaleLowerCase('tr-TR').trim()));
+    }
+  }
+
+  const result = {
+    originalQuestion: cleanQ,
+    intent: aiExpanded?.intent || cleanQ,
+    entities: Array.from(entities),
+    searchTerms: Array.from(mergedSearchTerms).filter(Boolean),
+    alternativePhrases: Array.from(mergedAlternativePhrases).filter(Boolean)
+  };
+
+  questionUnderstandingCache.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -1751,6 +1955,7 @@ export function matchesTurkishWord(stem, textLower) {
  * @param {Object} params
  * @param {Object|null} [params.pdfDoc] - PDFDocumentProxy for embedded text extraction
  * @param {string} params.question - User's query
+ * @param {Object|null} [params.semanticAnalysis] - Semantic question expansion
  * @param {number[]} params.missingPages - Unscanned pages eligible for inspection
  * @param {string} [params.chapterOutline] - Outline text if available
  * @param {number} [params.maxPages] - Max pages to select (default: 3)
@@ -1759,6 +1964,7 @@ export function matchesTurkishWord(stem, textLower) {
 export async function findCandidatePagesForQuestion({
   pdfDoc = null,
   question = '',
+  semanticAnalysis = null,
   missingPages = [],
   chapterOutline = '',
   maxPages = 3,
@@ -1775,11 +1981,25 @@ export async function findCandidatePagesForQuestion({
   const cleanQ = String(question || '').trim().toLocaleLowerCase('tr-TR');
   if (!cleanQ) return eligible.slice(0, maxPages);
 
+  const semantic = semanticAnalysis || getRuleBasedSemanticExpansion(question);
+
   // Extract substantive query tokens (length >= 3 and not in stopwords)
-  const qTokens = cleanQ
+  const qTokensSet = new Set(cleanQ
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .split(/\s+/)
-    .filter(t => t.length >= 3 && !TURKISH_STOPWORDS.has(t));
+    .filter(t => t.length >= 3 && !TURKISH_STOPWORDS.has(t)));
+
+  if (semantic && Array.isArray(semantic.searchTerms)) {
+    semantic.searchTerms.forEach(st => {
+      const sLower = String(st || '').toLocaleLowerCase('tr-TR').trim();
+      if (sLower.length >= 3 && !TURKISH_STOPWORDS.has(sLower)) {
+        qTokensSet.add(sLower);
+      }
+    });
+  }
+
+  const qTokens = Array.from(qTokensSet);
+  const altPhrases = (semantic?.alternativePhrases || []).map(p => p.toLocaleLowerCase('tr-TR'));
 
   const candidateScores = new Map();
 
@@ -1851,6 +2071,9 @@ export async function findCandidatePagesForQuestion({
           if (pageStr.includes(t) || matchesTurkishWord(stem, pageStr)) {
             matchCount++;
           }
+        }
+        for (const phr of altPhrases) {
+          if (pageStr.includes(phr)) matchCount += 3;
         }
         if (matchCount > 0) {
           candidateScores.set(p, (candidateScores.get(p) || 0) + (matchCount * 10));
@@ -2282,7 +2505,8 @@ export function multiStageBookRetrieval({
   bookId = 'book',
   activePages = new Set(),
   failedPages = new Map(),
-  contentVersion = null
+  contentVersion = null,
+  semanticAnalysis = null
 }) {
   if (!question || !question.trim()) {
     return {
@@ -2294,6 +2518,8 @@ export function multiStageBookRetrieval({
       evidenceSufficiency: { isSufficient: false, score: 0, status: 'insufficient', missingReasons: ['Boş soru'] }
     };
   }
+
+  const semantic = semanticAnalysis || getRuleBasedSemanticExpansion(question);
 
   const scannedCount = Object.keys(pagesTextMap || {}).length;
   const version = contentVersion !== null ? contentVersion : scannedCount;
@@ -2360,7 +2586,39 @@ export function multiStageBookRetrieval({
       }
     }
 
-    // Exact phrase boost
+    // Semantic search terms boost
+    if (semantic && Array.isArray(semantic.searchTerms)) {
+      for (const st of semantic.searchTerms) {
+        if (wordsList.includes(st)) continue;
+        const sStem = getTurkishStem(st);
+        if (textLower.includes(st)) {
+          score += 12;
+          matchedKeywords++;
+        } else if (matchesTurkishWord(sStem, textLower)) {
+          score += 10;
+          matchedKeywords++;
+        }
+      }
+    }
+
+    // Semantic alternative phrases boost
+    if (semantic && Array.isArray(semantic.alternativePhrases)) {
+      for (const phr of semantic.alternativePhrases) {
+        const pLower = phr.toLocaleLowerCase('tr-TR');
+        if (textLower.includes(pLower)) {
+          score += 35;
+          matchedKeywords += 2;
+        } else {
+          const pWords = pLower.split(/\s+/).filter(pw => pw.length >= 3 && !TURKISH_STOPWORDS.has(pw));
+          if (pWords.length >= 2 && pWords.every(pw => textLower.includes(pw) || matchesTurkishWord(getTurkishStem(pw), textLower))) {
+            score += 25;
+            matchedKeywords += 2;
+          }
+        }
+      }
+    }
+
+    // Exact phrase boost for initial words
     if (wordsList.length >= 2) {
       const phrase = wordsList.slice(0, 3).join(' ');
       if (textLower.includes(phrase)) score += 35;
@@ -2476,12 +2734,14 @@ export function multiStageBookRetrieval({
 
   // B. EVIDENCE VALIDATION
   const QUESTION_COMMON_WORDS = new Set([
-    'hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'hakkında', 'biri', 'olan',
+    'hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'kim', 'kimin', 'kimdi', 'kimdir', 'hakkında', 'biri', 'olan',
     'olarak', 'göre', 'oldu', 'olduğu', 'şöyle', 'böyle', 'bölümde', 'bölüm', 'sayfada',
     'sayfa', 'kitapta', 'kitap', 'yaptı', 'etti', 'gitti', 'geldi', 'gördü', 'buldu',
     'söyledi', 'dedi', 'anlattı', 'olay', 'sahne', 'sahnesi', 'zamanda', 'zaman', 'geçti',
     'film', 'filmde', 'filmdeki', 'filmden', 'dizi', 'dizide', 'dizideki', 'görsel', 'sinema',
-    'geldiği', 'gelen', 'gelir'
+    'geldiği', 'gelen', 'gelir',
+    'edildi', 'edildiğini', 'edilmesi', 'edilmiş', 'edilen', 'edilerek', 'ediyor', 'edecek', 'ettiği', 'etmesi', 'etmek', 'edilmek',
+    'anlaşılıyor', 'anlaşılır', 'anlaşılan', 'geçtiği', 'geçirdiği', 'anlatılan', 'söylenen', 'bilinen', 'görülen', 'fiziksel'
   ]);
   const substantiveQueryTokens = initialWords.filter(w =>
     w.length >= 3 && !QUESTION_COMMON_WORDS.has(w)
@@ -2493,32 +2753,103 @@ export function multiStageBookRetrieval({
     return matchesTurkishWord(stem, allEvidenceText);
   });
 
-  // Alien tokens: substantive terms in query completely missing from the whole book
+  // Alien tokens: substantive terms in query completely missing from the whole book AND lacking any semantic synonyms in book
   const allBookText = eligibleParas.map(p => p.text.toLocaleLowerCase('tr-TR')).join(' ');
   const alienTokens = substantiveQueryTokens.filter(t => {
     const stem = getTurkishStem(t);
-    return !matchesTurkishWord(stem, allBookText);
+    if (matchesTurkishWord(stem, allBookText)) return false;
+    if (COMMON_NARRATIVE_ACTION_STEMS.has(stem) || COMMON_NARRATIVE_ACTION_STEMS.has(t)) return false;
+    if (stem.startsWith('edil') || stem.startsWith('ett') || stem === 'et' || stem === 'ed') return false;
+
+    // Check if token t itself has narrative concept synonyms that match the book
+    let hasSemanticMatchForT = false;
+    for (const [concept, synonyms] of Object.entries(NARRATIVE_CONCEPT_MAP)) {
+      if (t.includes(concept) || concept.includes(t) || stem === concept || stem === getTurkishStem(concept)) {
+        if (synonyms.some(s => matchesTurkishWord(getTurkishStem(s), allBookText) || allBookText.includes(s.toLocaleLowerCase('tr-TR')))) {
+          hasSemanticMatchForT = true;
+          break;
+        }
+      }
+    }
+    if (hasSemanticMatchForT) return false;
+    return true;
   });
 
-  const KNOWN_ENTITIES = new Set([
-    'draco', 'malfoy', 'snape', 'voldemort', 'quirrell', 'raskolnikov', 'dumbledore',
-    'hermione', 'ron', 'hagrid', 'winston', 'marmeladov', 'porfiri', 'charrington',
-    'flamel', 'gregor', 'samsa', 'meursault', 'dursley', 'hedwig', 'firenze', 'harry', 'potter'
+  // Dynamic entity extraction: Extract character/proper names from semantic analysis, question capitalized tokens, and book text
+  const dynamicEntities = new Set();
+  if (Array.isArray(semantic?.entities)) {
+    semantic.entities.forEach(e => {
+      const clean = String(e || '').trim().toLocaleLowerCase('tr-TR');
+      if (clean.length >= 2 && !QUESTION_COMMON_WORDS.has(clean)) {
+        dynamicEntities.add(clean);
+      }
+    });
+  }
+
+  // Proper noun candidates from the original question (Capitalized words in Turkish)
+  const qWordsRaw = (question || '')
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 2);
+
+  const commonStarters = new Set([
+    'hangi', 'nasıl', 'neden', 'niçin', 'nerede', 'neydi', 'kim', 'kiminle',
+    'kimdir', 'acaba', 'kitapta', 'kitap', 'bölümde', 'bölüm', 'sayfada', 'sayfa',
+    'olay', 'şöyle', 'böyle', 'biri', 'olan', 'film', 'dizi'
   ]);
-  const queryEntities = initialWords.filter(w => KNOWN_ENTITIES.has(w));
+
+  qWordsRaw.forEach(rawWord => {
+    const cleanWord = rawWord.replace(/['’]/g, '').trim();
+    const lower = cleanWord.toLocaleLowerCase('tr-TR');
+    if (commonStarters.has(lower) || QUESTION_COMMON_WORDS.has(lower)) return;
+    const firstChar = cleanWord[0];
+    const isCapitalized = firstChar === firstChar.toLocaleUpperCase('tr-TR') && firstChar !== firstChar.toLocaleLowerCase('tr-TR');
+    if (isCapitalized) {
+      dynamicEntities.add(lower);
+    }
+  });
+
+  const queryEntities = initialWords.filter(w => dynamicEntities.has(w));
 
   let entityPredicateCooccurred = true;
   if (queryEntities.length > 0) {
-    const nonEntitySubstantive = substantiveQueryTokens.filter(w => !KNOWN_ENTITIES.has(w));
-    if (nonEntitySubstantive.length >= 2) {
-      const primaryEntity = queryEntities[0];
-      entityPredicateCooccurred = allMerged.some(item => {
-        const itemLower = item.text.toLocaleLowerCase('tr-TR');
-        const hasPrimary = matchesTurkishWord(getTurkishStem(primaryEntity), itemLower);
-        const matchedPreds = nonEntitySubstantive.filter(p => matchesTurkishWord(getTurkishStem(p), itemLower));
-        return hasPrimary && matchedPreds.length >= 1;
-      });
-    }
+    const primaryEntity = queryEntities[0];
+    const secondaryEntities = queryEntities.slice(1);
+    const nonEntitySubstantive = substantiveQueryTokens.filter(w => !dynamicEntities.has(w));
+
+    entityPredicateCooccurred = allMerged.some(item => {
+      const itemLower = item.text.toLocaleLowerCase('tr-TR');
+      const hasPrimary = matchesTurkishWord(getTurkishStem(primaryEntity), itemLower);
+      if (!hasPrimary) return false;
+
+      // If secondary entities exist (e.g. Voldemort, Alyona, Maria), at least one must also be in the passage
+      if (secondaryEntities.length > 0) {
+        const hasSecondary = secondaryEntities.some(sec => matchesTurkishWord(getTurkishStem(sec), itemLower));
+        if (!hasSecondary) return false;
+      }
+
+      if (nonEntitySubstantive.length >= 1) {
+        const matchedPreds = nonEntitySubstantive.filter(p => {
+          const pStem = getTurkishStem(p);
+          if (matchesTurkishWord(pStem, itemLower)) return true;
+
+          // Anlamsal kavram eşleştirmesi (kavramın eşanlamlısı bu pasajda geçiyor mu?)
+          for (const [concept, synonyms] of Object.entries(NARRATIVE_CONCEPT_MAP)) {
+            if (p.includes(concept) || concept.includes(p) || pStem === concept || pStem === getTurkishStem(concept)) {
+              if (synonyms.some(s => matchesTurkishWord(getTurkishStem(s), itemLower) || itemLower.includes(s.toLocaleLowerCase('tr-TR')))) {
+                return true;
+              }
+            }
+          }
+          return false;
+        });
+
+        const minRequired = Math.min(2, Math.max(1, Math.ceil(nonEntitySubstantive.length * 0.4)));
+        return matchedPreds.length >= minRequired;
+      }
+
+      return true;
+    });
   }
 
   const queryCoverageRatio = substantiveQueryTokens.length > 0
@@ -2532,21 +2863,40 @@ export function multiStageBookRetrieval({
   let isSufficient = false;
   const missingReasons = [];
 
-  if (alienTokens.length > 0) {
+  const hasAltPhraseMatch = (semantic?.alternativePhrases || []).some(p => {
+    const pLower = p.toLocaleLowerCase('tr-TR');
+    return allEvidenceText.includes(pLower) || pLower.split(/\s+/).every(pw => pw.length >= 3 && allEvidenceText.includes(pw));
+  });
+
+  const isCandidatePassageStrong = (maxScore >= 30 && (coveredQueryTokens.length >= 2 || hasAltPhraseMatch)) ||
+    (maxScore >= 40 && coveredQueryTokens.length >= 1) ||
+    (maxScore >= 25 && queryCoverageRatio >= 0.5) ||
+    (maxScore >= 30 && hasAltPhraseMatch);
+
+  const hasSubstantialAlienTokens = (alienTokens.length >= 2 && !hasAltPhraseMatch) ||
+    (alienTokens.length > 0 && queryCoverageRatio < 0.4 && !hasAltPhraseMatch);
+
+  // Eşleşmeyen kelimeler (alienTokens) tek başına doğrudan ret sebebi olmamalıdır;
+  // yalnızca güçlü aday pasaj bulunamadığında, soru karakteriyle eylem hiç örtüşmediğinde
+  // veya sorunun anahtar kavramlarının çoğunluğu kitapta hiç bulunmayan yabancı kavramlar olduğunda kanıt yetersiz sayılır.
+  if (hasSubstantialAlienTokens || (alienTokens.length > 0 && (!isCandidatePassageStrong || !entityPredicateCooccurred))) {
     sufficiencyStatus = 'insufficient';
     isSufficient = false;
     missingReasons.push(`Sorudaki bazı kavramlar (${alienTokens.join(', ')}) kitapta hiç yer almamaktadır.`);
-  } else if (!entityPredicateCooccurred) {
+  } else if (!entityPredicateCooccurred && !hasAltPhraseMatch) {
     sufficiencyStatus = 'insufficient';
     isSufficient = false;
     missingReasons.push('Sorulan karakter ile iddia edilen olay veya eylemler taranan sayfalarda birlikte yer almamaktadır.');
-  } else if (allMerged.length === 0 || maxScore < 20 || queryCoverageRatio < 0.35) {
+  } else if (allMerged.length === 0 || maxScore < 20 || (queryCoverageRatio < 0.30 && !hasAltPhraseMatch)) {
     sufficiencyStatus = 'insufficient';
     isSufficient = false;
     missingReasons.push(`Soruyla doğrudan eşleşen yeterli kanıt bulunamadı (Sorgu terimlerinin %${Math.round(queryCoverageRatio * 100)}'ü taranan sayfalarda yer alıyor).`);
-  } else if ((maxScore >= 30 && coveredQueryTokens.length >= 2) || (maxScore >= 25 && queryCoverageRatio >= 0.8)) {
+  } else if (isCandidatePassageStrong) {
     sufficiencyStatus = 'sufficient';
     isSufficient = true;
+    if (alienTokens.length > 0) {
+      missingReasons.push(`Bazı terimler (${alienTokens.join(', ')}) metinde harfi harfine bulunamadı; pasajlar anlamsal olarak değerlendirilecek.`);
+    }
   } else {
     sufficiencyStatus = 'partial';
     isSufficient = false;
@@ -2737,7 +3087,8 @@ export function prepareBookContext({
   bookId = 'book',
   totalPages = null,
   activePages = new Set(),
-  failedPages = new Map()
+  failedPages = new Map(),
+  semanticAnalysis = null
 }) {
   const pageNumbers = Object.keys(pagesTextMap || {})
     .map(Number)
@@ -2793,7 +3144,8 @@ export function prepareBookContext({
       question,
       bookId,
       activePages,
-      failedPages
+      failedPages,
+      semanticAnalysis
     });
 
     const sections = [];
@@ -2843,15 +3195,19 @@ export function prepareBookContext({
       sections.push(`[OKUYUCUNUN ŞU ANKİ SAYFASI VE YAKIN ÇEVRESİ]\n${immediateParts.join('\n\n---\n\n')}`);
     }
 
-    // F. Context Fallback Overhaul:
-    // If evidence is insufficient, NEVER send random 6 fallback pages!
-    // Explicitly report insufficiency and OCR coverage state.
+    // Context Evidence Guidance:
     if (!multiStage.evidenceSufficiency.isSufficient || multiStage.allEvidence.length === 0) {
       let fallbackNote = `[KANIT YETERSİZLİĞİ BİLDİRİMİ]\nTaranan kitap sayfalarında bu soruyla doğrudan eşleşen yeterli kanıt bulunamadı. (${multiStage.evidenceSufficiency.missingReasons.join(' ')})\nZORUNLU KURAL: Kaynakta kanıt bulunamadığı için cevabında açıkça 'Bu bilgiyi kitabın taranmış metninde doğrulayamadım.' ifadesini kullan. Asla kendi genel bilginden veya hafızandan olay, sahne veya sayfa numarası uydurma.`;
       if (coverage.unscannedPagesCount > 0) {
         fallbackNote += `\nUYARI: Kitabın henüz ${coverage.unscannedPagesCount} sayfası taranmamıştır. Sorulan konu henüz taranmamış sayfalarda yer alıyor olabilir. Asla sahte bilgi üretme; kullanıcıya taranmamış bölümler olduğunu açıkça bildir.`;
       }
       sections.push(fallbackNote);
+    } else {
+      sections.push(`[KANIT DEĞERLENDİRME VE ANLAMSAL CEVAPLAMA TALİMATI]
+Yukarıdaki [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ] parçalarını anlamsal olarak değerlendir:
+- Kullanıcı soruyu farklı kelimelerle ifade etmiş olsa bile (örneğin "kabul edildiğini öğrenmek" yerine metinde "yerinizin ayrılmış olduğu", "Hagrid'in mektubu vermesi" gibi eşdeğer anlatımlar varsa), kanıtlar soruyu doğrudan veya dolaylı olarak yanıtlıyorsa soruyu bu kanıtlara dayanarak doğrulanmış kabul et ve net şekilde açıkla.
+- Bilginin yer aldığı kaynak PDF sayfa numarasını açıkça belirt (örn. 'PDF Sayfa 26') ve gerekirse metinden kısa ve gerçek bir kaynak alıntısı yap.
+- Eğer sunulan kanıtlarda sorulan konu gerçekte HİÇ YER ALMIYORSA veya metin yetersizse, 'Bu bilgiyi kitabın taranmış metninde doğrulayamadım.' de.`);
     }
 
     let combined = sections.join('\n\n========================================\n\n');
@@ -2986,9 +3342,11 @@ export async function askBookAi({
   }
 
   const strictGroundingRules = `GÖREVİN VE KESİN KANIT İLKELERİ (STRICT BOOK-GROUNDED AI):
-1. YALNIZCA VERİLEN KAYNAK METİNLERE DAYAN (GROUNDED RESPONSES ONLY):
-   - Cevabını YALNIZCA ve SADECE sana sunulan [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ] içerisindeki taranmış metinlere dayandır.
-   - Eğer sana sunulan bağlamda [KANIT YETERSİZLİĞİ BİLDİRİMİ] yer alıyorsa veya sorulan olay/sahne için kaynakta doğrudan bir kanıt paragrafı yoksa, KESİNLİKLE "Bu bilgiyi kitabın taranmış metninde doğrulayamadım." ifadesini kullan.
+1. VERİLEN KAYNAK METİNLERE VE ANLAMSAL BAĞLAMA DAYAN (GROUNDED RESPONSES ONLY):
+   - Soruyu YALNIZCA ve SADECE sana sunulan [SORUYLA İLGİLİ KİTAPTAN CIMBIZLANAN SAYFALAR / KANIT METİNLERİ] ve okuma bağlamındaki taranmış metinlere dayandır.
+   - Anlamsal Eşleştirmeyi Değerlendir: Kullanıcı soruyu kitaptaki birebir kelimelerle sormamış olsa bile (örneğin eş anlamlı sözcükler, günlük konuşma dili veya farklı çeviri kalıpları kullanılmışsa), sunulan kanıt parçaları sorulan olayı, durumu, kişiyi veya bilgiyi doğrudan ya da dolaylı olarak açıklıyorsa, soruyu bu kanıtlara dayanarak doğrulanmış kabul et ve net şekilde yanıtla.
+   - Cevabında bilginin yer aldığı PDF sayfa numarasını (ve varsa basılı sayfa numarasını) açıkça belirt (örneğin: 'PDF Sayfa 26'). Gerekirse metinden kısa ve gerçek bir kaynak alıntısı yap.
+   - Eğer sunulan kanıtlarda sorulan konu HİÇ GEÇMİYORSA veya [KANIT YETERSİZLİĞİ BİLDİRİMİ] yer alıyorsa, KESİNLİKLE "Bu bilgiyi kitabın taranmış metninde doğrulayamadım." ifadesini kullan.
    - Kitabın genel dış bilgisinden (kendi eğitim hafızandan) hareketle ASLA olay, sahne, bölüm veya sayfa numarası TAHMİN ETME / UYDURMA.
 2. ÖNCEKİ ASİSTAN YANITLARI KİTAP KAYNAĞI DEĞİLDİR:
    - Sohbet geçmişindeki önceki asistan yanıtlarını kitap kaynağı olarak KABUL ETME.

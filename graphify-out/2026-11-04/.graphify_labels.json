@@ -1,0 +1,11 @@
+{
+  "2": "Reader Actions & Floating Pill",
+  "4": "PDF Rendering & Document Service",
+  "5": "OCR Quality & Metric Suite",
+  "9": "Tesseract Engine & Turkish Model",
+  "15": "Document Export & Print Service",
+  "20": "Edge Functions & CORS Proxy",
+  "22": "Vercel Deployment Configuration",
+  "23": "Vite Template Counter Utility",
+  "24": "PWA Service Worker"
+}
