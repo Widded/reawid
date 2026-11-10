@@ -26,6 +26,15 @@
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body class="apple-dark">
+
+  <noscript>
+    <div style="position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;background:#000;color:#fff;font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      <div style="max-width:520px;padding:22px 24px;border-radius:16px;background:#141416;border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 48px rgba(0,0,0,.5);">
+        <strong style="display:block;font-size:17px;margin-bottom:8px;">JavaScript kapalı</strong>
+        Reawid'in çalışması için JavaScript gerekir. Brave kullanıyorsanız adres çubuğundaki <strong>aslan simgesine</strong> tıklayıp bu site için Shields'ı kapatın; ardından sayfayı yenileyin.
+      </div>
+    </div>
+  </noscript>
   
   <!-- Mobile Frame / App Container -->
   <div id="app" class="ios-app-container">
@@ -2234,6 +2243,44 @@
 
   <!-- Global Toast Notifications Overlay (Safe Area Aware) -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Boot failure notice: catches blocked scripts / early runtime crashes -->
+  <div id="appBootNotice" hidden style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147483647;width:min(92vw,560px);padding:14px 16px;border-radius:14px;background:#1c1c1e;color:#fff;border:1px solid rgba(255,255,255,.16);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.5);">
+    <strong style="display:block;margin-bottom:4px;">Reawid başlatılamadı</strong>
+    Brave Shields veya bir reklam/izleme engelleyici JavaScript'i engelliyor olabilir. Adres çubuğundaki <strong>aslan simgesinden</strong> bu site için Shields'ı kapatıp sayfayı yenileyin.
+    <span data-boot-detail style="display:block;margin-top:6px;color:#ff9f0a;font-size:12px;word-break:break-word;"></span>
+    <button type="button" onclick="this.parentElement.hidden=true" style="margin-top:10px;padding:6px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:#2c2c2e;color:#fff;font-size:13px;cursor:pointer;">Kapat</button>
+  </div>
+
+  <script>
+    (function () {
+      var notice = document.getElementById('appBootNotice');
+      var detail = notice ? notice.querySelector('[data-boot-detail]') : null;
+      function showBootNotice(message) {
+        if (!notice) return;
+        notice.hidden = false;
+        if (detail && message) detail.textContent = message;
+      }
+      window.addEventListener('error', function (event) {
+        if (window.__REAWID_READY__) return;
+        var message = event && event.message ? event.message : '';
+        if (event && event.target && event.target.tagName === 'SCRIPT') {
+          message = 'Kaynak yüklenemedi: ' + (event.target.src || 'bilinmeyen dosya');
+        }
+        if (message) showBootNotice(message);
+      }, true);
+      window.addEventListener('unhandledrejection', function (event) {
+        if (window.__REAWID_READY__) return;
+        var reason = event && event.reason;
+        showBootNotice(reason && (reason.message || String(reason)) || 'Bilinmeyen başlatma hatası');
+      });
+      setTimeout(function () {
+        if (!window.__REAWID_READY__ || window.__REAWID_BOOT_FAILED__) {
+          showBootNotice(window.__REAWID_BOOT_FAILED__ || '');
+        }
+      }, 7000);
+    })();
+  </script>
 
   <script type="module" src="/src/main.js"></script>
 </body>

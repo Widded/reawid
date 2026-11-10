@@ -625,7 +625,7 @@ function init() {
   try { renderHomeScreen(); } catch (e) { console.error('renderHomeScreen error:', e); }
   try { renderLibraryScreen(); } catch (e) { console.error('renderLibraryScreen error:', e); }
   try { populateModelSelect(); } catch (e) { console.warn('populateModelSelect error:', e); }
-  try { setupEventListeners(); } catch (e) { console.error('setupEventListeners error:', e); }
+  try { setupEventListeners(); } catch (e) { console.error('setupEventListeners error:', e); window.__REAWID_BOOT_FAILED__ = e?.message || 'Event listeners kurulamadı'; }
   try { setupFileHandlingLaunchQueue(); } catch (e) { console.warn('File queue error:', e); }
 
   // Handle global paste (Ctrl+V)
@@ -651,6 +651,9 @@ function init() {
       }
     } catch (_) {}
   });
+
+  // Inline boot watchdog in index.html uses this flag.
+  window.__REAWID_READY__ = true;
 }
 
 /* ==========================================================================
@@ -2661,7 +2664,7 @@ function setupTextSelectionPill() {
 
   // Hide on reader scroll
   if (el.readerContentScroll) {
-    el.readerContentScroll.addEventListener('scroll', () => {
+    el.readerContentScroll?.addEventListener('scroll', () => {
       hidePill();
     }, { passive: true });
   }
@@ -2675,7 +2678,7 @@ function setupTextSelectionPill() {
 
   // Action 1: Save Quote (Alıntıla)
   if (el.btnSelectionQuote) {
-    el.btnSelectionQuote.addEventListener('click', (e) => {
+    el.btnSelectionQuote?.addEventListener('click', (e) => {
       e.stopPropagation();
       const textToSave = currentSelectedText;
       if (!textToSave) return;
@@ -2700,7 +2703,7 @@ function setupTextSelectionPill() {
 
   // Action 2: Read from here (Dinle)
   if (el.btnSelectionSpeak) {
-    el.btnSelectionSpeak.addEventListener('click', (e) => {
+    el.btnSelectionSpeak?.addEventListener('click', (e) => {
       e.stopPropagation();
       const textToSpeak = currentSelectedText;
       const anchor = selectionAnchorNode;
@@ -2739,7 +2742,7 @@ function setupTextSelectionPill() {
 
   // Action 4: Copy to clipboard (Kopyala)
   if (el.btnSelectionCopy) {
-    el.btnSelectionCopy.addEventListener('click', async (e) => {
+    el.btnSelectionCopy?.addEventListener('click', async (e) => {
       e.stopPropagation();
       const textToCopy = currentSelectedText;
       hidePill();
@@ -2765,87 +2768,87 @@ function setupTextSelectionPill() {
 
 function setupEventListeners() {
   // 1. Yeni Kitap Ekle
-  el.btnNewBookCard.addEventListener('click', () => {
+  el.btnNewBookCard?.addEventListener('click', () => {
     el.fileInputPdf.click();
   });
 
   // 2. Metin Çıkarma
-  el.btnExtractTextCard.addEventListener('click', () => {
+  el.btnExtractTextCard?.addEventListener('click', () => {
     el.conversionSheetTitle.textContent = 'Metin Çıkarma (PDF)';
     el.fileInputPdf.click();
   });
 
   // 3. OCR Taraması
-  el.btnOcrCard.addEventListener('click', () => {
+  el.btnOcrCard?.addEventListener('click', () => {
     el.conversionSheetTitle.textContent = 'Akıllı OCR Taraması';
     el.fileInputPhoto.click();
   });
 
   // File Inputs
-  el.fileInputPdf.addEventListener('change', (e) => handlePdfFiles(e.target.files));
-  el.fileInputPhoto.addEventListener('change', (e) => handleImageFiles(e.target.files));
+  el.fileInputPdf?.addEventListener('change', (e) => handlePdfFiles(e.target.files));
+  el.fileInputPhoto?.addEventListener('change', (e) => handleImageFiles(e.target.files));
 
   // Devam Eden Kitap Tıklandığında Okuyucuyu Aç
-  el.cardContinueBook.addEventListener('click', () => {
+  el.cardContinueBook?.addEventListener('click', () => {
     const current = getCurrentBook();
     if (current) openBookInReader(current);
   });
 
   // Tümünü Gör
-  el.btnViewAllContinue.addEventListener('click', () => {
+  el.btnViewAllContinue?.addEventListener('click', () => {
     switchBottomTab('library');
   });
-  el.btnViewAllRecent.addEventListener('click', () => {
+  el.btnViewAllRecent?.addEventListener('click', () => {
     switchBottomTab('library');
   });
 
   // Profile icon & Storage Card (Open Account Modal)
   if (el.btnProfile) {
-    el.btnProfile.addEventListener('click', () => {
+    el.btnProfile?.addEventListener('click', () => {
       openAccountModal();
     });
   }
 
   if (el.cardStorageUsage) {
-    el.cardStorageUsage.addEventListener('click', () => {
+    el.cardStorageUsage?.addEventListener('click', () => {
       openAccountModal();
     });
   }
 
   // Reader Header Action Buttons
-  el.btnCloseReader.addEventListener('click', closeReader);
-  if (el.btnReaderBookmark) el.btnReaderBookmark.addEventListener('click', toggleBookmark);
-  el.btnReaderCompare.addEventListener('click', openComparisonView);
+  el.btnCloseReader?.addEventListener('click', closeReader);
+  if (el.btnReaderBookmark) el.btnReaderBookmark?.addEventListener('click', toggleBookmark);
+  el.btnReaderCompare?.addEventListener('click', openComparisonView);
   if (el.btnReaderAppearance) {
-    el.btnReaderAppearance.addEventListener('click', (e) => {
+    el.btnReaderAppearance?.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSettingsSheet();
     });
   }
   if (el.btnReaderZen) {
-    el.btnReaderZen.addEventListener('click', () => {
+    el.btnReaderZen?.addEventListener('click', () => {
       toggleZenMode();
     });
   }
   if (el.btnReaderSearch) {
-    el.btnReaderSearch.addEventListener('click', toggleSearchBar);
+    el.btnReaderSearch?.addEventListener('click', toggleSearchBar);
   }
   if (el.popoverReaderSearch) {
-    el.popoverReaderSearch.addEventListener('click', () => {
+    el.popoverReaderSearch?.addEventListener('click', () => {
       closeMoreMenu();
       toggleSearchBar();
     });
   }
-  el.btnCloseReaderSearch.addEventListener('click', closeReaderSearch);
+  el.btnCloseReaderSearch?.addEventListener('click', closeReaderSearch);
 
   if (el.readerSearchInput) {
-    el.readerSearchInput.addEventListener('input', (e) => {
+    el.readerSearchInput?.addEventListener('input', (e) => {
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = setTimeout(() => {
         executeReaderSearch(e.target.value);
       }, 180);
     });
-    el.readerSearchInput.addEventListener('keydown', (e) => {
+    el.readerSearchInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -2860,13 +2863,13 @@ function setupEventListeners() {
   }
 
   if (el.btnReaderSearchPrev) {
-    el.btnReaderSearchPrev.addEventListener('click', prevSearchMatch);
+    el.btnReaderSearchPrev?.addEventListener('click', prevSearchMatch);
   }
   if (el.btnReaderSearchNext) {
-    el.btnReaderSearchNext.addEventListener('click', nextSearchMatch);
+    el.btnReaderSearchNext?.addEventListener('click', nextSearchMatch);
   }
   if (el.btnExitZenMode) {
-    el.btnExitZenMode.addEventListener('click', () => {
+    el.btnExitZenMode?.addEventListener('click', () => {
       toggleZenMode(false);
     });
   }
@@ -2920,7 +2923,7 @@ function setupEventListeners() {
     }
   });
 
-  el.btnReaderMore.addEventListener('click', (e) => {
+  el.btnReaderMore?.addEventListener('click', (e) => {
     e.stopPropagation();
     toggleMoreMenu();
   });
@@ -2936,36 +2939,36 @@ function setupEventListeners() {
 
   // Popover Items
   if (el.popoverOpenAppearance) {
-    el.popoverOpenAppearance.addEventListener('click', () => {
+    el.popoverOpenAppearance?.addEventListener('click', () => {
       closeMoreMenu();
       openSettingsSheet();
     });
   }
-  if (el.popoverAddBookmark) el.popoverAddBookmark.addEventListener('click', () => { toggleBookmark(); closeMoreMenu(); });
+  if (el.popoverAddBookmark) el.popoverAddBookmark?.addEventListener('click', () => { toggleBookmark(); closeMoreMenu(); });
     // Yeni Üretken Popover İşlemleri
   if (el.popoverToggleZen) {
-    el.popoverToggleZen.addEventListener('click', () => {
+    el.popoverToggleZen?.addEventListener('click', () => {
       closeMoreMenu();
       toggleZenMode();
     });
   }
 
   if (el.popoverToggleTts) {
-    el.popoverToggleTts.addEventListener('click', () => {
+    el.popoverToggleTts?.addEventListener('click', () => {
       closeMoreMenu();
       toggleReaderSpeech();
     });
   }
 
   if (el.popoverSpeedReader) {
-    el.popoverSpeedReader.addEventListener('click', () => {
+    el.popoverSpeedReader?.addEventListener('click', () => {
       closeMoreMenu();
       openRsvpReader(0);
     });
   }
 
   if (el.popoverPageStats) {
-    el.popoverPageStats.addEventListener('click', () => {
+    el.popoverPageStats?.addEventListener('click', () => {
       closeMoreMenu();
       const text = el.readerParagraphsContainer?.innerText || '';
       const words = (text.match(/[\p{L}\p{N}]+/gu) || []).length;
@@ -2976,7 +2979,7 @@ function setupEventListeners() {
   }
 
   if (el.popoverExportTxt) {
-    el.popoverExportTxt.addEventListener('click', () => {
+    el.popoverExportTxt?.addEventListener('click', () => {
       closeMoreMenu();
       const text = el.readerParagraphsContainer?.innerText || '';
       if (!text.trim()) {
@@ -2990,12 +2993,12 @@ function setupEventListeners() {
   }
 
   if (el.popoverAddNote) {
-    el.popoverAddNote.addEventListener('click', () => {
+    el.popoverAddNote?.addEventListener('click', () => {
       closeMoreMenu();
       openAddNoteModal('note');
     });
   }
-  el.popoverCopyText.addEventListener('click', async () => {
+  el.popoverCopyText?.addEventListener('click', async () => {
     closeMoreMenu();
     const text = el.readerParagraphsContainer.innerText || '';
     if (text) {
@@ -3003,7 +3006,7 @@ function setupEventListeners() {
       showToast('Sayfa metni kopyalandı', 'success');
     }
   });
-  el.popoverShareText.addEventListener('click', () => {
+  el.popoverShareText?.addEventListener('click', () => {
     closeMoreMenu();
     if (navigator.share) {
       navigator.share({
@@ -3014,13 +3017,13 @@ function setupEventListeners() {
       showToast('Paylaşım bağlantısı hazırlandı', 'info');
     }
   });
-  el.popoverOpenPdf.addEventListener('click', () => {
+  el.popoverOpenPdf?.addEventListener('click', () => {
     closeMoreMenu();
     openComparisonView();
   });
 
   if (el.popoverRescanPage) {
-    el.popoverRescanPage.addEventListener('click', () => {
+    el.popoverRescanPage?.addEventListener('click', () => {
       closeMoreMenu();
       if (!currentActiveBook) return;
       if (currentActiveBook.pageParagraphs) {
@@ -3035,7 +3038,7 @@ function setupEventListeners() {
   }
 
   if (el.popoverResetBookOcr) {
-    el.popoverResetBookOcr.addEventListener('click', () => {
+    el.popoverResetBookOcr?.addEventListener('click', () => {
       closeMoreMenu();
       if (!currentActiveBook) return;
       if (confirm(`"${currentActiveBook.title}" kitabının taranmış tüm sayfaları silinecek ve baştan analiz edilecek.\n\nEmin misiniz?`)) {
@@ -3053,7 +3056,7 @@ function setupEventListeners() {
 
   // Dokun ve Dinle: Cümleye tıklayarak / dokunarak oradan itibaren sesli okuma
   if (el.readerParagraphsContainer) {
-    el.readerParagraphsContainer.addEventListener('click', (e) => {
+    el.readerParagraphsContainer?.addEventListener('click', (e) => {
       const selection = window.getSelection();
       if (selection && selection.toString().trim().length > 0) return;
 
@@ -3079,29 +3082,29 @@ function setupEventListeners() {
 
   // RSVP Speed Reader Controls
   if (el.rsvpReaderModal) {
-    el.rsvpReaderModal.addEventListener('click', (e) => {
+    el.rsvpReaderModal?.addEventListener('click', (e) => {
       if (e.target === el.rsvpReaderModal) {
         closeRsvpReader();
       }
     });
   }
   if (el.btnCloseRsvp) {
-    el.btnCloseRsvp.addEventListener('click', closeRsvpReader);
+    el.btnCloseRsvp?.addEventListener('click', closeRsvpReader);
   }
   if (el.rsvpStage) {
-    el.rsvpStage.addEventListener('click', toggleRsvpPlayback);
+    el.rsvpStage?.addEventListener('click', toggleRsvpPlayback);
   }
   if (el.btnRsvpTogglePlay) {
-    el.btnRsvpTogglePlay.addEventListener('click', toggleRsvpPlayback);
+    el.btnRsvpTogglePlay?.addEventListener('click', toggleRsvpPlayback);
   }
   if (el.btnRsvpPrevWords) {
-    el.btnRsvpPrevWords.addEventListener('click', () => stepRsvpWords(-10));
+    el.btnRsvpPrevWords?.addEventListener('click', () => stepRsvpWords(-10));
   }
   if (el.btnRsvpNextWords) {
-    el.btnRsvpNextWords.addEventListener('click', () => stepRsvpWords(10));
+    el.btnRsvpNextWords?.addEventListener('click', () => stepRsvpWords(10));
   }
   if (el.rsvpWordSlider) {
-    el.rsvpWordSlider.addEventListener('input', (e) => {
+    el.rsvpWordSlider?.addEventListener('input', (e) => {
       const idx = parseInt(e.target.value, 10);
       if (!isNaN(idx)) {
         renderRsvpWord(idx);
@@ -3109,7 +3112,7 @@ function setupEventListeners() {
     });
   }
   if (el.rsvpSpeedPills) {
-    el.rsvpSpeedPills.addEventListener('click', (e) => {
+    el.rsvpSpeedPills?.addEventListener('click', (e) => {
       const btn = e.target.closest('.rsvp-speed-btn');
       if (btn && btn.dataset.wpm) {
         setRsvpSpeed(btn.dataset.wpm);
@@ -3119,16 +3122,16 @@ function setupEventListeners() {
 
   // Scrubber Controls & Settings Toggle
   if (el.btnToggleSettings) {
-    if (el.btnToggleSettings) el.btnToggleSettings.addEventListener('click', (e) => {
+    if (el.btnToggleSettings) el.btnToggleSettings?.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSettingsSheet();
     });
   }
   if (el.btnCloseSettingsPanel) {
-    el.btnCloseSettingsPanel.addEventListener('click', closeSettingsSheet);
+    el.btnCloseSettingsPanel?.addEventListener('click', closeSettingsSheet);
   }
   if (el.readerSettingsBackdrop) {
-    el.readerSettingsBackdrop.addEventListener('click', (e) => {
+    el.readerSettingsBackdrop?.addEventListener('click', (e) => {
       if (e.target === el.readerSettingsBackdrop) {
         closeSettingsSheet();
       }
@@ -3137,7 +3140,7 @@ function setupEventListeners() {
 
   // Scrubber & Page Slider with 60 FPS RequestAnimationFrame debouncing
   let readerSliderRafId = null;
-  el.readerPageSlider.addEventListener('input', (e) => {
+  el.readerPageSlider?.addEventListener('input', (e) => {
     const targetVal = parseInt(e.target.value, 10);
     if (el.readerPageIndicator) {
       el.readerPageIndicator.textContent = `${targetVal} / ${currentTotalPages}`;
@@ -3147,14 +3150,14 @@ function setupEventListeners() {
       renderReaderPage(targetVal);
     });
   });
-  el.readerPageSlider.addEventListener('change', (e) => {
+  el.readerPageSlider?.addEventListener('change', (e) => {
     if (readerSliderRafId) cancelAnimationFrame(readerSliderRafId);
     renderReaderPage(parseInt(e.target.value, 10));
   });
-  el.btnReaderPrevPage.addEventListener('click', () => {
+  el.btnReaderPrevPage?.addEventListener('click', () => {
     renderReaderPage(currentReaderPage - 1, 'prev');
   });
-  el.btnReaderNextPage.addEventListener('click', () => {
+  el.btnReaderNextPage?.addEventListener('click', () => {
     renderReaderPage(currentReaderPage + 1, 'next');
   });
 
@@ -3175,7 +3178,7 @@ function setupEventListeners() {
   });
 
   // Yazı Tipi Picker
-  el.btnFontPicker.addEventListener('click', () => {
+  el.btnFontPicker?.addEventListener('click', () => {
     const fonts = ['serif', 'sans', 'mono'];
     const nextIdx = (fonts.indexOf(currentReaderFont) + 1) % fonts.length;
     currentReaderFont = fonts[nextIdx];
@@ -3202,14 +3205,14 @@ function setupEventListeners() {
   applyReaderTypography(false);
 
   // Gece Modu Switch
-  el.toggleNightMode.addEventListener('change', (e) => {
+  el.toggleNightMode?.addEventListener('change', (e) => {
     applyReaderTheme(e.target.checked ? 'koyu' : 'acik');
   });
 
   // Kitap & Diyalog Düzeni Switch
   if (el.toggleBookDialogueFormat) {
     el.toggleBookDialogueFormat.checked = (appSettings.smartDialogueFormatting !== false);
-    el.toggleBookDialogueFormat.addEventListener('change', (e) => {
+    el.toggleBookDialogueFormat?.addEventListener('change', (e) => {
       appSettings.smartDialogueFormatting = e.target.checked;
       saveSettings(appSettings);
       if (el.setDialogueFormatting) el.setDialogueFormatting.checked = e.target.checked;
@@ -3221,7 +3224,7 @@ function setupEventListeners() {
   // Sağa ve Sola Kaydırarak Sayfa Değiştir Switch
   if (el.toggleSwipePageNav) {
     el.toggleSwipePageNav.checked = (appSettings.swipePageNavigation !== false);
-    el.toggleSwipePageNav.addEventListener('change', (e) => {
+    el.toggleSwipePageNav?.addEventListener('change', (e) => {
       appSettings.swipePageNavigation = e.target.checked;
       saveSettings(appSettings);
       if (el.setSwipeNavigation) el.setSwipeNavigation.checked = e.target.checked;
@@ -3232,7 +3235,7 @@ function setupEventListeners() {
   // Biyonik Okuma (Odak Modu) Switch
   if (el.toggleBionicReading) {
     el.toggleBionicReading.checked = Boolean(appSettings.bionicReading);
-    el.toggleBionicReading.addEventListener('change', (e) => {
+    el.toggleBionicReading?.addEventListener('change', (e) => {
       appSettings.bionicReading = e.target.checked;
       saveSettings(appSettings);
       if (el.setBionicReading) el.setBionicReading.checked = e.target.checked;
@@ -3246,23 +3249,23 @@ function setupEventListeners() {
   setupTextSelectionPill();
 
   // Comparison Studio 10/10 View Controls
-  if (el.btnCloseComparison) el.btnCloseComparison.addEventListener('click', closeComparisonView);
-  if (el.btnModeSplit) el.btnModeSplit.addEventListener('click', () => setComparisonMode('split'));
-  if (el.btnModeOriginal) el.btnModeOriginal.addEventListener('click', () => setComparisonMode('original'));
-  if (el.btnModeDigital) el.btnModeDigital.addEventListener('click', () => setComparisonMode('digital'));
+  if (el.btnCloseComparison) el.btnCloseComparison?.addEventListener('click', closeComparisonView);
+  if (el.btnModeSplit) el.btnModeSplit?.addEventListener('click', () => setComparisonMode('split'));
+  if (el.btnModeOriginal) el.btnModeOriginal?.addEventListener('click', () => setComparisonMode('original'));
+  if (el.btnModeDigital) el.btnModeDigital?.addEventListener('click', () => setComparisonMode('digital'));
 
-  if (el.btnZoomOriginalIn) el.btnZoomOriginalIn.addEventListener('click', () => zoomOriginal(0.25));
-  if (el.btnZoomOriginalReset) el.btnZoomOriginalReset.addEventListener('click', () => zoomOriginal(0));
-  if (el.btnZoomOriginalOut) el.btnZoomOriginalOut.addEventListener('click', () => zoomOriginal(-0.25));
-  if (el.btnFitOriginal) el.btnFitOriginal.addEventListener('click', () => zoomOriginal(0));
+  if (el.btnZoomOriginalIn) el.btnZoomOriginalIn?.addEventListener('click', () => zoomOriginal(0.25));
+  if (el.btnZoomOriginalReset) el.btnZoomOriginalReset?.addEventListener('click', () => zoomOriginal(0));
+  if (el.btnZoomOriginalOut) el.btnZoomOriginalOut?.addEventListener('click', () => zoomOriginal(-0.25));
+  if (el.btnFitOriginal) el.btnFitOriginal?.addEventListener('click', () => zoomOriginal(0));
 
   // Initialize interactive split handle dragging, book wheel/pinch zoom, and pan
   setupComparisonStudioInteractions();
 
-  if (el.btnSpeakCompareText) el.btnSpeakCompareText.addEventListener('click', toggleCompareSpeech);
+  if (el.btnSpeakCompareText) el.btnSpeakCompareText?.addEventListener('click', toggleCompareSpeech);
 
   if (el.btnCopyCompareText) {
-    el.btnCopyCompareText.addEventListener('click', async () => {
+    el.btnCopyCompareText?.addEventListener('click', async () => {
       const text = el.compareDigitalContent ? (el.compareDigitalContent.innerText || '').trim() : '';
       if (text) {
         await copyToClipboard(text);
@@ -3275,7 +3278,7 @@ function setupEventListeners() {
 
   if (el.comparePageSlider) {
     let compareSliderRaf = null;
-    el.comparePageSlider.addEventListener('input', (e) => {
+    el.comparePageSlider?.addEventListener('input', (e) => {
       const page = parseInt(e.target.value, 10);
       if (el.comparePageNumBadge) {
         el.comparePageNumBadge.textContent = `Sayfa ${page} / ${currentTotalPages}`;
@@ -3287,7 +3290,7 @@ function setupEventListeners() {
         }
       });
     });
-    el.comparePageSlider.addEventListener('change', (e) => {
+    el.comparePageSlider?.addEventListener('change', (e) => {
       if (compareSliderRaf) cancelAnimationFrame(compareSliderRaf);
       const page = parseInt(e.target.value, 10);
       if (page && page !== currentReaderPage) {
@@ -3297,7 +3300,7 @@ function setupEventListeners() {
   }
 
   if (el.btnComparePrev) {
-    el.btnComparePrev.addEventListener('click', () => {
+    el.btnComparePrev?.addEventListener('click', () => {
       if (currentReaderPage > 1) {
         updateComparisonPage(currentReaderPage - 1);
       }
@@ -3305,7 +3308,7 @@ function setupEventListeners() {
   }
 
   if (el.btnCompareNext) {
-    el.btnCompareNext.addEventListener('click', () => {
+    el.btnCompareNext?.addEventListener('click', () => {
       if (currentReaderPage < currentTotalPages) {
         updateComparisonPage(currentReaderPage + 1);
       }
@@ -3336,43 +3339,43 @@ function setupEventListeners() {
   });
 
   // Conversion Sheet Events
-  el.btnCloseConversion.addEventListener('click', closeConversionModal);
-  el.btnRotate90.addEventListener('click', handleRotate90);
-  el.btnContrastFilter.addEventListener('click', toggleContrastFilter);
-  el.btnBinarizeFilter.addEventListener('click', toggleBinarizeFilter);
-  el.btnResetFilters.addEventListener('click', resetImageFilters);
-  el.selectModel.addEventListener('change', handleModelChange);
-  el.btnStartOcr.addEventListener('click', startOcrProcess);
-  el.btnPdfBatchOcr.addEventListener('click', startPdfBatchOcr);
+  el.btnCloseConversion?.addEventListener('click', closeConversionModal);
+  el.btnRotate90?.addEventListener('click', handleRotate90);
+  el.btnContrastFilter?.addEventListener('click', toggleContrastFilter);
+  el.btnBinarizeFilter?.addEventListener('click', toggleBinarizeFilter);
+  el.btnResetFilters?.addEventListener('click', resetImageFilters);
+  el.selectModel?.addEventListener('change', handleModelChange);
+  el.btnStartOcr?.addEventListener('click', startOcrProcess);
+  el.btnPdfBatchOcr?.addEventListener('click', startPdfBatchOcr);
 
   if (el.btnAbortOcr) {
-    el.btnAbortOcr.addEventListener('click', abortCurrentOcr);
+    el.btnAbortOcr?.addEventListener('click', abortCurrentOcr);
   }
   if (el.chipRangeAll) {
-    el.chipRangeAll.addEventListener('click', () => setPdfBatchRange('all'));
+    el.chipRangeAll?.addEventListener('click', () => setPdfBatchRange('all'));
   }
   if (el.chipRangeFirst5) {
-    el.chipRangeFirst5.addEventListener('click', () => setPdfBatchRange('first5'));
+    el.chipRangeFirst5?.addEventListener('click', () => setPdfBatchRange('first5'));
   }
   if (el.chipRangeSingle) {
-    el.chipRangeSingle.addEventListener('click', () => setPdfBatchRange('single'));
+    el.chipRangeSingle?.addEventListener('click', () => setPdfBatchRange('single'));
   }
   if (el.chipRangeCustom) {
-    el.chipRangeCustom.addEventListener('click', () => setPdfBatchRange('custom'));
+    el.chipRangeCustom?.addEventListener('click', () => setPdfBatchRange('custom'));
   }
   if (el.btnApplyCustomRange) {
-    el.btnApplyCustomRange.addEventListener('click', applyCustomPdfRange);
+    el.btnApplyCustomRange?.addEventListener('click', applyCustomPdfRange);
   }
   if (el.inputPdfStart) {
-    el.inputPdfStart.addEventListener('change', applyCustomPdfRange);
+    el.inputPdfStart?.addEventListener('change', applyCustomPdfRange);
   }
   if (el.inputPdfEnd) {
-    el.inputPdfEnd.addEventListener('change', applyCustomPdfRange);
+    el.inputPdfEnd?.addEventListener('change', applyCustomPdfRange);
   }
 
   // Results Actions in Sheet
-  el.btnCopyText.addEventListener('click', handleCopyText);
-  el.btnSaveToLibrary.addEventListener('click', handleSaveOcrToLibrary);
+  el.btnCopyText?.addEventListener('click', handleCopyText);
+  el.btnSaveToLibrary?.addEventListener('click', handleSaveOcrToLibrary);
 
   // Notes & Settings Page Events
   setupNotesScreenEvents();
@@ -3380,7 +3383,7 @@ function setupEventListeners() {
 
   // Kitaplığım (My Library) Search & Filter Events
   if (el.librarySearchInput) {
-    el.librarySearchInput.addEventListener('input', (e) => {
+    el.librarySearchInput?.addEventListener('input', (e) => {
       currentLibrarySearchQuery = e.target.value.trim();
       if (el.btnClearLibrarySearch) {
         el.btnClearLibrarySearch.classList.toggle('hidden', !currentLibrarySearchQuery);
@@ -3390,7 +3393,7 @@ function setupEventListeners() {
   }
 
   if (el.btnClearLibrarySearch) {
-    el.btnClearLibrarySearch.addEventListener('click', () => {
+    el.btnClearLibrarySearch?.addEventListener('click', () => {
       if (el.librarySearchInput) el.librarySearchInput.value = '';
       currentLibrarySearchQuery = '';
       el.btnClearLibrarySearch.classList.add('hidden');
@@ -3399,20 +3402,20 @@ function setupEventListeners() {
   }
 
   if (el.btnLibraryHeaderSearch) {
-    el.btnLibraryHeaderSearch.addEventListener('click', () => {
+    el.btnLibraryHeaderSearch?.addEventListener('click', () => {
       el.librarySearchInput?.focus();
     });
   }
 
   if (el.btnLibraryHeaderMore) {
-    el.btnLibraryHeaderMore.addEventListener('click', (e) => {
+    el.btnLibraryHeaderMore?.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleLibraryHeaderMenu();
     });
   }
 
   if (el.btnLibrarySort) {
-    el.btnLibrarySort.addEventListener('click', (e) => {
+    el.btnLibrarySort?.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleLibraryHeaderMenu();
     });
@@ -3420,7 +3423,7 @@ function setupEventListeners() {
 
   // Library Sorting Popover
   if (el.popoverLibrarySortDate) {
-    el.popoverLibrarySortDate.addEventListener('click', () => {
+    el.popoverLibrarySortDate?.addEventListener('click', () => {
       currentLibrarySort = 'date';
       closeLibraryHeaderMenu();
       renderLibraryScreen();
@@ -3428,7 +3431,7 @@ function setupEventListeners() {
     });
   }
   if (el.popoverLibrarySortName) {
-    el.popoverLibrarySortName.addEventListener('click', () => {
+    el.popoverLibrarySortName?.addEventListener('click', () => {
       currentLibrarySort = 'name';
       closeLibraryHeaderMenu();
       renderLibraryScreen();
@@ -3436,7 +3439,7 @@ function setupEventListeners() {
     });
   }
   if (el.popoverLibrarySortProgress) {
-    el.popoverLibrarySortProgress.addEventListener('click', () => {
+    el.popoverLibrarySortProgress?.addEventListener('click', () => {
       currentLibrarySort = 'progress';
       closeLibraryHeaderMenu();
       renderLibraryScreen();
@@ -3456,7 +3459,7 @@ function setupEventListeners() {
 
   // FAB (+ Yeni Kitap Ekle)
   if (el.btnLibraryFab) {
-    el.btnLibraryFab.addEventListener('click', () => {
+    el.btnLibraryFab?.addEventListener('click', () => {
       el.conversionSheetTitle.textContent = 'Yeni Kitap Ekle';
       el.fileInputPdf.click();
     });
@@ -3464,10 +3467,10 @@ function setupEventListeners() {
 
   // Book Card Context Action Sheet Events
   if (el.btnCloseCardActionSheet) {
-    el.btnCloseCardActionSheet.addEventListener('click', closeBookCardActionSheet);
+    el.btnCloseCardActionSheet?.addEventListener('click', closeBookCardActionSheet);
   }
   if (el.bookCardActionSheet) {
-    el.bookCardActionSheet.addEventListener('click', (e) => {
+    el.bookCardActionSheet?.addEventListener('click', (e) => {
       if (e.target === el.bookCardActionSheet) {
         closeBookCardActionSheet();
       }
@@ -3475,7 +3478,7 @@ function setupEventListeners() {
   }
 
   if (el.sheetBtnOpenReader) {
-    el.sheetBtnOpenReader.addEventListener('click', () => {
+    el.sheetBtnOpenReader?.addEventListener('click', () => {
       const book = getBooks().find(b => b.id === activeCardActionBookId);
       closeBookCardActionSheet();
       if (book) openBookInReader(book);
@@ -3483,7 +3486,7 @@ function setupEventListeners() {
   }
 
   if (el.sheetBtnCompare) {
-    el.sheetBtnCompare.addEventListener('click', () => {
+    el.sheetBtnCompare?.addEventListener('click', () => {
       const book = getBooks().find(b => b.id === activeCardActionBookId);
       closeBookCardActionSheet();
       if (book) {
@@ -3494,7 +3497,7 @@ function setupEventListeners() {
   }
 
   if (el.sheetBtnToggleReadStatus) {
-    el.sheetBtnToggleReadStatus.addEventListener('click', () => {
+    el.sheetBtnToggleReadStatus?.addEventListener('click', () => {
       const book = getBooks().find(b => b.id === activeCardActionBookId);
       if (book) {
         const isDone = (book.progress >= 100);
@@ -3514,7 +3517,7 @@ function setupEventListeners() {
   }
 
   if (el.sheetBtnDeleteBook) {
-    el.sheetBtnDeleteBook.addEventListener('click', () => {
+    el.sheetBtnDeleteBook?.addEventListener('click', () => {
       const book = getBooks().find(b => b.id === activeCardActionBookId);
       if (book && confirm(`"${book.title}" kitabını kitaplığınızdan silmek istediğinize emin misiniz?`)) {
         deleteBook(book.id);
@@ -3536,10 +3539,10 @@ function setupEventListeners() {
   });
 
   // Bottom Navigation Tabs
-  el.navHome.addEventListener('click', () => switchBottomTab('home'));
-  el.navLibrary.addEventListener('click', () => switchBottomTab('library'));
-  el.navNotes.addEventListener('click', () => switchBottomTab('notes'));
-  el.navSettings.addEventListener('click', () => switchBottomTab('settings'));
+  el.navHome?.addEventListener('click', () => switchBottomTab('home'));
+  el.navLibrary?.addEventListener('click', () => switchBottomTab('library'));
+  el.navNotes?.addEventListener('click', () => switchBottomTab('notes'));
+  el.navSettings?.addEventListener('click', () => switchBottomTab('settings'));
 }
 
 function switchBottomTab(tab) {
@@ -5005,11 +5008,11 @@ function handleSaveNoteSubmit() {
 
 function setupNotesScreenEvents() {
   if (el.btnNotesNewNote) {
-    el.btnNotesNewNote.addEventListener('click', () => openAddNoteModal('note'));
+    el.btnNotesNewNote?.addEventListener('click', () => openAddNoteModal('note'));
   }
 
   if (el.notesSearchInput) {
-    el.notesSearchInput.addEventListener('input', (e) => {
+    el.notesSearchInput?.addEventListener('input', (e) => {
       currentNotesSearchQuery = e.target.value.trim();
       if (el.btnClearNotesSearch) {
         el.btnClearNotesSearch.classList.toggle('hidden', !currentNotesSearchQuery);
@@ -5019,7 +5022,7 @@ function setupNotesScreenEvents() {
   }
 
   if (el.btnClearNotesSearch) {
-    el.btnClearNotesSearch.addEventListener('click', () => {
+    el.btnClearNotesSearch?.addEventListener('click', () => {
       if (el.notesSearchInput) el.notesSearchInput.value = '';
       currentNotesSearchQuery = '';
       el.btnClearNotesSearch.classList.add('hidden');
@@ -5038,10 +5041,10 @@ function setupNotesScreenEvents() {
     });
   }
 
-  if (el.btnCloseNoteModal) el.btnCloseNoteModal.addEventListener('click', closeAddNoteModal);
-  if (el.btnCancelNoteModal) el.btnCancelNoteModal.addEventListener('click', closeAddNoteModal);
+  if (el.btnCloseNoteModal) el.btnCloseNoteModal?.addEventListener('click', closeAddNoteModal);
+  if (el.btnCancelNoteModal) el.btnCancelNoteModal?.addEventListener('click', closeAddNoteModal);
   if (el.addNoteModal) {
-    el.addNoteModal.addEventListener('click', (e) => {
+    el.addNoteModal?.addEventListener('click', (e) => {
       if (e.target === el.addNoteModal) closeAddNoteModal();
     });
   }
@@ -5057,7 +5060,7 @@ function setupNotesScreenEvents() {
   }
 
   if (el.btnSaveNoteSubmit) {
-    el.btnSaveNoteSubmit.addEventListener('click', handleSaveNoteSubmit);
+    el.btnSaveNoteSubmit?.addEventListener('click', handleSaveNoteSubmit);
   }
 }
 
@@ -5199,7 +5202,7 @@ function setupSettingsScreenEvents() {
   }
 
   if (el.btnSettingsBack) {
-    el.btnSettingsBack.addEventListener('click', () => {
+    el.btnSettingsBack?.addEventListener('click', () => {
       closeSettingsSubpage();
     });
   }
@@ -5254,7 +5257,7 @@ function setupSettingsScreenEvents() {
 
   // Wake lock toggle
   if (el.setWakeLock) {
-    el.setWakeLock.addEventListener('change', (e) => {
+    el.setWakeLock?.addEventListener('change', (e) => {
       appSettings.keepScreenAwake = e.target.checked;
       saveSettings(appSettings);
       if (appSettings.keepScreenAwake) {
@@ -5269,7 +5272,7 @@ function setupSettingsScreenEvents() {
 
   // Auto night mode
   if (el.setAutoNightMode) {
-    el.setAutoNightMode.addEventListener('change', (e) => {
+    el.setAutoNightMode?.addEventListener('change', (e) => {
       appSettings.autoNightMode = e.target.checked;
       saveSettings(appSettings);
       showToast(e.target.checked ? 'Otomatik Gece Modu aktif' : 'Otomatik Gece Modu kapatıldı', 'info');
@@ -5278,7 +5281,7 @@ function setupSettingsScreenEvents() {
 
   // Smart prefetch
   if (el.setAutoPrefetch) {
-    el.setAutoPrefetch.addEventListener('change', (e) => {
+    el.setAutoPrefetch?.addEventListener('change', (e) => {
       appSettings.autoPrefetch = e.target.checked;
       saveSettings(appSettings);
       showToast(e.target.checked ? 'Arka planda sayfa yükleme açık' : 'Arka planda yükleme kapalı', 'info');
@@ -5287,7 +5290,7 @@ function setupSettingsScreenEvents() {
 
   // Merge hyphens
   if (el.setMergeHyphens) {
-    el.setMergeHyphens.addEventListener('change', (e) => {
+    el.setMergeHyphens?.addEventListener('change', (e) => {
       appSettings.mergeHyphenatedWords = e.target.checked;
       saveSettings(appSettings);
     });
@@ -5295,7 +5298,7 @@ function setupSettingsScreenEvents() {
 
   // Ignore page numbers
   if (el.setIgnorePageNums) {
-    el.setIgnorePageNums.addEventListener('change', (e) => {
+    el.setIgnorePageNums?.addEventListener('change', (e) => {
       appSettings.ignorePageNumbers = e.target.checked;
       saveSettings(appSettings);
     });
@@ -5303,7 +5306,7 @@ function setupSettingsScreenEvents() {
 
   // Smart Dialogue Formatting
   if (el.setDialogueFormatting) {
-    el.setDialogueFormatting.addEventListener('change', (e) => {
+    el.setDialogueFormatting?.addEventListener('change', (e) => {
       appSettings.smartDialogueFormatting = e.target.checked;
       saveSettings(appSettings);
       if (el.toggleBookDialogueFormat) el.toggleBookDialogueFormat.checked = e.target.checked;
@@ -5316,7 +5319,7 @@ function setupSettingsScreenEvents() {
 
   // Sağa/Sola Kaydırarak Sayfa Değiştirme
   if (el.setSwipeNavigation) {
-    el.setSwipeNavigation.addEventListener('change', (e) => {
+    el.setSwipeNavigation?.addEventListener('change', (e) => {
       appSettings.swipePageNavigation = e.target.checked;
       saveSettings(appSettings);
       if (el.toggleSwipePageNav) el.toggleSwipePageNav.checked = e.target.checked;
@@ -5326,7 +5329,7 @@ function setupSettingsScreenEvents() {
 
   // Biyonik Okuma (Odak Modu)
   if (el.setBionicReading) {
-    el.setBionicReading.addEventListener('change', (e) => {
+    el.setBionicReading?.addEventListener('change', (e) => {
       appSettings.bionicReading = e.target.checked;
       saveSettings(appSettings);
       if (el.toggleBionicReading) el.toggleBionicReading.checked = e.target.checked;
@@ -5366,7 +5369,7 @@ function setupSettingsScreenEvents() {
 
   // Offline cache
   if (el.setOfflineCache) {
-    el.setOfflineCache.addEventListener('change', (e) => {
+    el.setOfflineCache?.addEventListener('change', (e) => {
       appSettings.offlineCache = e.target.checked;
       saveSettings(appSettings);
       showToast(e.target.checked ? 'Çevrimdışı önbellek açık' : 'Çevrimdışı önbellek kapalı', 'info');
@@ -5375,7 +5378,7 @@ function setupSettingsScreenEvents() {
 
   // Export Data
   if (el.btnExportData) {
-    el.btnExportData.addEventListener('click', () => {
+    el.btnExportData?.addEventListener('click', () => {
       const json = exportAllData();
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -5392,11 +5395,11 @@ function setupSettingsScreenEvents() {
 
   // Import Data
   if (el.btnImportData && el.fileInputBackup) {
-    el.btnImportData.addEventListener('click', () => {
+    el.btnImportData?.addEventListener('click', () => {
       el.fileInputBackup.click();
     });
 
-    el.fileInputBackup.addEventListener('change', (e) => {
+    el.fileInputBackup?.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -5419,7 +5422,7 @@ function setupSettingsScreenEvents() {
 
   // Clear cache
   if (el.btnClearCache) {
-    el.btnClearCache.addEventListener('click', async () => {
+    el.btnClearCache?.addEventListener('click', async () => {
       if (confirm('Tüm cihaz önbelleği, geçici OCR verileri ve servis önbelleği temizlensin mi? (Kayıtlı kitap ve notlarınız silinmez)')) {
         clearAppCache();
         if ('caches' in window) {
@@ -5445,16 +5448,8 @@ function setupSettingsScreenEvents() {
    PWA & System File Integration
    ========================================================================== */
 function setupPwa() {
-  const CURRENT_CACHE = 'reawid-cloud-v50';
-  if ('caches' in window) {
-    caches.keys().then((keys) => {
-      keys.forEach((key) => {
-        if (key !== CURRENT_CACHE) {
-          caches.delete(key);
-        }
-      });
-    });
-  }
+  // Cache temizliği artık sw.js içindeki activate adımında yapılıyor.
+  // Burada yapılan yanlış isimli temizlik, güncel SW cache'ini siliyordu.
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
@@ -5470,10 +5465,10 @@ function setupPwa() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    el.btnPwaInstall.classList.remove('hidden');
+    el.btnPwaInstall?.classList.remove('hidden');
   });
 
-  el.btnPwaInstall.addEventListener('click', async () => {
+  el.btnPwaInstall?.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -5481,7 +5476,7 @@ function setupPwa() {
       showToast('Reawid ana ekrana ekleniyor!', 'success');
     }
     deferredPrompt = null;
-    el.btnPwaInstall.classList.add('hidden');
+    el.btnPwaInstall?.classList.add('hidden');
   });
 }
 
@@ -5648,11 +5643,11 @@ function setupAccountController() {
 
   // Email input focus & Enter key listener
   if (el.authInputEmail) {
-    el.authInputEmail.addEventListener('focus', () => {
+    el.authInputEmail?.addEventListener('focus', () => {
       setTimeout(updateKeyboardViewport, 50);
       setTimeout(updateKeyboardViewport, 200);
     });
-    el.authInputEmail.addEventListener('keydown', (e) => {
+    el.authInputEmail?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         if (el.authInputPassword) el.authInputPassword.focus();
@@ -5662,7 +5657,7 @@ function setupAccountController() {
 
   // Password input focus listener
   if (el.authInputPassword) {
-    el.authInputPassword.addEventListener('focus', () => {
+    el.authInputPassword?.addEventListener('focus', () => {
       setTimeout(updateKeyboardViewport, 50);
       setTimeout(updateKeyboardViewport, 200);
     });
@@ -5677,23 +5672,23 @@ function setupAccountController() {
 
   // Open / Close modal
   if (el.btnProfile) {
-    el.btnProfile.addEventListener('click', openAccountModal);
+    el.btnProfile?.addEventListener('click', openAccountModal);
   }
   if (el.btnSettingsOpenAccount) {
-    el.btnSettingsOpenAccount.addEventListener('click', openAccountModal);
+    el.btnSettingsOpenAccount?.addEventListener('click', openAccountModal);
   }
   if (el.btnCloseAccountModal) {
-    el.btnCloseAccountModal.addEventListener('click', closeAccountModal);
+    el.btnCloseAccountModal?.addEventListener('click', closeAccountModal);
   }
   if (el.accountModal) {
-    el.accountModal.addEventListener('click', (e) => {
+    el.accountModal?.addEventListener('click', (e) => {
       if (e.target === el.accountModal) closeAccountModal();
     });
   }
 
   // Auth tabs (Giriş Yap / Kayıt Ol)
   if (el.tabSignIn && el.tabSignUp) {
-    el.tabSignIn.addEventListener('click', () => {
+    el.tabSignIn?.addEventListener('click', () => {
       currentAuthMode = 'signin';
       el.tabSignIn.classList.add('active');
       el.tabSignUp.classList.remove('active');
@@ -5705,7 +5700,7 @@ function setupAccountController() {
       updateKeyboardViewport();
     });
 
-    el.tabSignUp.addEventListener('click', () => {
+    el.tabSignUp?.addEventListener('click', () => {
       currentAuthMode = 'signup';
       el.tabSignUp.classList.add('active');
       el.tabSignIn.classList.remove('active');
@@ -5720,7 +5715,7 @@ function setupAccountController() {
 
   // Form Submit (Supabase Auth)
   if (el.formSupabaseAuth) {
-    el.formSupabaseAuth.addEventListener('submit', async (e) => {
+    el.formSupabaseAuth?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = el.authInputEmail?.value?.trim();
       const password = el.authInputPassword?.value;
@@ -5770,7 +5765,7 @@ function setupAccountController() {
 
   // Manual Sync Now Button
   if (el.btnAccountSyncNow) {
-    el.btnAccountSyncNow.addEventListener('click', async () => {
+    el.btnAccountSyncNow?.addEventListener('click', async () => {
       if (el.syncSpinnerIcon) el.syncSpinnerIcon.classList.add('spinning');
       el.btnAccountSyncNow.disabled = true;
       try {
@@ -5795,7 +5790,7 @@ function setupAccountController() {
 
   // Sign Out Button
   if (el.btnAccountSignOut) {
-    el.btnAccountSignOut.addEventListener('click', async () => {
+    el.btnAccountSignOut?.addEventListener('click', async () => {
       if (confirm('Hesaptan çıkış yapmak istediğinize emin misiniz?')) {
         await signOutUser();
         showToast('Hesaptan çıkış yapıldı.', 'info');
@@ -5871,19 +5866,19 @@ function closeResetModal() {
 
 function setupResetDataController() {
   if (el.btnOpenResetModal) {
-    el.btnOpenResetModal.addEventListener('click', openResetModal);
+    el.btnOpenResetModal?.addEventListener('click', openResetModal);
   }
 
   if (el.btnCloseResetModal) {
-    el.btnCloseResetModal.addEventListener('click', closeResetModal);
+    el.btnCloseResetModal?.addEventListener('click', closeResetModal);
   }
 
   if (el.btnCancelResetModal) {
-    el.btnCancelResetModal.addEventListener('click', closeResetModal);
+    el.btnCancelResetModal?.addEventListener('click', closeResetModal);
   }
 
   if (el.resetDataModal) {
-    el.resetDataModal.addEventListener('click', (e) => {
+    el.resetDataModal?.addEventListener('click', (e) => {
       if (e.target === el.resetDataModal) {
         closeResetModal();
       }
@@ -5891,7 +5886,7 @@ function setupResetDataController() {
   }
 
   if (el.btnRefreshResetCode) {
-    el.btnRefreshResetCode.addEventListener('click', () => {
+    el.btnRefreshResetCode?.addEventListener('click', () => {
       generateRandomResetCode();
       if (el.inputResetCodeConfirm) {
         el.inputResetCodeConfirm.focus();
@@ -5900,7 +5895,7 @@ function setupResetDataController() {
   }
 
   if (el.inputResetCodeConfirm) {
-    el.inputResetCodeConfirm.addEventListener('input', () => {
+    el.inputResetCodeConfirm?.addEventListener('input', () => {
       const inputVal = el.inputResetCodeConfirm.value.trim().toLowerCase();
       if (inputVal === currentResetSecurityCode) {
         if (el.btnConfirmResetSubmit) el.btnConfirmResetSubmit.disabled = false;
@@ -5925,7 +5920,7 @@ function setupResetDataController() {
       }
     });
 
-    el.inputResetCodeConfirm.addEventListener('keydown', (e) => {
+    el.inputResetCodeConfirm?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         if (el.btnConfirmResetSubmit && !el.btnConfirmResetSubmit.disabled) {
@@ -5936,7 +5931,7 @@ function setupResetDataController() {
   }
 
   if (el.btnConfirmResetSubmit) {
-    el.btnConfirmResetSubmit.addEventListener('click', async () => {
+    el.btnConfirmResetSubmit?.addEventListener('click', async () => {
       const inputVal = el.inputResetCodeConfirm ? el.inputResetCodeConfirm.value.trim().toLowerCase() : '';
       if (inputVal !== currentResetSecurityCode) {
         showToast('Lütfen ekrandaki güvenlik kodunu doğru girin', 'error');
