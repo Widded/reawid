@@ -69,20 +69,11 @@ import {
   fixSpacedOutLetters,
   mergeAccidentalParagraphSplits,
   formatOcrErrorMessage,
-  getOcrAuditTrail,
-  prepareBookContext,
-  askBookAi,
-  multiStageBookRetrieval,
-  findCandidatePagesForQuestion,
-  understandBookQuestion,
-  getRetrievalAuditTrail,
-  getLastRetrievalAudit
+  getOcrAuditTrail
 } from './services/aiService.js';
 
 if (typeof window !== 'undefined') {
   window.getOcrAuditTrail = getOcrAuditTrail;
-  window.getRetrievalAuditTrail = getRetrievalAuditTrail;
-  window.getLastRetrievalAudit = getLastRetrievalAudit;
 }
 
 import {
@@ -369,7 +360,6 @@ const el = {
   readerParagraphsContainer: document.getElementById('readerParagraphsContainer'),
   readerTextSelectionPill: document.getElementById('readerTextSelectionPill'),
   btnSelectionQuote: document.getElementById('btnSelectionQuote'),
-  btnSelectionAskAi: document.getElementById('btnSelectionAskAi'),
   btnSelectionSpeak: document.getElementById('btnSelectionSpeak'),
   btnSelectionCopy: document.getElementById('btnSelectionCopy'),
   readerPageSlider: document.getElementById('readerPageSlider'),
@@ -410,21 +400,6 @@ const el = {
   rsvpPlayIcon: document.getElementById('rsvpPlayIcon'),
   rsvpPauseIcon: document.getElementById('rsvpPauseIcon'),
   rsvpSpeedPills: document.getElementById('rsvpSpeedPills'),
-
-  // Book AI Chat Assistant Elements
-  btnReaderAiChat: document.getElementById('btnReaderAiChat'),
-  popoverBookAiChat: document.getElementById('popoverBookAiChat'),
-  bookAiChatModal: document.getElementById('bookAiChatModal'),
-  bookChatSheet: document.getElementById('bookChatSheet'),
-  btnCloseBookChat: document.getElementById('btnCloseBookChat'),
-  bookChatTitle: document.getElementById('bookChatTitle'),
-  bookChatSubtitle: document.getElementById('bookChatSubtitle'),
-  toggleSpoilerProtection: document.getElementById('toggleSpoilerProtection'),
-  bookChatMessages: document.getElementById('bookChatMessages'),
-  bookChatQuickChips: document.getElementById('bookChatQuickChips'),
-  bookChatTyping: document.getElementById('bookChatTyping'),
-  bookChatInput: document.getElementById('bookChatInput'),
-  btnSendBookChat: document.getElementById('btnSendBookChat'),
 
   // Comparison Screen Elements
   comparisonViewModal: document.getElementById('comparisonViewModal'),
@@ -1277,11 +1252,6 @@ function applyReaderTheme(theme, save = true) {
     el.rsvpReaderModal.classList.add(`theme-${theme}`);
   }
 
-  if (el.bookAiChatModal) {
-    el.bookAiChatModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
-    el.bookAiChatModal.classList.add(`theme-${theme}`);
-  }
-
   if (el.comparisonViewModal) {
     el.comparisonViewModal.classList.remove('theme-koyu', 'theme-acik', 'theme-sepya');
     el.comparisonViewModal.classList.add(`theme-${theme}`);
@@ -1333,11 +1303,6 @@ function applyReaderTypography(save = true) {
   if (el.rsvpReaderModal) {
     el.rsvpReaderModal.classList.remove('font-family-serif', 'font-family-sans', 'font-family-mono');
     el.rsvpReaderModal.classList.add(`font-family-${currentReaderFont}`);
-  }
-
-  if (el.bookAiChatModal) {
-    el.bookAiChatModal.classList.remove('font-family-serif', 'font-family-sans', 'font-family-mono');
-    el.bookAiChatModal.classList.add(`font-family-${currentReaderFont}`);
   }
 
   // Margin
@@ -2503,362 +2468,6 @@ function setRsvpSpeed(wpm) {
   }
 }
 
-/* ==========================================================================
-   Book AI Chat Assistant (Yapay Zeka Kitap Sohbet Asistanı)
-   ========================================================================== */
-let bookChatHistory = [];
-let isBookChatSending = false;
-
-function updateBookChatSubtitle() {
-  if (!el.bookChatSubtitle) return;
-  el.bookChatSubtitle.textContent = `Sayfa ${currentReaderPage}`;
-}
-
-function openBookAiChat() {
-  if (isSpeaking() || isReaderSpeaking) {
-    stopReaderSpeech();
-  }
-  closeMoreMenu();
-
-  if (el.bookAiChatModal) {
-    el.bookAiChatModal.className = `book-chat-backdrop theme-${currentReaderTheme || 'koyu'} font-family-${currentReaderFont || 'serif'}`;
-    el.bookAiChatModal.classList.remove('hidden');
-  }
-
-  if (el.bookChatTitle) {
-    el.bookChatTitle.textContent = currentActiveBook?.title || 'Kitap Asistanı';
-  }
-  updateBookChatSubtitle();
-
-  // If this is a fresh session or empty history, append welcome bubble
-  if (bookChatHistory.length === 0 && el.bookChatMessages) {
-    const chipsEl = el.bookChatQuickChips;
-    el.bookChatMessages.innerHTML = '';
-    if (chipsEl) {
-      el.bookChatMessages.appendChild(chipsEl);
-    }
-    const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
-    const bookName = currentActiveBook?.title || 'Kitap';
-    const welcomeText = `Merhaba. **${escapeBookHtml(bookName)}** hakkında merak ettiğiniz her şeyi sorabilirsiniz.\n\n${isSpoiler ? `Spoiler koruması açık: Yalnızca ${currentReaderPage}. sayfaya kadarki kısımları ele alırım.` : 'Spoiler koruması kapalı: Kitabın tamamı hakkında konuşabiliriz.'}`;
-    appendChatMessage('assistant', welcomeText, false);
-    el.bookChatMessages.scrollTop = 0;
-  }
-
-  if (el.bookChatInput) {
-    setTimeout(() => {
-      el.bookChatInput.focus({ preventScroll: true });
-    }, 150);
-  }
-}
-
-function closeBookAiChat() {
-  if (el.bookAiChatModal) {
-    el.bookAiChatModal.classList.add('hidden');
-  }
-}
-
-function scrollBookChatToBottom(force = false) {
-  if (!el.bookChatMessages) return;
-  const container = el.bookChatMessages;
-  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-  const isNearBottom = distanceFromBottom < 120;
-  if (force || isNearBottom) {
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
-  }
-}
-
-function appendChatMessage(role, text, shouldScroll = true) {
-  if (!el.bookChatMessages) return;
-
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `book-chat-msg ${role}`;
-
-  if (role === 'assistant') {
-    try {
-      msgDiv.innerHTML = marked.parse(text);
-    } catch {
-      msgDiv.textContent = text;
-    }
-  } else {
-    msgDiv.textContent = text;
-  }
-
-  el.bookChatMessages.appendChild(msgDiv);
-  if (shouldScroll) {
-    scrollBookChatToBottom(role === 'user');
-  }
-}
-
-function appendChatSystemNote(text) {
-  if (!el.bookChatMessages) return;
-  const noteDiv = document.createElement('div');
-  noteDiv.className = 'book-chat-system-note';
-  noteDiv.textContent = text;
-  el.bookChatMessages.appendChild(noteDiv);
-  scrollBookChatToBottom(false);
-}
-
-function setChatTypingStatus(statusText = 'Yanıt hazırlanıyor...') {
-  if (el.bookChatTyping) {
-    el.bookChatTyping.classList.remove('hidden');
-    const textEl = el.bookChatTyping.querySelector('.typing-text');
-    if (textEl) {
-      textEl.textContent = statusText;
-    }
-  }
-}
-
-function hideChatTypingStatus() {
-  if (el.bookChatTyping) {
-    el.bookChatTyping.classList.add('hidden');
-    const textEl = el.bookChatTyping.querySelector('.typing-text');
-    if (textEl) {
-      textEl.textContent = 'Yanıt hazırlanıyor...';
-    }
-  }
-}
-
-async function handleSendBookChatMessage(text) {
-  const question = (text || '').trim();
-  if (!question || isBookChatSending) return;
-
-  appendChatMessage('user', question, true);
-  bookChatHistory.push({ role: 'user', content: question });
-
-  if (el.bookChatInput) {
-    el.bookChatInput.value = '';
-    el.bookChatInput.style.height = 'auto';
-  }
-  if (el.btnSendBookChat) {
-    el.btnSendBookChat.disabled = true;
-  }
-  setChatTypingStatus('Kitapta ilgili bölümler aranıyor...');
-  scrollBookChatToBottom(true);
-
-  isBookChatSending = true;
-
-  try {
-    const isSpoiler = el.toggleSpoilerProtection ? el.toggleSpoilerProtection.checked : true;
-    const totalPages = currentActiveBook?.totalPages || currentPdfNumPages || 1;
-
-    // Gerçek okuyucu sayfasını doğrula ve tüm filtrelerde 1-based standardı senkronize tut
-    let effectivePage = Number(currentReaderPage || 1);
-    if (el.readerPageSlider && !isNaN(Number(el.readerPageSlider.value)) && Number(el.readerPageSlider.value) > 0) {
-      effectivePage = Number(el.readerPageSlider.value);
-    } else if (currentActiveBook?.currentPage && Number(currentActiveBook.currentPage) > 0) {
-      effectivePage = Number(currentActiveBook.currentPage);
-    }
-    effectivePage = Math.max(1, Math.min(totalPages, effectivePage));
-    currentReaderPage = effectivePage;
-
-    setChatTypingStatus('Soru analiz ediliyor...');
-    const semanticAnalysis = await understandBookQuestion({
-      question,
-      settings: appSettings,
-      bookTitle: currentActiveBook?.title || '',
-      chapterOutline: currentActiveBook?.chapterOutline || ''
-    });
-
-    // 1. Mevcut taranmış sayfalarda RAG araması yap
-    let retrieval = null;
-    if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
-      retrieval = multiStageBookRetrieval({
-        pagesTextMap: currentActiveBook.pageParagraphs,
-        currentPage: currentReaderPage,
-        spoilerProtection: isSpoiler,
-        question: question,
-        bookId: String(currentActiveBook.id || 'book'),
-        activePages: activeAnalyzingPages,
-        failedPages: failedPageAttempts,
-        semanticAnalysis
-      });
-    }
-
-    // 2. Kanıt yetersizse ve eksik sayfalar varsa on-demand tarama yap
-    const isEvidenceSufficient = retrieval?.evidenceSufficiency?.isSufficient;
-    const targetBookId = String(currentActiveBook?.id || '');
-    const targetPdfDoc = currentPdfDoc;
-    const targetGenerationId = currentOcrGenerationId;
-    let newOcrPagesAdded = 0;
-
-    if (!isEvidenceSufficient && targetPdfDoc && currentActiveBook && targetBookId) {
-      const missingInfo = getMissingOrFailedPages(currentActiveBook, totalPages);
-
-      // Spoiler koruması açıkken: Gelecekteki sayfalar ASLA taranmaz ve dahil edilmez!
-      // Spoiler koruması kapalıyken: Tüm eksik sayfalar aranabilir.
-      // 3 veya daha fazla kez başarısız olmuş sayfalar sonsuz döngüyü önlemek için atlanır.
-      const eligibleMissing = isSpoiler
-        ? missingInfo.missingPages.filter(p => p <= currentReaderPage && (failedPageAttempts.get(p) || 0) < 3)
-        : missingInfo.missingPages.filter(p => (failedPageAttempts.get(p) || 0) < 3);
-
-      if (eligibleMissing.length > 0) {
-        setChatTypingStatus('Kitapta ilgili bölümler aranıyor...');
-        const candidatePages = await findCandidatePagesForQuestion({
-          pdfDoc: targetPdfDoc,
-          question: question,
-          semanticAnalysis: semanticAnalysis,
-          missingPages: eligibleMissing,
-          chapterOutline: currentActiveBook.chapterOutline || '',
-          maxPages: 3,
-          currentPage: currentReaderPage,
-          spoilerProtection: isSpoiler,
-          pageOffset: retrieval?.pageOffset ?? null
-        });
-
-        if (candidatePages.length > 0) {
-          setChatTypingStatus(`İlgili sayfalar taranıyor (S.${candidatePages.join(', ')})...`);
-
-          for (const pageNum of candidatePages) {
-            // Identity Check Before OCR: Has the user navigated away to another book?
-            if (!currentActiveBook || String(currentActiveBook.id) !== targetBookId || currentPdfDoc !== targetPdfDoc) {
-              break;
-            }
-            try {
-              const paragraphs = await analyzeSinglePdfPage(targetPdfDoc, pageNum, null, targetBookId);
-
-              // Identity Check After OCR: Ensure data is saved strictly to targetBookId
-              const isStillActive = (currentActiveBook && String(currentActiveBook.id) === targetBookId && currentPdfDoc === targetPdfDoc);
-
-              if (paragraphs && paragraphs.length > 0) {
-                const rawText = paragraphs.rawText || (Array.isArray(paragraphs) ? paragraphs.join('\n\n') : String(paragraphs));
-
-                failedPageAttempts.delete(pageNum);
-                // Always write strictly to targetBookId's own record (never mutate currentActiveBook if switched)
-                updateBookPageParagraphs(targetBookId, pageNum, paragraphs, rawText);
-                await savePageOcrMemory(targetBookId, pageNum, {
-                  pageNumber: pageNum,
-                  paragraphs,
-                  rawText,
-                  ocrStatus: 'completed'
-                });
-
-                if (isStillActive) {
-                  if (!currentActiveBook.pageParagraphs) currentActiveBook.pageParagraphs = {};
-                  currentActiveBook.pageParagraphs[pageNum] = paragraphs;
-                  if (!currentActiveBook.pageRawTexts) currentActiveBook.pageRawTexts = {};
-                  currentActiveBook.pageRawTexts[pageNum] = rawText;
-                  newOcrPagesAdded++;
-                }
-              } else {
-                // Empty OCR response: record attempt to avoid endless repeat
-                const fails = (failedPageAttempts.get(pageNum) || 0) + 1;
-                failedPageAttempts.set(pageNum, fails);
-                await savePageOcrMemory(targetBookId, pageNum, {
-                  pageNumber: pageNum,
-                  paragraphs: [],
-                  ocrStatus: 'failed',
-                  error: 'OCR metin üretemedi'
-                });
-              }
-            } catch (err) {
-              console.warn(`[On-Demand OCR] Sayfa ${pageNum} tarama hatası:`, err);
-              const fails = (failedPageAttempts.get(pageNum) || 0) + 1;
-              failedPageAttempts.set(pageNum, fails);
-              await savePageOcrMemory(targetBookId, pageNum, {
-                pageNumber: pageNum,
-                paragraphs: [],
-                ocrStatus: 'failed',
-                error: err?.message || 'Tarama hatası'
-              });
-            }
-          }
-
-          if (newOcrPagesAdded > 0) {
-            await flushPendingMemoryWrites(targetBookId);
-            setChatTypingStatus('Kitap metni güncelleniyor...');
-            await yieldToMainThread(40);
-          }
-        }
-      }
-    }
-
-    // Safety Identity Guard: If book was switched while on-demand OCR was running, discard AI response
-    if (!currentActiveBook || String(currentActiveBook.id) !== targetBookId || currentPdfDoc !== targetPdfDoc) {
-      console.warn('[Book Chat Guard] Kullanıcı kitap değiştirdiği için eski kitaba ait soru yanıtlanmadı.');
-      hideChatTypingStatus();
-      isBookChatSending = false;
-      return;
-    }
-
-    // 3. On-Demand OCR yeni sayfa eklediyse retrieval işlemini güncel Book Memory üzerinden YENİDEN ÇALIŞTIR
-    if (newOcrPagesAdded > 0 && currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
-      setChatTypingStatus('Yeni taranan sayfalar taranıyor...');
-      retrieval = multiStageBookRetrieval({
-        pagesTextMap: currentActiveBook.pageParagraphs,
-        currentPage: currentReaderPage,
-        spoilerProtection: isSpoiler,
-        question: question,
-        bookId: targetBookId,
-        activePages: activeAnalyzingPages,
-        failedPages: failedPageAttempts,
-        semanticAnalysis
-      });
-      await yieldToMainThread(30);
-    }
-
-    setChatTypingStatus('Kanıtlar doğrulanıyor...');
-    await yieldToMainThread(30);
-
-    // 3. Güncellenmiş metinlerle bağlamı hazırla
-    let contextText = '';
-    if (currentActiveBook?.pageParagraphs && Object.keys(currentActiveBook.pageParagraphs).length > 0) {
-      contextText = prepareBookContext({
-        pagesTextMap: currentActiveBook.pageParagraphs,
-        currentPage: currentReaderPage,
-        spoilerProtection: isSpoiler,
-        question: question,
-        bookId: targetBookId,
-        totalPages: totalPages,
-        activePages: activeAnalyzingPages,
-        failedPages: failedPageAttempts,
-        semanticAnalysis
-      });
-    } else if (currentActiveBook?.content) {
-      contextText = currentActiveBook.content;
-    } else {
-      contextText = el.readerParagraphsContainer?.innerText || '';
-    }
-
-    setChatTypingStatus('Yanıt hazırlanıyor...');
-
-    const rawTitle = currentActiveBook?.title || 'Kitap';
-    const cleanTitle = rawTitle.replace(/\.[^/.]+$/, '').replace(/[_]+/g, ' ').trim();
-
-    const res = await askBookAi({
-      bookTitle: cleanTitle || rawTitle,
-      bookAuthor: currentActiveBook?.author || '',
-      currentPage: currentReaderPage,
-      totalPages: totalPages,
-      bookContextText: contextText,
-      question: question,
-      chatHistory: bookChatHistory.slice(0, -1),
-      spoilerProtection: isSpoiler,
-      settings: appSettings,
-      retrievedEvidence: retrieval?.allEvidence || [],
-      evidenceSufficiency: retrieval?.evidenceSufficiency || null
-    });
-
-    hideChatTypingStatus();
-
-    appendChatMessage('assistant', res.answer, true);
-    bookChatHistory.push({ role: 'assistant', content: res.answer });
-  } catch (err) {
-    hideChatTypingStatus();
-    const errPrefix = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>**Yanıt Alınamadı:** ';
-    appendChatMessage('assistant', `${errPrefix}${err.message || 'Bilinmeyen bir hata oluştu.'}`, true);
-  } finally {
-    isBookChatSending = false;
-    if (el.btnSendBookChat) {
-      el.btnSendBookChat.disabled = false;
-    }
-    if (el.bookChatInput) {
-      el.bookChatInput.focus({ preventScroll: true });
-    }
-  }
-}
-
 function setupReaderSwipeNavigation() {
   const scrollContainer = el.readerContentScroll || document.getElementById('readerContentScroll');
   if (!scrollContainer) return;
@@ -2976,9 +2585,8 @@ function setupTextSelectionPill() {
   };
 
   const updatePillPosition = () => {
-    // If modal or chat is open, do not show selection pill
+    // If a modal is open, do not show selection pill
     if (
-      (el.bookAiChatModal && !el.bookAiChatModal.classList.contains('hidden')) ||
       (el.readerSettingsBackdrop && !el.readerSettingsBackdrop.classList.contains('hidden')) ||
       (el.comparisonViewModal && !el.comparisonViewModal.classList.contains('hidden'))
     ) {
@@ -3090,28 +2698,7 @@ function setupTextSelectionPill() {
     });
   }
 
-  // Action 2: Ask AI (AI'ya Sor)
-  if (el.btnSelectionAskAi) {
-    el.btnSelectionAskAi.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const textToAsk = currentSelectedText;
-      if (!textToAsk) return;
-      hidePill();
-      window.getSelection()?.removeAllRanges();
-      openBookAiChat();
-      if (el.bookChatInput) {
-        el.bookChatInput.value = `Bu alıntıyı açıkla ve romandaki önemini belirt:\n\n"${textToAsk}"`;
-        el.bookChatInput.style.height = 'auto';
-        el.bookChatInput.style.height = `${Math.min(120, el.bookChatInput.scrollHeight)}px`;
-        el.bookChatInput.focus({ preventScroll: true });
-      }
-      if (el.btnSendBookChat) {
-        el.btnSendBookChat.disabled = false;
-      }
-    });
-  }
-
-  // Action 3: Read from here (Dinle)
+  // Action 2: Read from here (Dinle)
   if (el.btnSelectionSpeak) {
     el.btnSelectionSpeak.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -3286,14 +2873,6 @@ function setupEventListeners() {
 
   // Global Escape & RSVP key controller
   document.addEventListener('keydown', (e) => {
-    if (el.bookAiChatModal && !el.bookAiChatModal.classList.contains('hidden')) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeBookAiChat();
-        return;
-      }
-    }
-
     if (el.rsvpReaderModal && !el.rsvpReaderModal.classList.contains('hidden')) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -3534,62 +3113,6 @@ function setupEventListeners() {
       const btn = e.target.closest('.rsvp-speed-btn');
       if (btn && btn.dataset.wpm) {
         setRsvpSpeed(btn.dataset.wpm);
-      }
-    });
-  }
-
-  // Book AI Chat Assistant Controls
-  if (el.btnReaderAiChat) {
-    el.btnReaderAiChat.addEventListener('click', openBookAiChat);
-  }
-  if (el.popoverBookAiChat) {
-    el.popoverBookAiChat.addEventListener('click', () => {
-      closeMoreMenu();
-      openBookAiChat();
-    });
-  }
-  if (el.btnCloseBookChat) {
-    el.btnCloseBookChat.addEventListener('click', closeBookAiChat);
-  }
-  if (el.bookAiChatModal) {
-    el.bookAiChatModal.addEventListener('click', (e) => {
-      if (e.target === el.bookAiChatModal) {
-        closeBookAiChat();
-      }
-    });
-  }
-  if (el.toggleSpoilerProtection) {
-    el.toggleSpoilerProtection.addEventListener('change', () => {
-      updateBookChatSubtitle();
-      const isSpoiler = el.toggleSpoilerProtection.checked;
-      appendChatSystemNote(isSpoiler
-        ? 'Spoiler koruması açıldı (bulunulan sayfaya kadar).'
-        : 'Spoiler koruması kapatıldı (tüm kitap açık).'
-      );
-    });
-  }
-  if (el.btnSendBookChat) {
-    el.btnSendBookChat.addEventListener('click', () => {
-      handleSendBookChatMessage(el.bookChatInput?.value);
-    });
-  }
-  if (el.bookChatInput) {
-    el.bookChatInput.addEventListener('input', () => {
-      el.bookChatInput.style.height = 'auto';
-      el.bookChatInput.style.height = `${Math.min(120, el.bookChatInput.scrollHeight)}px`;
-    });
-    el.bookChatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSendBookChatMessage(el.bookChatInput.value);
-      }
-    });
-  }
-  if (el.bookChatQuickChips) {
-    el.bookChatQuickChips.addEventListener('click', (e) => {
-      const chip = e.target.closest('.book-chat-chip');
-      if (chip && chip.dataset.prompt) {
-        handleSendBookChatMessage(chip.dataset.prompt);
       }
     });
   }
