@@ -5,6 +5,7 @@
 import { normalizeHyphensAndText, healTurkishOcrArtifacts } from './aiService.js';
 import { perfMonitor } from './perfMonitor.js';
 import { preprocessImageForOcr } from './imageProcessor.js';
+import { simd } from 'wasm-feature-detect';
 
 let tesseractWorker = null;
 let isInitializing = false;
@@ -56,7 +57,19 @@ export async function getOrInitTesseractWorker(onProgress = null) {
       // Dynamic import to keep main bundle size light and fast
       const { createWorker } = await import('tesseract.js');
 
+      // tesseract.js 7'nin relaxedsimd çekirdeği, float (tessdata_best) modeliyle
+      // "missing function: DotProductSSE" hatası verip anında abort ediyor.
+      // SIMD çekirdeğini açıkça seçerek bu hatayı atlıyoruz.
+      // shortcut: çekirdek sürümü tesseract.js-core 7.0.0'a sabit; paket güncellenince güncelle.
+      const simdSupported = await simd();
+      const coreFile = simdSupported
+        ? 'tesseract-core-simd-lstm.wasm.js'
+        : 'tesseract-core-lstm.wasm.js';
+
       const workerPromise = createWorker('tur', 1, {
+        // tessdata_best, hızlı modelden belirgin şekilde daha doğru sonuç verir.
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0_best',
+        corePath: `https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/${coreFile}`,
         logger: (m) => {
           if (onProgress && typeof onProgress === 'function') {
             try {
@@ -70,14 +83,15 @@ export async function getOrInitTesseractWorker(onProgress = null) {
       });
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Tesseract Türkçe modeli yüklenirken zaman aşımına uğradı (15s).')), 15000)
+        setTimeout(() => reject(new Error('Tesseract Türkçe modeli yüklenirken zaman aşımına uğradı (45s).')), 45000)
       );
 
       const worker = await Promise.race([workerPromise, timeoutPromise]);
 
       try {
         await worker.setParameters({
-          tessedit_pageseg_mode: '3'
+          tessedit_pageseg_mode: '3',
+          preserve_interword_spaces: '1'
         });
       } catch (paramErr) {
         console.warn('[Tesseract Service] Parametre ayarlama uyarısı:', paramErr);
@@ -165,6 +179,19 @@ export async function performTesseractOcr({
       throw createAbortError();
     }
 
+    // Kitap sayfalarında tek sütun modu (PSM 6) küçük/bitişik yazılarda
+    // varsayılan otomatik moddan (PSM 3) belirgin şekilde daha iyi sonuç verir.
+    const primaryPsm = options.pageSegMode || '3';
+    try {
+      await worker.setParameters({
+        tessedit_pageseg_mode: primaryPsm,
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300'
+      });
+    } catch (paramErr) {
+      console.warn('[Tesseract Service] Sayfa parametreleri uygulanamadı:', paramErr);
+    }
+
     // 1. Akıllı Kontrast Germe & Gri Tonlama (Preserve smooth letter contours for LSTM)
     let processedSource = imageSource;
     if (options.preprocess !== false && typeof document !== 'undefined') {
@@ -197,7 +224,7 @@ export async function performTesseractOcr({
 
     const recognizePromise = worker.recognize(processedSource);
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Tesseract sayfa tanıma zaman aşımına uğradı (25s).')), 25000)
+      setTimeout(() => reject(new Error('Tesseract sayfa tanıma zaman aşımına uğradı (40s).')), 40000)
     );
 
     let recognizeRes;
@@ -223,9 +250,16 @@ export async function performTesseractOcr({
     // 2. İki Aşamalı Akıllı Fallback (Two-Pass OCR):
     if (confidence < 62 && options.twoPass !== false && typeof document !== 'undefined' && !signal?.aborted) {
       try {
+        // İlk geçiş tek sütun (PSM 6) idiyse, ikinci geçişte otomatik düzen (PSM 3) dene.
+        try {
+          await worker.setParameters({
+            tessedit_pageseg_mode: primaryPsm === '6' ? '3' : '6',
+            preserve_interword_spaces: '1'
+          });
+        } catch (_) {}
         const pass2Source = await preprocessImageForOcr(imageSource, { mode: 'adaptive_threshold' });
         const pass2Promise = worker.recognize(pass2Source);
-        const pass2Timeout = new Promise((_, r) => setTimeout(() => r(new Error('Pass 2 timeout')), 15000));
+        const pass2Timeout = new Promise((_, r) => setTimeout(() => r(new Error('Pass 2 timeout')), 25000));
         
         let pass2Res;
         try {

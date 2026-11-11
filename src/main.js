@@ -662,7 +662,11 @@ function init() {
 function renderHomeScreen() {
   // 1. Render Devam Eden Kitap
   const currentBook = getCurrentBook();
-  currentActiveBook = currentBook;
+  // Okuyucu açıkken canlı kitap nesnesini localStorage'dan gelen taze kopyayla
+  // değiştirme; aksi halde o an taranan sayfalar kaybolur ve ekran güncellenmez.
+  if (!currentActiveBook || !currentBook || currentActiveBook.id !== currentBook.id) {
+    currentActiveBook = currentBook;
+  }
 
   if (currentBook) {
     el.cardContinueBook.innerHTML = `
@@ -3752,9 +3756,11 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
     let canvas = null;
     let pageDataUrl = '';
     try {
-      const renderScale = appSettings.renderDpi || 2.2;
+      // OCR için en az ~250-300 DPI hedefle; 2.0 ölçek küçük kitap yazılarında
+      // Tesseract'ın hızlı ama hatalı sonuç vermesine yol açıyordu.
+      const renderScale = Math.max(3.5, Number(appSettings.renderDpi) || 2.0);
       canvas = await renderPdfPageToCanvas(pdfDoc, pageNum, renderScale);
-      pageDataUrl = canvas.toDataURL('image/jpeg', 0.94);
+      pageDataUrl = canvas.toDataURL('image/jpeg', 0.97);
     } finally {
       if (canvas) disposeCanvas(canvas); // Canvas belleğini derhal temizle!
     }
@@ -3773,7 +3779,8 @@ async function analyzeSinglePdfPage(pdfDoc, pageNum, signal, docId = null) {
         documentId,
         pageNumber: pageNum,
         options: {
-          mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false
+          mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false,
+          pageSegMode: '6'
         },
         signal,
         onProgress: ({ status, progress }) => {
@@ -3963,6 +3970,12 @@ async function analyzePageOnDemand(book, pdfDoc, pageNum) {
       failedPageAttempts.delete(pageNum);
       book.pageParagraphs = book.pageParagraphs || {};
       book.pageParagraphs[pageNum] = paragraphs;
+      // Aynı kitabın canlı okuyucu nesnesine de yaz; arka plan render'ları
+      // farklı bir kopya tutuyorsa ekran yine de anında güncellensin.
+      if (currentActiveBook && currentActiveBook.id === book.id) {
+        currentActiveBook.pageParagraphs = currentActiveBook.pageParagraphs || {};
+        currentActiveBook.pageParagraphs[pageNum] = paragraphs;
+      }
       const rawText = paragraphs.rawText || (Array.isArray(paragraphs) ? paragraphs.join('\n\n') : String(paragraphs));
       updateBookPageParagraphs(book.id, pageNum, paragraphs, rawText);
 
@@ -4245,12 +4258,15 @@ async function setPreviewImage(dataUrl) {
 async function applyImagePipeline() {
   if (!currentImageRaw) return;
 
+  const ocrEngine = appSettings.ocrEngine || 'tesseract';
   const processed = await processImage({
     imageSource: currentImageRaw,
     rotation: currentRotation,
     contrast: currentContrast,
     grayscale: isGrayscale,
-    binarize: isBinarized
+    binarize: isBinarized,
+    // Tesseract küçük yazılarda daha yüksek çözünürlük ister; Vision AI için 2048 yeterli.
+    maxDimension: ocrEngine === 'vision_ai' ? 2048 : 3200
   });
 
   currentProcessedImage = processed;
@@ -4509,9 +4525,10 @@ async function startPdfBatchOcr() {
       if (el.ocrProgressPages) el.ocrProgressPages.textContent = `${currentIdx + 1} / ${totalInBatch} Sayfa`;
       el.processingStatusText.textContent = `Sayfa ${i} / ${currentPdfNumPages} Vision AI ile taranıyor...`;
 
-      // Render page canvas & update preview at 0.96 quality
-      const canvas = await renderPdfPageToCanvas(currentPdfDoc, i, appSettings.renderDpi || 2.0);
-      const pageDataUrl = canvas.toDataURL('image/jpeg', 0.96);
+      // Render page canvas at OCR-friendly DPI (~250-300 DPI)
+      const renderScale = Math.max(3.5, Number(appSettings.renderDpi) || 2.0);
+      const canvas = await renderPdfPageToCanvas(currentPdfDoc, i, renderScale);
+      const pageDataUrl = canvas.toDataURL('image/jpeg', 0.97);
       disposeCanvas(canvas);
       await setPreviewImage(pageDataUrl);
 
@@ -4525,7 +4542,7 @@ async function startPdfBatchOcr() {
           imageSource: pageDataUrl,
           documentId: batchDocId,
           pageNumber: i,
-          options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+          options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false, pageSegMode: '6' },
           signal: abortController.signal
         });
       } else if (engine === 'vision_ai') {
@@ -4558,7 +4575,7 @@ async function startPdfBatchOcr() {
             imageSource: pageDataUrl,
             documentId: batchDocId,
             pageNumber: i,
-            options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false },
+            options: { mergeHyphenatedWords: appSettings.mergeHyphenatedWords !== false, pageSegMode: '6' },
             signal: abortController.signal
           });
           if (!pageText || pageText.isBlank || (pageText.confidence && pageText.confidence < 50)) {
