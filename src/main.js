@@ -4032,7 +4032,7 @@ async function analyzePageOnDemand(book, pdfDoc, pageNum) {
 async function handlePdfFiles(files) {
   if (!files || files.length === 0) return;
   const file = files[0];
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+  if (file.type !== 'application/pdf' && file.type !== 'application/x-pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     showToast('Lütfen geçerli bir PDF dosyası seçin.', 'error');
     return;
   }
@@ -4185,7 +4185,7 @@ async function handleImageFiles(files) {
   if (!files || files.length === 0) return;
   const file = files[0];
 
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+  if (file.type === 'application/pdf' || file.type === 'application/x-pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     await handlePdfFiles(files);
     return;
   }
@@ -5487,7 +5487,7 @@ function setupFileHandlingLaunchQueue() {
       try {
         const handle = launchParams.files[0];
         const file = await handle.getFile();
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        if (file.type === 'application/pdf' || file.type === 'application/x-pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           await handlePdfFiles([file]);
         } else if (file.type.startsWith('image/')) {
           await handleImageFiles([file]);
